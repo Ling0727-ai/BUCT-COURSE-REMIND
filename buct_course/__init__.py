@@ -57,3 +57,9 @@ def get_test_results(username, password, test_id):
     session = create_session(username, password)
     test_utils = TestUtils(session)
     return test_utils.get_test_results(test_id)
+
+def generate_test_link(username, password, cate_id, paging_page=1, paging_number_per=7):
+    """快速生成测试链接"""
+    session = create_session(username, password)
+    test_utils = TestUtils(session)
+    return test_utils.generate_test_link(cate_id, paging_page, paging_number_per)

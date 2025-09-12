@@ -5,7 +5,23 @@
 import requests
 import datetime
 from bs4 import BeautifulSoup
-from .exceptions import NetworkError, ParseError
+
+# 处理相对导入问题，支持直接运行和模块导入
+try:
+    from .exceptions import NetworkError, ParseError
+except ImportError:
+    # 如果相对导入失败，尝试绝对导入或定义本地异常类
+    try:
+        from exceptions import NetworkError, ParseError
+    except ImportError:
+        # 定义本地异常类用于直接运行
+        class NetworkError(Exception):
+            """网络错误"""
+            pass
+        
+        class ParseError(Exception):
+            """解析错误"""
+            pass
 
 class CourseUtils:
     """北化课程平台工具类"""
@@ -88,16 +104,107 @@ class CourseUtils:
         for c in li_element.select("ul li a"):
             course_name = c.text.strip()
             onclick = c.get("onclick", "")
+            href = c.get("href", "")
             lid = None
-            if "lid=" in onclick:
-                lid = onclick.split("lid=")[1].split("&")[0]
             
-            courses.append({
-                "course_name": course_name,
-                "lid": lid,
-                "url": f"{self.base_url}/meol/common/hw/student/hwtask.jsp?lid={lid}" if lid else None
-            })
+            # 尝试多种方式提取课程ID
+            # 1. 从onclick属性中提取lid
+            if "lid=" in onclick:
+                try:
+                    lid = onclick.split("lid=")[1].split("&")[0].split("'")[0].split('"')[0]
+                except:
+                    pass
+            
+            # 2. 从onclick属性中提取courseId
+            if not lid and "courseId=" in onclick:
+                try:
+                    lid = onclick.split("courseId=")[1].split("&")[0].split("'")[0].split('"')[0]
+                except:
+                    pass
+            
+            # 3. 从href属性中提取lid
+            if not lid and "lid=" in href:
+                try:
+                    lid = href.split("lid=")[1].split("&")[0]
+                except:
+                    pass
+            
+            # 4. 从href属性中提取courseId
+            if not lid and "courseId=" in href:
+                try:
+                    lid = href.split("courseId=")[1].split("&")[0]
+                except:
+                    pass
+            
+            # 5. 尝试从URL路径中提取数字ID
+            if not lid:
+                import re
+                # 尝试匹配各种可能的ID格式
+                patterns = [
+                    r'lid[=:](\d+)',
+                    r'courseId[=:](\d+)', 
+                    r'course[Ii]d[=:](\d+)',
+                    r'/course/(\d+)/',
+                    r'id[=:](\d+)'
+                ]
+                
+                for pattern in patterns:
+                    match = re.search(pattern, onclick + " " + href)
+                    if match:
+                        lid = match.group(1)
+                        break
+            
+            # 过滤掉统计信息，只保留真正的课程
+            if self._is_valid_course_name(course_name) and lid and lid.isdigit():
+                courses.append({
+                    "course_name": course_name,
+                    "lid": lid,
+                    "url": f"{self.base_url}/meol/common/hw/student/hwtask.jsp?lid={lid}"
+                })
+            elif not self._is_valid_course_name(course_name):
+                # 跳过统计信息，不添加到结果中
+                print(f"跳过统计信息: {course_name}")
+            else:
+                # 如果是有效课程名但无法提取lid，记录调试信息
+                print(f"警告: 无法提取课程ID - 课程名: {course_name}, onclick: {onclick[:100]}, href: {href[:100]}")
         return courses
+    
+    def _is_valid_course_name(self, course_name):
+        """
+        判断是否为有效的课程名称（过滤掉统计信息）
+        
+        Args:
+            course_name: 课程名称
+            
+        Returns:
+            bool: 是否为有效课程名称
+        """
+        # 过滤掉统计信息的关键词
+        invalid_keywords = [
+            "门课程有待提交作业",
+            "门课程有待提交测试", 
+            "个作业",
+            "个测试",
+            "统计",
+            "总计",
+            "共计"
+        ]
+        
+        # 如果课程名称包含这些关键词，认为是统计信息
+        for keyword in invalid_keywords:
+            if keyword in course_name:
+                return False
+        
+        # 如果课程名称太短或者只包含数字，也可能是统计信息
+        if len(course_name.strip()) < 3:
+            return False
+            
+        # 如果课程名称只包含数字和特殊字符，可能是统计信息
+        import re
+        if re.match(r'^[\d\s\-\+\(\)（）]+$', course_name):
+            return False
+            
+        return True
     
     def get_homework_courses(self):
         """
