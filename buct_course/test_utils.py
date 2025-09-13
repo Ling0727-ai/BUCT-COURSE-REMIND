@@ -11,17 +11,15 @@ from .exceptions import NetworkError, ParseError
 class TestUtils:
     """北化课程平台测试工具类"""
     
-    def __init__(self, session, course_name=None):
+    def __init__(self, session):
         """
         初始化测试工具
         
         Args:
             session: requests.Session对象（需要已登录）
-            course_name: 课程名称，用于标识测试来源
         """
         self.session = session
         self.base_url = "https://course.buct.edu.cn"
-        self.course_name = course_name
     
     def _generate_class_selection(self, order: int):
         """生成CSS类选择器"""
@@ -56,37 +54,12 @@ class TestUtils:
         img_tag = cells[-3].find('img', src="../../../../styles/default/image/go.gif")
         state = 1 if img_tag else 0
         
-        # 尝试提取测试ID
-        test_id = None
-        
-        if state == 1 and img_tag:
-            # 尝试从onclick属性中提取testId
-            if img_tag.find_parent('a') and img_tag.find_parent('a').get('onclick'):
-                onclick = img_tag.find_parent('a').get('onclick')
-                if 'testId=' in onclick:
-                    test_id = onclick.split('testId=')[1].split('&')[0].split('\'')[0].split('"')[0]
-            
-            # 尝试从其他HTML属性中提取测试ID
-            if not test_id:
-                # 检查img标签的属性
-                for attr_name in ['data-testid', 'data-id', 'data-examid']:
-                    if img_tag.get(attr_name):
-                        test_id = img_tag.get(attr_name)
-                        break
-                
-                # 检查父元素的属性
-                if not test_id and img_tag.find_parent():
-                    parent = img_tag.find_parent()
-                    for attr_name in ['data-testid', 'data-id', 'data-examid']:
-                        if parent.get(attr_name):
-                            test_id = parent.get(attr_name)
-                            break
-            
-            # 如果仍然没有找到，尝试从页面其他部分提取
-            if not test_id:
-                # 这里可以添加更多复杂的提取逻辑
-                # 例如：分析整个表格结构，查找相关的测试ID
-                pass
+        # 尝试提取测试链接
+        test_link = None
+        if state == 1 and img_tag and img_tag.find_parent('a'):
+            test_link = img_tag.find_parent('a').get('href')
+            if test_link and not test_link.startswith('http'):
+                test_link = f"{self.base_url}{test_link}"
         
         return {
             "title": title,
@@ -95,17 +68,16 @@ class TestUtils:
             "status_text": test_status,
             "type": test_type,
             "state": state,
-            "test_id": test_id,
+            "test_link": test_link,
             "can_take_test": state == 1
         }
     
-    def get_tests_by_category(self, cate_id: str, course_name=None, paging_page: int = 1, paging_number_per: int = 7):
+    def get_tests_by_category(self, cate_id: str, paging_page: int = 1, paging_number_per: int = 7):
         """
         根据分类ID获取测试列表
         
         Args:
             cate_id: 分类ID
-            course_name: 课程名称，用于标识测试来源
             paging_page: 页码
             paging_number_per: 每页数量
             
@@ -119,9 +91,9 @@ class TestUtils:
         try:
             url = (
                 f"{self.base_url}/meol/common/question/test/student/list.jsp?"
-                f"sortColumn=createTime&status=1&tagbug=client&"
-                f"sortDirection=-1&strStyle=lesson19&cateId={cate_id}&"
-                f"pagingPage={paging_page}&pagingNumberPer={paging_number_per}&"
+                f"sortColumn=createTime&pagingNumberPer={paging_number_per}&status=1&"
+                f"tagbug=client&sortDirection=-1&strStyle=new03&cateId={cate_id}&"
+                f"pagingPage={paging_page}&"
             )
             
             response = self.session.get(url, timeout=10)
@@ -136,10 +108,9 @@ class TestUtils:
             # 提取多个classicLook类别的测试信息
             for order in range(8):  # 通常有0-7个classicLook类别
                 test_info = self._get_test_info_from_soup(soup, order)
-                # 添加更多详细信息，包括课程名称
+                # 添加更多详细信息
                 test_info.update({
                     "cate_id": cate_id,
-                    "course_name": course_name or self.course_name,
                     "order": order,
                     "class_name": self._generate_class_selection(order)
                 })
@@ -301,35 +272,6 @@ class TestUtils:
                 "error": f"获取测试结果失败: {str(e)}",
                 "timestamp": datetime.datetime.now().isoformat()
             }
-    
-    def generate_test_link(self, cate_id: str, course_name=None, paging_page: int = 1, paging_number_per: int = 7):
-        """
-        生成测试链接
-        
-        Args:
-            cate_id: 分类ID
-            course_name: 课程名称
-            paging_page: 页码
-            paging_number_per: 每页数量
-            
-        Returns:
-            dict: 包含链接和课程信息的字典
-        """
-        test_url = (
-            f"{self.base_url}/meol/common/question/test/student/list.jsp?"
-            f"sortColumn=createTime&status=1&tagbug=client&"
-            f"sortDirection=-1&strStyle=lesson19&cateId={cate_id}&"
-            f"pagingPage={paging_page}&pagingNumberPer={paging_number_per}&"
-        )
-        
-        return {
-            "url": test_url,
-            "cate_id": cate_id,
-            "course_name": course_name or self.course_name,
-            "paging_page": paging_page,
-            "paging_number_per": paging_number_per,
-            "timestamp": datetime.datetime.now().isoformat()
-        }
     
     def set_base_url(self, base_url):
         """设置基础URL（用于测试或其他环境）"""
