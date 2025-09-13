@@ -2,8 +2,8 @@ from buct_course import BUCTAuth, CourseUtils, TestUtils
 import datetime
 
 # 配置您的登录信息
-USERNAME = "***REMOVED***"
-PASSWORD = "***REMOVED***"
+USERNAME = input("请输入学号: ")
+PASSWORD = input("请输入密码: ")
 
 def display_welcome():
     """显示欢迎信息"""
@@ -34,15 +34,12 @@ def display_tasks(tasks):
         else:
             print("\n✅ 暂无待提交作业")
         
-        # 显示测试详情
+        # 显示测试详情（简化显示）
         if tasks['data']['tests']:
             print("🧪 待提交测试:")
             for i, test in enumerate(tasks['data']['tests'], 1):
-                print(f"   {i}. {test['course_name']}")
-                print(f"      📍 ID: {test['lid']}")
-                if test.get('url'):
-                    print(f"      🔗 链接: {test['url']}")
-                print()
+                print(f"   {i}. {test['course_name']} (ID: {test['lid']})")
+            print()
         else:
             print("\n✅ 暂无待提交测试")
     else:

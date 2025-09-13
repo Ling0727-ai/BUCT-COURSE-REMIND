@@ -20,6 +20,8 @@ class TestUtils:
         """
         self.session = session
         self.base_url = "https://course.buct.edu.cn"
+        # 需要过滤掉的测试ID列表
+        self.excluded_test_ids = ['27215', '24199']
     
     def _generate_class_selection(self, order: int):
         """生成CSS类选择器"""
@@ -57,9 +59,20 @@ class TestUtils:
         # 尝试提取测试链接
         test_link = None
         if state == 1 and img_tag and img_tag.find_parent('a'):
-            test_link = img_tag.find_parent('a').get('href')
-            if test_link and not test_link.startswith('http'):
-                test_link = f"{self.base_url}{test_link}"
+            a_tag = img_tag.find_parent('a')
+            href = a_tag.get('href', '')
+            # 从链接中提取cateId参数
+            cate_id = None
+            if 'cateId=' in href:
+                cate_id = href.split('cateId=')[1].split('&')[0] if '&' in href.split('cateId=')[1] else href.split('cateId=')[1]
+            
+            # 使用标准的测试列表URL格式
+            test_link = (
+                f"{self.base_url}/meol/common/question/test/student/list.jsp?"
+                f"sortColumn=createTime&status=1&tagbug=client&"
+                f"sortDirection=-1&strStyle=lesson19&cateId={cate_id or '34060'}&"
+                f"pagingPage=1&pagingNumberPer=7"
+            )
         
         return {
             "title": title,
@@ -72,7 +85,7 @@ class TestUtils:
             "can_take_test": state == 1
         }
     
-    def get_tests_by_category(self, cate_id: str, paging_page: int = 1, paging_number_per: int = 7):
+    def get_tests_by_category(self, cate_id: str, paging_page: int = 1, paging_number_per: int = 7, excluded_ids=None):
         """
         根据分类ID获取测试列表
         
@@ -80,6 +93,7 @@ class TestUtils:
             cate_id: 分类ID
             paging_page: 页码
             paging_number_per: 每页数量
+            excluded_ids: 需要排除的测试ID列表
             
         Returns:
             list: 测试信息列表
@@ -88,11 +102,13 @@ class TestUtils:
             NetworkError: 网络请求错误
             ParseError: 解析错误
         """
+        if excluded_ids is None:
+            excluded_ids = ['27215', '24199']  # 默认过滤掉这些ID
         try:
             url = (
                 f"{self.base_url}/meol/common/question/test/student/list.jsp?"
                 f"sortColumn=createTime&pagingNumberPer={paging_number_per}&status=1&"
-                f"tagbug=client&sortDirection=-1&strStyle=new03&cateId={cate_id}&"
+                f"tagbug=client&sortDirection=-1&strStyle=lesson19&cateId={cate_id}&"
                 f"pagingPage={paging_page}&"
             )
             
@@ -115,6 +131,13 @@ class TestUtils:
                     "class_name": self._generate_class_selection(order)
                 })
                 tests_list.append(test_info)
+            
+            # 过滤掉指定ID的测试（如果cate_id在排除列表中）
+            if cate_id in excluded_ids:
+                tests_list = []  # 完全过滤掉该分类的所有测试
+            
+            # 过滤掉不可进行的测试（can_take_test为False的测试）
+            tests_list = [test for test in tests_list if test.get('can_take_test', False)]
             
             # 返回完整的JSON响应
             return {
@@ -272,6 +295,18 @@ class TestUtils:
                 "error": f"获取测试结果失败: {str(e)}",
                 "timestamp": datetime.datetime.now().isoformat()
             }
+    
+    def filter_tests(self, tests_list):
+        """
+        过滤测试列表，移除被排除的测试ID
+        
+        Args:
+            tests_list: 测试列表
+            
+        Returns:
+            list: 过滤后的测试列表
+        """
+        return [test for test in tests_list if test.get('lid') not in self.excluded_test_ids]
     
     def set_base_url(self, base_url):
         """设置基础URL（用于测试或其他环境）"""

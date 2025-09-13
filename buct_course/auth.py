@@ -36,10 +36,16 @@ class BUCTAuth:
             }, timeout=10)
             
             # 检查登录是否成功
-            self._is_logged_in = response.status_code == 200
+            # 假设成功登录会重定向到非登录页，失败则停留在登录页或重定向回登录页
+            # 检查最终的URL是否仍然包含"login.do"或"loginCheck.do"
+            if "login.do" in response.url or "loginCheck.do" in response.url:
+                self._is_logged_in = False
+            else:
+                self._is_logged_in = True
             
             if not self._is_logged_in:
-                raise LoginError(f"登录失败，状态码: {response.status_code}")
+                # 可以在这里添加更详细的错误信息解析，如果服务器有提供的话
+                raise LoginError("登录失败，请检查用户名和密码。")
                 
             return self._is_logged_in
             
