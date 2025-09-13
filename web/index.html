@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作业管理系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+            position: relative;
+            z-index: 1;
+        }
+
+        .controls {
+            padding: 30px 40px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 15px 20px 15px 50px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+        }
+
+        .filter-select {
+            padding: 15px 20px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card i {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .stat-card.urgent i { color: #e74c3c; }
+        .stat-card.soon i { color: #f39c12; }
+        .stat-card.total i { color: #3498db; }
+        .stat-card.completed i { color: #27ae60; }
+
+        .stat-card h3 {
+            font-size: 2em;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .assignments-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+        }
+
+        .assignment-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            border-left: 5px solid #667eea;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .assignment-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent, rgba(102, 126, 234, 0.05));
+            pointer-events: none;
+        }
+
+        .assignment-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .assignment-card.urgent {
+            border-left-color: #e74c3c;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+            50% { box-shadow: 0 10px 30px rgba(231, 76, 60, 0.3); }
+            100% { box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        }
+
+        .assignment-card.warning {
+            border-left-color: #f39c12;
+        }
+
+        .assignment-card.completed {
+            border-left-color: #27ae60;
+            opacity: 0.8;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .subject-tag {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .card-title {
+            font-size: 1.3em;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-content {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .due-date {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .due-date.urgent {
+            color: #e74c3c;
+        }
+
+        .due-date.warning {
+            color: #f39c12;
+        }
+
+        .due-date.normal {
+            color: #27ae60;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #219a52;
+            transform: translateY(-2px);
+        }
+
+        .floating-add {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .floating-add:hover {
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+
+        /* 设置按钮样式 */
+        .settings-btn {
+            color: white;
+            text-decoration: none;
+            font-size: 1.5em;
+            padding: 0px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            position: relative;
+        }
+        .settings-btn::before {
+            content: '';
+            position: absolute;
+            top: -10;
+            left: -10;
+            right: -10;
+            bottom: -10;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            z-index: -1;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(45deg);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state i {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 20px;
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .header-content h1 {
+                font-size: 2em;
+            }
+
+            .header-actions {
+                justify-content: center;
+            }
+
+            .controls {
+                padding: 20px;
+            }
+
+            .controls-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-box {
+                min-width: auto;
+            }
+
+            .main-content {
+                padding: 20px;
+            }
+
+            .assignments-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .floating-actions {
+                bottom: 20px;
+                right: 20px;
+            }
+
+            .floating-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="position: relative; width: 100%;">
+                <div style="text-align: center;">
+                    <h1><i class="fas fa-graduation-cap"></i> 作业管理系统</h1>
+                    <p>智能汇总所有科目作业，永不错过截止日期</p>
+                </div>
+                <a href="setting.html" class="settings-btn" style="position: absolute; top: 50%; right: 40px; transform: translateY(-50%);">
+                    <i class="fas fa-cog"></i>
+                </a>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="controls-row">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="搜索作业标题或科目...">
+                </div>
+                <select class="filter-select" id="subjectFilter">
+                    <option value="">全部科目</option>
+                    <option value="数学">数学</option>
+                    <option value="英语">英语</option>
+                    <option value="物理">物理</option>
+                    <option value="化学">化学</option>
+                    <option value="计算机">计算机</option>
+                </select>
+                <select class="filter-select" id="statusFilter">
+                    <option value="">全部状态</option>
+                    <option value="urgent">紧急</option>
+                    <option value="warning">即将到期</option>
+                    <option value="normal">正常</option>
+                    <option value="completed">已完成</option>
+                </select>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card urgent">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3 id="urgentCount">3</h3>
+                    <p>紧急作业</p>
+                </div>
+                <div class="stat-card soon">
+                    <i class="fas fa-clock"></i>
+                    <h3 id="soonCount">5</h3>
+                    <p>即将到期</p>
+                </div>
+                <div class="stat-card total">
+                    <i class="fas fa-tasks"></i>
+                    <h3 id="totalCount">12</h3>
+                    <p>总作业数</p>
+                </div>
+                <div class="stat-card completed">
+                    <i class="fas fa-check-circle"></i>
+                    <h3 id="completedCount">8</h3>
+                    <p>已完成</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="assignments-grid" id="assignmentsGrid">
+                <!-- 作业卡片将通过 JavaScript 动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <button class="floating-add" onclick="showAddDialog()">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <script>
+        // 示例数据
+        const assignments = [
+            {
+                id: 1,
+                subject: "数学",
+                title: "微积分练习题第三章",
+                content: "完成教材第120-135页所有习题，重点掌握求导公式和积分运算",
+                dueDate: "2025-09-13T23:59:59",
+                type: "作业",
+                status: "urgent",
+                completed: false
+            },
+            {
+                id: 2,
+                subject: "英语",
+                title: "阅读理解训练",
+                content: "阅读指定文章并完成相关问题，写一篇不少于500字的读后感",
+                dueDate: "2025-09-15T23:59:59",
+                type: "作业",
+                status: "warning",
+                completed: false
+            },
+            {
+                id: 3,
+                subject: "物理",
+                title: "力学实验报告",
+                content: "根据实验数据完成实验报告，包含数据分析和结论部分",
+                dueDate: "2025-09-20T23:59:59",
+                type: "实验报告",
+                status: "normal",
+                completed: false
+            },
+            {
+                id: 4,
+                subject: "化学",
+                title: "有机化学期中考试",
+                content: "考试范围：第1-6章全部内容，重点复习反应机理和合成路线",
+                dueDate: "2025-09-25T14:00:00",
+                type: "考试",
+                status: "normal",
+                completed: false
+            },
+            {
+                id: 5,
+                subject: "计算机",
+                title: "数据结构课程设计",
+                content: "设计并实现一个学生管理系统，要求使用链表和二叉树数据结构",
+                dueDate: "2025-09-30T23:59:59",
+                type: "课程设计",
+                status: "normal",
+                completed: false
+            },
+            {
+                id: 6,
+                subject: "数学",
+                title: "线性代数作业",
+                content: "矩阵运算和线性方程组求解练习",
+                dueDate: "2025-09-10T23:59:59",
+                type: "作业",
+                status: "completed",
+                completed: true
+            }
+        ];
+
+        let filteredAssignments = [...assignments];
+
+        // 计算剩余天数
+        function getDaysUntilDue(dueDate) {
+            const now = new Date();
+            const due = new Date(dueDate);
+            const diffTime = due - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays;
+        }
+
+        // 获取状态
+        function getStatus(dueDate, completed) {
+            if (completed) return 'completed';
+            
+            const days = getDaysUntilDue(dueDate);
+            if (days < 0) return 'urgent';
+            if (days <= 2) return 'urgent';
+            if (days <= 7) return 'warning';
+            return 'normal';
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffDays = getDaysUntilDue(dateString);
+            
+            const options = { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            };
+            
+            let formatted = date.toLocaleDateString('zh-CN', options);
+            
+            if (diffDays < 0) {
+                formatted += ` (已过期${Math.abs(diffDays)}天)`;
+            } else if (diffDays === 0) {
+                formatted += ' (今天截止)';
+            } else if (diffDays === 1) {
+                formatted += ' (明天截止)';
+            } else if (diffDays <= 7) {
+                formatted += ` (还有${diffDays}天)`;
+            }
+            
+            return formatted;
+        }
+
+        // 渲染作业卡片
+        function renderAssignments() {
+            const grid = document.getElementById('assignmentsGrid');
+            
+            if (filteredAssignments.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h3>暂无作业</h3>
+                        <p>没有找到符合条件的作业</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = filteredAssignments.map(assignment => {
+                const status = getStatus(assignment.dueDate, assignment.completed);
+                const statusIcons = {
+                    urgent: 'fas fa-exclamation-triangle',
+                    warning: 'fas fa-clock',
+                    normal: 'fas fa-calendar-alt',
+                    completed: 'fas fa-check-circle'
+                };
+                
+                return `
+                    <div class="assignment-card ${status}" data-id="${assignment.id}">
+                        <div class="card-header">
+                            <span class="subject-tag">${assignment.subject}</span>
+                            <small style="color: #999;">${assignment.type}</small>
+                        </div>
+                        <h3 class="card-title">${assignment.title}</h3>
+                        <p class="card-content">${assignment.content}</p>
+                        <div class="card-footer">
+                            <div class="due-date ${status}">
+                                <i class="${statusIcons[status]}"></i>
+                                <span>${formatDate(assignment.dueDate)}</span>
+                            </div>
+                            <div class="actions">
+                                ${assignment.completed ? 
+                                    '<button class="btn btn-success"><i class="fas fa-check"></i> 已完成</button>' :
+                                    `<button class="btn btn-primary" onclick="setReminder(${assignment.id})">
+                                        <i class="fas fa-bell"></i> 提醒
+                                    </button>
+                                    <button class="btn btn-success" onclick="markCompleted(${assignment.id})">
+                                        <i class="fas fa-check"></i> 完成
+                                    </button>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 更新统计数据
+        function updateStats() {
+            const stats = {
+                urgent: assignments.filter(a => getStatus(a.dueDate, a.completed) === 'urgent').length,
+                soon: assignments.filter(a => getStatus(a.dueDate, a.completed) === 'warning').length,
+                total: assignments.length,
+                completed: assignments.filter(a => a.completed).length
+            };
+            
+            document.getElementById('urgentCount').textContent = stats.urgent;
+            document.getElementById('soonCount').textContent = stats.soon;
+            document.getElementById('totalCount').textContent = stats.total;
+            document.getElementById('completedCount').textContent = stats.completed;
+        }
+
+        // 筛选功能
+        function filterAssignments() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const subjectFilter = document.getElementById('subjectFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            filteredAssignments = assignments.filter(assignment => {
+                const matchesSearch = assignment.title.toLowerCase().includes(searchTerm) ||
+                                    assignment.subject.toLowerCase().includes(searchTerm);
+                const matchesSubject = !subjectFilter || assignment.subject === subjectFilter;
+                const matchesStatus = !statusFilter || getStatus(assignment.dueDate, assignment.completed) === statusFilter;
+                
+                return matchesSearch && matchesSubject && matchesStatus;
+            });
+            
+            renderAssignments();
+        }
+
+        // 设置提醒
+        function setReminder(id) {
+            const assignment = assignments.find(a => a.id === id);
+            if (assignment) {
+                // 这里可以调用后端API发送提醒
+                alert(`已设置提醒：${assignment.title}\n截止时间：${formatDate(assignment.dueDate)}`);
+                
+                // 模拟发送webhook
+                console.log('发送提醒webhook:', {
+                    type: 'reminder',
+                    assignment: assignment,
+                    message: `提醒：${assignment.subject} - ${assignment.title} 将于 ${formatDate(assignment.dueDate)} 截止`
+                });
+            }
+        }
+
+        // 标记完成
+        function markCompleted(id) {
+            const assignment = assignments.find(a => a.id === id);
+            if (assignment) {
+                assignment.completed = true;
+                filterAssignments();
+                updateStats();
+                
+                // 发送完成通知
+                console.log('发送完成通知webhook:', {
+                    type: 'completed',
+                    assignment: assignment,
+                    message: `已完成：${assignment.subject} - ${assignment.title}`
+                });
+            }
+        }
+
+        // 添加新作业
+        function showAddDialog() {
+            alert('添加新作业功能待实现\n\n可以连接到后端API来同步新的作业数据');
+        }
+
+        // 添加CSS动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 事件监听
+        document.getElementById('searchInput').addEventListener('input', filterAssignments);
+        document.getElementById('subjectFilter').addEventListener('change', filterAssignments);
+        document.getElementById('statusFilter').addEventListener('change', filterAssignments);
+
+        // 初始化
+        updateStats();
+        renderAssignments();
+
+        // 定期更新状态
+        setInterval(() => {
+            // 重新计算状态
+            assignments.forEach(assignment => {
+                assignment.status = getStatus(assignment.dueDate, assignment.completed);
+            });
+            filterAssignments();
+            updateStats();
+        }, 60000); // 每分钟更新一次
+    </script>
+</body>
+</html>
