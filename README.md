@@ -1,140 +1,180 @@
-# BUCT 课程提醒系统
+# BUCT课程提醒系统
 
-一个用于北京化工大学课程提醒和作业监控的自动化系统。
+一个基于 Flask + MongoDB + Vue.js 的课程作业提醒系统，支持自动获取教务系统信息并发送通知。
 
 ## 功能特性
 
-- 📚 自动登录 BUCT 教学平台
-- 📊 获取待办作业和测试任务
-- 🔔 支持多种通知方式（邮件、Telegram、Discord、Slack、自定义Webhook）
-- 🎯 详细的作业和测试信息展示
-- 📱 现代化 Web 界面配置
-- 🔒 安全的认证机制
+- 🔐 用户注册登录系统
+- 📚 学生信息管理（学号、外部系统密码）
+- 📧 邮箱验证码验证
+- 🔔 多种通知方式（邮件、Telegram、Discord等）
+- ⚙️ 灵活的系统设置
+- 📱 响应式前端界面
+
+## 数据库结构
+
+### 用户表 (users)
+```json
+{
+    "_id": "ObjectId",
+    "username": "用户名",
+    "password_hash": "加密后的登录密码", 
+    "email": "邮箱地址",
+    "student_id": "学号",
+    "s_password": "外部网站密码",
+    "is_admin": false,
+    "created_at": "创建时间",
+    "updated_at": "更新时间"
+}
+```
 
 ## 项目结构
 
 ```
 BUCT-couse-remind/
-├── buct_course/          # BUCT 课程相关模块
-│   ├── __init__.py
-│   ├── auth.py          # 认证模块
-│   ├── course_utils.py  # 课程工具
-│   ├── test_utils.py    # 测试工具
-│   ├── exceptions.py    # 异常处理
-│   └── test_utils.py
-├── u校园/               # U校园相关模块
-│   ├── __init__.py
-│   ├── api_client.py    # API 客户端
-│   ├── aes_crypto.py    # AES 加密
-│   ├── aes_encrypt.py   # AES 加密工具
-│   ├── utils.py         # 工具函数
-│   └── exceptions.py    # 异常处理
-├── web/                 # Web 界面
-│   └── app.py          # Flask 应用
-├── deced/               # 文档/配置目录
-├── buct_course_test_main.py  # 主测试脚本
-├── u校园_test_main.py        # U校园测试脚本
-├── readme.txt           # 原始说明文件
-├── LICENSE             # MIT 许可证
-└── README.md           # 项目说明
+├── web/
+│   ├── backend/           # Flask后端
+│   │   ├── app/          # 应用模块
+│   │   │   ├── __init__.py
+│   │   │   ├── model.py   # 数据库模型
+│   │   │   ├── auth.py    # 认证相关
+│   │   │   ├── settings.py # 设置管理
+│   │   │   └── ...
+│   │   ├── config.py      # 配置文件
+│   │   ├── app.py         # 应用入口
+│   │   └── requirements.txt
+│   └── fronted/           # Vue.js前端
+│       └── src/
+│           ├── views/     # 页面组件
+│           │   ├── Register.vue  # 注册页面
+│           │   ├── Settings.vue  # 设置页面
+│           │   └── ...
+│           └── ...
+└── README.md
 ```
 
-## 安装使用
+## 安装和运行
 
-### 环境要求
+### 后端设置
 
-- Python 3.7+
-- 所需的 Python 包（见 requirements.txt）
+1. 进入后端目录：
+```bash
+cd web/backend
+```
 
-### 快速开始
+2. 安装依赖：
+```bash
+pip install -r requirements.txt
+```
 
-1. **克隆项目**
-   ```bash
-   git clone <repository-url>
-   cd BUCT-couse-remind
-   ```
+3. 配置环境变量：
+```bash
+cp .env.example .env
+# 编辑 .env 文件，填入正确的配置信息
+```
 
-2. **安装依赖**
-   ```bash
-   pip install -r requirements.txt
-   ```
+4. 启动后端服务：
+```bash
+python app.py
+```
 
-3. **运行主程序**
-   ```bash
-   python buct_course_test_main.py
-   ```
+### 前端设置
 
-4. **配置 Web 界面**
-   ```bash
-   cd web
-   python app.py
-   ```
-   然后在浏览器中访问 `http://localhost:5000`
+1. 进入前端目录：
+```bash
+cd web/fronted
+```
+
+2. 安装依赖：
+```bash
+npm install
+```
+
+3. 启动开发服务器：
+```bash
+npm run serve
+```
+
+## API接口
+
+### 认证相关
+- `POST /api/auth/register` - 用户注册
+- `POST /api/auth/login` - 用户登录
+- `POST /api/auth/logout` - 用户登出
+- `GET /api/auth/status` - 获取登录状态
+- `GET /api/auth/user-info` - 获取用户信息
+- `POST /api/auth/update-student-info` - 更新学生信息
+- `POST /api/auth/send-verification-code` - 发送验证码
+- `POST /api/auth/verify-code` - 验证验证码
+
+### 设置相关
+- `GET /api/settings` - 获取系统设置
+- `POST /api/settings` - 保存系统设置
+
+## 主要功能
+
+### 1. 用户注册
+- 支持用户名、邮箱、密码注册
+- 可选填写学号和外部系统密码
+- 邮箱验证码验证
+- 密码强度检测
+
+### 2. 学生信息管理
+- 在设置页面可以配置学号和外部系统密码
+- 用于自动登录教务系统获取作业信息
+- 密码安全存储
+
+### 3. 通知系统
+- 支持多种通知方式：邮件、Telegram、Discord、Slack等
+- 可配置多个通知渠道
+- 支持测试通知功能
+
+### 4. 系统设置
+- 服务器地址配置
+- Webhook通知配置
+- 用户个人信息管理
+
+## 环境要求
+
+- Python 3.8+
+- MongoDB 4.0+
+- Node.js 14+
+- Vue.js 3.x
 
 ## 配置说明
 
-### 基础配置
+### 邮件配置
+在 `.env` 文件中配置邮件服务器信息：
+```
+MAIL_SMTP_SERVER=smtp.163.com
+MAIL_SMTP_PORT=465
+MAIL_SENDER=your_email@163.com
+MAIL_PASSWORD=your_auth_code
+```
 
-通过 Web 界面或直接编辑配置文件设置：
-
-- **账号/密码**: BUCT 教学平台登录凭据
-- **服务器地址**: 后端服务地址（默认: http://localhost:8080）
-
-### 通知配置
-
-系统支持多种通知方式：
-
-1. **邮件通知**
-   - SMTP 服务器配置
-   - 发件邮箱和密码
-   - 收件邮箱地址
-
-2. **Telegram Bot**
-   - Bot Token
-   - Chat ID
-
-3. **Discord Webhook**
-   - Webhook URL
-
-4. **Slack Webhook**
-   - Webhook URL
-
-5. **自定义 Webhook**
-   - 自定义 URL 和请求配置
-
-## API 接口
-
-### 主要端点
-
-- `GET /api/health` - 服务健康检查
-- `POST /api/settings` - 保存系统设置
-- `GET /api/tasks` - 获取待办任务
-- `GET /api/tests` - 获取测试信息
+### MongoDB配置
+```
+MONGO_URI=mongodb://localhost:27017/buct_course_remind
+```
 
 ## 开发说明
 
-### 模块说明
+### 后端开发
+- 使用 Flask 框架
+- MongoDB 作为数据库
+- 支持 CORS 跨域请求
+- 使用 session 进行用户认证
 
-- **buct_course**: 处理 BUCT 教学平台相关功能
-- **u校园**: 处理 U校园平台相关功能
-- **web**: 提供 Web 配置界面
-
-### 扩展开发
-
-要添加新的通知方式，请在 `webhookTypes` 配置中添加相应的类型定义。
-
-## 许可证
-
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
+### 前端开发
+- 使用 Vue.js 3 + Composition API
+- 响应式设计，支持移动端
+- 使用 Vue Router 进行路由管理
+- 现代化的 UI 设计
 
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request 来改进这个项目。
 
-## 免责声明
+## 许可证
 
-本项目仅用于学习和研究目的，请遵守学校相关规定，合理使用。
-
----
-
-**注意**: 使用前请确保您有权访问相关系统，并遵守相关使用条款。
+MIT License

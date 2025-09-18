@@ -1,0 +1,27 @@
+{
+  "name": "buct-course-remind-frontend",
+  "version": "1.0.0",
+  "description": "BUCT课程提醒系统前端",
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "tdesign-icons-vue-next": "^0.3.6",
+    "tdesign-vue-next": "^1.13.1",
+    "vue": "^3.3.0",
+    "vue-router": "^4.2.0"
+  },
+  "devDependencies": {
+    "@vue/cli-service": "^5.0.0",
+    "@vue/compiler-sfc": "^3.3.0",
+    "webpack": "^5.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}
