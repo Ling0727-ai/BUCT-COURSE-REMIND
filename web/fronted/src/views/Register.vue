@@ -1,118 +1,146 @@
 <template>
   <div class="register-container">
+    <!-- 浮动装饰元素 -->
+    <div class="floating-shapes">
+      <div class="shape shape-1"></div>
+      <div class="shape shape-2"></div>
+      <div class="shape shape-3"></div>
+      <div class="shape shape-4"></div>
+      <div class="shape shape-5"></div>
+    </div>
+
     <!-- 左侧表单区域 -->
     <div class="form-section">
       <div class="form-content">
-        <div class="form-header">
-          <div class="logo">
-            <i class="fas fa-graduation-cap"></i>
-            <h1>作业管理系统</h1>
-          </div>
-          <p class="subtitle">创建账号，开启高效学习管理</p>
+        <!-- 品牌标识 -->
+        <div class="brand-logo">
+          <h1 class="brand-title">作业管理系统</h1>
+          <p class="brand-subtitle">创建账号，开启高效学习管理</p>
         </div>
 
-        <div class="form-body">
-          <h2>用户注册</h2>
-          
-          <div class="form-group">
-            <label>用户名</label>
-            <div class="input-container">
-              <i class="fas fa-user"></i>
-              <input 
-                type="text" 
-                v-model="formData.username" 
-                placeholder="请输入3-20位用户名"
-                class="form-input"
-              >
-              <span class="input-status" v-if="formData.username.length >= 3">✓</span>
-            </div>
+        <div class="form-card">
+          <div class="form-header">
+            <h2>用户注册</h2>
+            <p>填写信息，创建您的专属账号</p>
           </div>
 
-          <div class="form-group">
-            <label>邮箱地址</label>
-            <div class="input-container">
-              <i class="fas fa-envelope"></i>
-              <input 
-                type="email" 
-                v-model="formData.email" 
-                placeholder="请输入邮箱"
-                class="form-input"
-              >
-              <span class="input-status" v-if="isValidEmail">✓</span>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>密码</label>
-            <div class="input-container">
-              <i class="fas fa-lock"></i>
-              <input 
-                type="password" 
-                v-model="formData.password" 
-                placeholder="至少6位密码"
-                class="form-input"
-              >
-              <span class="input-status" v-if="formData.password.length >= 6">✓</span>
-            </div>
-            <div class="password-strength" v-if="formData.password.length > 0">
-              <div class="strength-meter">
-                <div class="strength-fill" :class="passwordStrength"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>用户名</label>
+              <div class="input-wrapper">
+                <i class="fas fa-user input-icon"></i>
+                <input 
+                  type="text" 
+                  v-model="formData.username" 
+                  placeholder="请输入3-20位用户名"
+                  class="form-input"
+                >
+                <span class="input-status success" v-if="formData.username.length >= 3">
+                  <i class="fas fa-check"></i>
+                </span>
               </div>
-              <span class="strength-label">{{ strengthLabel }}</span>
+            </div>
+
+            <div class="form-group">
+              <label>邮箱地址</label>
+              <div class="input-wrapper">
+                <i class="fas fa-envelope input-icon"></i>
+                <input 
+                  type="email" 
+                  v-model="formData.email" 
+                  placeholder="请输入邮箱地址"
+                  class="form-input"
+                >
+                <span class="input-status success" v-if="isValidEmail">
+                  <i class="fas fa-check"></i>
+                </span>
+              </div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label>确认密码</label>
-            <div class="input-container">
-              <i class="fas fa-lock"></i>
-              <input 
-                type="password" 
-                v-model="formData.confirmPassword" 
-                placeholder="再次输入密码"
-                class="form-input"
-              >
-              <span class="input-status" v-if="formData.confirmPassword && formData.password === formData.confirmPassword">✓</span>
+          <div class="form-row">
+            <div class="form-group">
+              <label>密码</label>
+              <div class="input-wrapper">
+                <i class="fas fa-lock input-icon"></i>
+                <input 
+                  type="password" 
+                  v-model="formData.password" 
+                  placeholder="至少6位密码"
+                  class="form-input"
+                >
+                <span class="input-status success" v-if="formData.password.length >= 6">
+                  <i class="fas fa-check"></i>
+                </span>
+              </div>
+              <div class="password-strength" v-if="formData.password.length > 0">
+                <div class="strength-bar">
+                  <div class="strength-fill" :class="passwordStrength"></div>
+                </div>
+                <span class="strength-text">密码强度：{{ strengthLabel }}</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>确认密码</label>
+              <div class="input-wrapper">
+                <i class="fas fa-lock input-icon"></i>
+                <input 
+                  type="password" 
+                  v-model="formData.confirmPassword" 
+                  placeholder="再次输入密码"
+                  class="form-input"
+                >
+                <span class="input-status success" v-if="formData.confirmPassword && formData.password === formData.confirmPassword">
+                  <i class="fas fa-check"></i>
+                </span>
+              </div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label>学号 (可选)</label>
-            <div class="input-container">
-              <i class="fas fa-id-card"></i>
-              <input 
-                type="text" 
-                v-model="formData.studentId" 
-                placeholder="请输入学号"
-                class="form-input"
-              >
-              <span class="input-status" v-if="formData.studentId.length > 0">✓</span>
+          <div class="form-row">
+            <div class="form-group">
+              <label>学号 <span class="optional">(可选)</span></label>
+              <div class="input-wrapper">
+                <i class="fas fa-id-card input-icon"></i>
+                <input 
+                  type="text" 
+                  v-model="formData.studentId" 
+                  placeholder="请输入学号"
+                  class="form-input"
+                >
+                <span class="input-status success" v-if="formData.studentId.length > 0">
+                  <i class="fas fa-check"></i>
+                </span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>外部系统密码 <span class="optional">(可选)</span></label>
+              <div class="input-wrapper">
+                <i class="fas fa-key input-icon"></i>
+                <input 
+                  type="password" 
+                  v-model="formData.sPassword" 
+                  placeholder="教务系统密码"
+                  class="form-input"
+                >
+                <span class="input-status success" v-if="formData.sPassword.length > 0">
+                  <i class="fas fa-check"></i>
+                </span>
+              </div>
+              <div class="field-hint">
+                <i class="fas fa-info-circle"></i>
+                用于自动登录教务系统等外部网站
+              </div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label>外部系统密码 (可选)</label>
-            <div class="input-container">
-              <i class="fas fa-key"></i>
-              <input 
-                type="password" 
-                v-model="formData.sPassword" 
-                placeholder="用于访问外部系统的密码"
-                class="form-input"
-              >
-              <span class="input-status" v-if="formData.sPassword.length > 0">✓</span>
-            </div>
-            <div class="field-tip">
-              <i class="fas fa-info-circle"></i>
-              此密码用于自动登录教务系统等外部网站
-            </div>
-          </div>
-
-          <div class="form-group">
+          <div class="form-group captcha-group">
             <label>邮箱验证码</label>
-            <div class="captcha-row">
-              <div class="input-container">
-                <i class="fas fa-shield-alt"></i>
+            <div class="captcha-container">
+              <div class="input-wrapper captcha-input">
+                <i class="fas fa-shield-alt input-icon"></i>
                 <input 
                   type="text" 
                   v-model="formData.captcha" 
@@ -120,46 +148,58 @@
                   maxlength="6"
                   class="form-input"
                 >
-                <span class="input-status" v-if="formData.captcha.length === 6">✓</span>
+                <span class="input-status success" v-if="formData.captcha.length === 6">
+                  <i class="fas fa-check"></i>
+                </span>
               </div>
               <button 
                 class="captcha-btn" 
                 @click="sendCaptcha"
                 :disabled="captchaCooldown > 0 || !isValidEmail"
-                :class="{ cooldown: captchaCooldown > 0 }"
+                :class="{ 'btn-disabled': captchaCooldown > 0 || !isValidEmail }"
               >
-                {{ captchaCooldown > 0 ? `${captchaCooldown}s` : '获取验证码' }}
+                <span v-if="captchaCooldown > 0">{{ captchaCooldown }}s</span>
+                <span v-else>获取验证码</span>
               </button>
             </div>
-            <div class="captcha-tip" v-if="captchaSent">
+            <div class="captcha-success" v-if="captchaSent">
               <i class="fas fa-check-circle"></i>
-              验证码已发送至邮箱
+              验证码已发送至邮箱，请查收
             </div>
           </div>
 
-          <div class="agree-terms">
-            <label class="checkbox">
+          <div class="terms-agreement">
+            <label class="custom-checkbox">
               <input type="checkbox" v-model="agreeTerms">
-              <span class="checkmark"></span>
-              我已阅读并同意<a href="#">服务条款</a>和<a href="#">隐私政策</a>
+              <span class="checkmark">
+                <i class="fas fa-check"></i>
+              </span>
+              <span class="checkbox-text">
+                我已阅读并同意 <a href="#" class="terms-link">服务条款</a> 和 <a href="#" class="terms-link">隐私政策</a>
+              </span>
             </label>
           </div>
 
           <button 
-            class="submit-btn" 
+            class="register-btn" 
             @click="handleRegister"
             :disabled="loading || !isFormValid"
-            :class="{ loading: loading }"
+            :class="{ 'btn-loading': loading, 'btn-disabled': !isFormValid }"
           >
-            <span v-if="!loading">注册账号</span>
-            <span v-else class="loading-text">
-              <i class="fas fa-spinner"></i>
+            <span v-if="!loading" class="btn-content">
+              <i class="fas fa-user-plus"></i>
+              创建账号
+            </span>
+            <span v-else class="btn-loading-content">
+              <i class="fas fa-spinner fa-spin"></i>
               注册中...
             </span>
           </button>
 
-          <div class="login-link">
-            已有账号？ <router-link to="/login">立即登录</router-link>
+          <div class="form-footer">
+            <p>已有账号？ 
+              <router-link to="/login" class="login-link">立即登录</router-link>
+            </p>
           </div>
         </div>
       </div>
@@ -168,40 +208,82 @@
     <!-- 右侧插图区域 -->
     <div class="illustration-section">
       <div class="illustration-content">
-        <div class="illustration-image">
-          <i class="fas fa-user-plus"></i>
+        <!-- 主要图标 -->
+        <div class="main-illustration">
+          <div class="central-icon">
+            <i class="fas fa-user-plus"></i>
+            <div class="pulse-ring"></div>
+            <div class="pulse-ring pulse-ring-2"></div>
+          </div>
+          
+          <!-- 浮动功能图标 -->
+          <div class="floating-icons">
+            <div class="floating-icon icon-1">
+              <i class="fas fa-tasks"></i>
+            </div>
+            <div class="floating-icon icon-2">
+              <i class="fas fa-bell"></i>
+            </div>
+            <div class="floating-icon icon-3">
+              <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="floating-icon icon-4">
+              <i class="fas fa-graduation-cap"></i>
+            </div>
+          </div>
         </div>
-        <h3>开启学习管理之旅</h3>
-        <p>注册账号，开始高效管理您的学习任务和作业进度</p>
-        <div class="feature-list">
-          <div class="feature-item">
-            <i class="fas fa-check-circle"></i>
-            <span>智能作业提醒</span>
-          </div>
-          <div class="feature-item">
-            <i class="fas fa-check-circle"></i>
-            <span>多科目管理</span>
-          </div>
-          <div class="feature-item">
-            <i class="fas fa-check-circle"></i>
-            <span>进度跟踪</span>
+
+        <!-- 文字内容 -->
+        <div class="illustration-text">
+          <h3>开启学习管理之旅</h3>
+          <p>注册账号，开始高效管理您的学习任务和作业进度</p>
+          
+          <div class="feature-highlights">
+            <div class="feature-item">
+              <div class="feature-icon">
+                <i class="fas fa-bell"></i>
+              </div>
+              <span>智能作业提醒</span>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <i class="fas fa-tasks"></i>
+              </div>
+              <span>多科目管理</span>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <i class="fas fa-chart-line"></i>
+              </div>
+              <span>进度跟踪分析</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 提示信息 -->
-    <transition name="fade">
-      <div v-if="showSuccess" class="toast success">
-        <i class="fas fa-check-circle"></i>
-        <span>注册成功！</span>
+    <!-- 消息提示 -->
+    <transition name="toast-slide">
+      <div v-if="showSuccess" class="toast-notification success">
+        <div class="toast-icon">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="toast-content">
+          <div class="toast-title">注册成功！</div>
+          <div class="toast-message">正在跳转到登录页面...</div>
+        </div>
       </div>
     </transition>
 
-    <transition name="fade">
-      <div v-if="errorMessage" class="toast error">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span>{{ errorMessage }}</span>
+    <transition name="toast-slide">
+      <div v-if="errorMessage" class="toast-notification error">
+        <div class="toast-icon">
+          <i class="fas fa-exclamation-circle"></i>
+        </div>
+        <div class="toast-content">
+          <div class="toast-title">注册失败</div>
+          <div class="toast-message">{{ errorMessage }}</div>
+        </div>
       </div>
     </transition>
   </div>
@@ -457,10 +539,78 @@ export default {
 </script>
 
 <style scoped>
+/* 容器和背景 */
 .register-container {
-  min-height: 100vh;
+  height: 100vh;
+  max-width: 100vw;
   display: flex;
-  background: white;
+  position: relative;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #4facfe 100%);
+  overflow: hidden;
+}
+
+/* 浮动装饰元素 */
+.floating-shapes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.shape {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  animation: float 6s ease-in-out infinite;
+}
+
+.shape-1 {
+  width: 80px;
+  height: 80px;
+  top: 10%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.shape-2 {
+  width: 120px;
+  height: 120px;
+  top: 20%;
+  right: 15%;
+  animation-delay: 1s;
+}
+
+.shape-3 {
+  width: 60px;
+  height: 60px;
+  bottom: 30%;
+  left: 5%;
+  animation-delay: 2s;
+}
+
+.shape-4 {
+  width: 100px;
+  height: 100px;
+  bottom: 10%;
+  right: 10%;
+  animation-delay: 3s;
+}
+
+.shape-5 {
+  width: 140px;
+  height: 140px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation-delay: 4s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(180deg); }
 }
 
 /* 左侧表单区域 */
@@ -469,115 +619,141 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
-  background: white;
-  min-height: 100vh;
+  padding: 20px;
+  position: relative;
+  z-index: 2;
+  overflow-y: auto;
 }
 
 .form-content {
   width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
+  max-width: 480px;
+}
+
+/* 品牌标识 */
+.brand-logo {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.brand-title {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 6px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.brand-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* 表单卡片 */
+.form-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .form-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.logo i {
-  font-size: 32px;
-  color: #667eea;
-}
-
-.logo h1 {
-  font-size: 28px;
-  font-weight: 700;
-  color: #2c3e50;
-  margin: 0;
-}
-
-.subtitle {
-  font-size: 16px;
-  color: #6b7280;
-  margin: 0;
-}
-
-.form-body h2 {
+.form-header h2 {
   font-size: 24px;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 32px;
-  text-align: center;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 6px 0;
+}
+
+.form-header p {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* 表单行和组 */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 .form-group label {
-  display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #374151;
-  margin-bottom: 8px;
+  color: #1f2937;
+  margin-bottom: 6px;
 }
 
-.input-container {
+.optional {
+  color: #9ca3af;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+/* 输入框样式 */
+.input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.input-container i {
+.input-icon {
   position: absolute;
-  left: 16px;
-  color: #9ca3af;
-  font-size: 16px;
+  left: 14px;
+  color: #6b7280;
+  font-size: 14px;
   z-index: 1;
+  transition: color 0.3s ease;
 }
 
 .form-input {
   width: 100%;
-  padding: 14px 16px 14px 44px;
+  padding: 12px 16px 12px 40px;
   border: 2px solid #e5e7eb;
   border-radius: 10px;
-  font-size: 16px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #1f2937;
   transition: all 0.3s ease;
-  background: white;
+  outline: none;
 }
 
 .form-input:focus {
-  outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+.form-input:focus + .input-icon {
+  color: #667eea;
 }
 
 .input-status {
   position: absolute;
   right: 16px;
   color: #10b981;
-  font-weight: bold;
   font-size: 14px;
 }
 
-.field-tip {
-  font-size: 12px;
-  color: #6b7280;
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
+/* 密码强度指示器 */
 .password-strength {
   display: flex;
   align-items: center;
@@ -585,7 +761,7 @@ export default {
   margin-top: 8px;
 }
 
-.strength-meter {
+.strength-bar {
   flex: 1;
   height: 4px;
   background: #e5e7eb;
@@ -595,7 +771,8 @@ export default {
 
 .strength-fill {
   height: 100%;
-  transition: width 0.3s ease;
+  transition: all 0.3s ease;
+  border-radius: 2px;
 }
 
 .strength-fill.weak {
@@ -613,205 +790,371 @@ export default {
   background: #10b981;
 }
 
-.strength-label {
+.strength-text {
   font-size: 12px;
   font-weight: 600;
-  min-width: 20px;
+  color: #6b7280;
 }
 
-.captcha-row {
-  display: flex;
-  gap: 12px;
-  align-items: stretch;
-}
-
-.captcha-btn {
-  padding: 0 16px;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-  min-width: 100px;
-}
-
-.captcha-btn:hover:not(:disabled) {
-  background: #5a6fd8;
-}
-
-.captcha-btn:disabled,
-.captcha-btn.cooldown {
-  background: #9ca3af;
-  cursor: not-allowed;
-}
-
-.captcha-tip {
+/* 字段提示 */
+.field-hint {
   font-size: 12px;
-  color: #10b981;
+  color: #6b7280;
   margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.agree-terms {
-  margin: 24px 0;
+/* 验证码组 */
+.captcha-group {
+  grid-column: 1 / -1;
+  margin-bottom: 16px;
 }
 
-.checkbox {
+.captcha-container {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.captcha-input {
+  flex: 1;
+}
+
+.captcha-btn {
+  padding: 0 24px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.captcha-btn:hover:not(.btn-disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.captcha-btn.btn-disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.captcha-success {
+  font-size: 12px;
+  color: #10b981;
+  margin-top: 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #6b7280;
-  cursor: pointer;
+  gap: 6px;
 }
 
-.checkbox input {
+/* 条款同意 */
+.terms-agreement {
+  margin: 20px 0;
+}
+
+.custom-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.custom-checkbox input {
   display: none;
 }
 
 .checkmark {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border: 2px solid #d1d5db;
-  border-radius: 4px;
-  position: relative;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.3s ease;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
-.checkbox input:checked + .checkmark {
+.custom-checkbox input:checked + .checkmark {
   background: #667eea;
   border-color: #667eea;
 }
 
-.checkbox input:checked + .checkmark::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+.checkmark i {
   color: white;
   font-size: 12px;
-  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.checkbox a {
+.custom-checkbox input:checked + .checkmark i {
+  opacity: 1;
+}
+
+.checkbox-text {
+  color: #6b7280;
+}
+
+.terms-link {
   color: #667eea;
   text-decoration: none;
+  font-weight: 600;
 }
 
-.checkbox a:hover {
+.terms-link:hover {
   text-decoration: underline;
 }
 
-.submit-btn {
+/* 注册按钮 */
+.register-btn {
   width: 100%;
-  padding: 16px;
+  padding: 14px;
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
   border: none;
   border-radius: 10px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
 }
 
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+.register-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
 }
 
-.submit-btn:disabled {
+.register-btn:hover:not(.btn-disabled):not(.btn-loading)::before {
+  left: 100%;
+}
+
+.register-btn:hover:not(.btn-disabled):not(.btn-loading) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.register-btn.btn-disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
 }
 
-.loading-text {
+.btn-content,
+.btn-loading-content {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
 }
 
-.loading-text i {
-  animation: spin 1s linear infinite;
+/* 表单底部 */
+.form-footer {
+  text-align: center;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.form-footer p {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
 }
 
 .login-link {
-  text-align: center;
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.login-link a {
   color: #667eea;
   text-decoration: none;
   font-weight: 600;
 }
 
-.login-link a:hover {
+.login-link:hover {
   text-decoration: underline;
 }
 
 /* 右侧插图区域 */
 .illustration-section {
-  flex: 1;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  flex: 0 0 40%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  color: white;
-  min-height: 100vh;
+  padding: 16px;
+  position: relative;
+  z-index: 2;
 }
 
 .illustration-content {
   text-align: center;
-  max-width: 400px;
+  color: white;
+  max-width: 300px;
+  width: 100%;
+  position: relative;
+  z-index: 10;
 }
 
-.illustration-image {
-  margin-bottom: 32px;
+/* 主要插图 */
+.main-illustration {
+  position: relative;
+  margin-bottom: 24px;
 }
 
-.illustration-image i {
-  font-size: 64px;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 24px;
+.central-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 50%;
   backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  z-index: 10;
 }
 
-.illustration-content h3 {
-  font-size: 24px;
-  font-weight: 600;
-  margin-bottom: 16px;
+.central-icon i {
+  font-size: 32px;
+  color: white;
 }
 
-.illustration-content p {
+.pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  animation: pulse 3s ease-in-out infinite;
+  z-index: 1;
+}
+
+.pulse-ring-2 {
+  width: 100px;
+  height: 100px;
+  animation-delay: 1.5s;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* 浮动功能图标 */
+.floating-icons {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 180px;
+  height: 180px;
+  z-index: 1;
+}
+
+.floating-icon {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: floatAround 8s ease-in-out infinite;
+}
+
+.floating-icon i {
   font-size: 16px;
-  line-height: 1.6;
-  opacity: 0.9;
-  margin-bottom: 32px;
+  color: white;
 }
 
-.feature-list {
+.icon-1 {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  animation-delay: 0s;
+}
+
+.icon-2 {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  animation-delay: 2s;
+}
+
+.icon-3 {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  animation-delay: 4s;
+}
+
+.icon-4 {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  animation-delay: 6s;
+}
+
+@keyframes floatAround {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  25% { transform: translateX(-50%) translateY(-5px); }
+  50% { transform: translateX(-50%) translateY(0); }
+  75% { transform: translateX(-50%) translateY(5px); }
+}
+
+/* 插图文字 */
+.illustration-text {
+  position: relative;
+  z-index: 10;
+}
+
+.illustration-text h3 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.illustration-text p {
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.9;
+  margin: 0 0 24px 0;
+}
+
+/* 功能亮点 */
+.feature-highlights {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .feature-item {
@@ -819,131 +1162,199 @@ export default {
   align-items: center;
   gap: 12px;
   font-size: 14px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.feature-item i {
-  color: #10b981;
-  font-size: 16px;
-}
-
-/* 提示信息 */
-.toast {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: 12px 20px;
-  border-radius: 8px;
-  color: white;
-  font-weight: 600;
+.feature-icon {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: slideIn 0.3s ease;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.feature-icon i {
+  font-size: 14px;
+  color: white;
+}
+
+/* 消息提示 */
+.toast-notification {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  max-width: 400px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
   z-index: 1000;
 }
 
-.toast.success {
-  background: #10b981;
+.toast-notification.success {
+  border-left: 4px solid #10b981;
 }
 
-.toast.error {
-  background: #ef4444;
+.toast-notification.error {
+  border-left: 4px solid #ef4444;
 }
 
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+.toast-notification {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  gap: 12px;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
+.toast-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.toast-notification.success .toast-icon {
+  color: #10b981;
+}
+
+.toast-notification.error .toast-icon {
+  color: #ef4444;
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.toast-message {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* 动画 */
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-slide-enter-from {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.toast-slide-leave-to {
+  transform: translateX(100%);
   opacity: 0;
 }
 
 /* 响应式设计 */
-@media (max-width: 968px) {
+@media (max-width: 1024px) {
   .register-container {
     flex-direction: column;
   }
   
-  .form-section {
-    min-height: auto;
-    padding: 40px 20px;
-  }
-  
   .illustration-section {
-    min-height: auto;
-    padding: 40px 20px;
+    order: -1;
+    min-height: 300px;
   }
   
-  .illustration-image i {
-    font-size: 48px;
-    padding: 20px;
+  .main-illustration {
+    margin-bottom: 24px;
+  }
+  
+  .central-icon {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .central-icon i {
+    font-size: 32px;
+  }
+  
+  .floating-icons {
+    width: 200px;
+    height: 200px;
+  }
+  
+  .floating-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .floating-icon i {
+    font-size: 16px;
   }
 }
 
-@media (max-width: 640px) {
-  .form-content {
-    max-width: 100%;
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
   
-  .captcha-row {
+  .form-card {
+    padding: 32px 24px;
+  }
+  
+  .brand-title {
+    font-size: 28px;
+  }
+  
+  .form-header h2 {
+    font-size: 24px;
+  }
+  
+  .captcha-container {
     flex-direction: column;
   }
   
   .captcha-btn {
     min-width: auto;
-    padding: 12px;
   }
   
-  .logo {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .logo h1 {
-    font-size: 24px;
-  }
-  
-  .form-body h2 {
-    font-size: 20px;
-  }
-  
-  .toast {
+  .toast-notification {
     top: 16px;
     right: 16px;
     left: 16px;
-    text-align: center;
+    max-width: none;
   }
 }
 
 @media (max-width: 480px) {
-  .form-section {
-    padding: 32px 16px;
+  .form-section,
+  .illustration-section {
+    padding: 24px 16px;
   }
   
-  .illustration-section {
-    padding: 32px 16px;
+  .form-card {
+    padding: 24px 20px;
   }
   
   .form-input {
-    padding: 12px 16px 12px 44px;
+    padding: 14px 16px 14px 44px;
   }
   
-  .submit-btn {
-    padding: 14px;
+  .register-btn {
+    padding: 16px;
+  }
+  
+  .shape {
+    display: none;
   }
 }
 </style>
