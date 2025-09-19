@@ -290,7 +290,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 export default {
@@ -513,10 +513,31 @@ export default {
       }
     }
 
+    // 移动端viewport高度修复
+    const setVH = () => {
+      const vh = window.innerHeight * 0.01
+      document.documentElement.style.setProperty('--vh', `${vh}px`)
+    }
+
+    onMounted(() => {
+      // 设置初始viewport高度
+      setVH()
+      
+      // 监听窗口大小变化
+      window.addEventListener('resize', setVH)
+      window.addEventListener('orientationchange', () => {
+        setTimeout(setVH, 100) // 延迟执行，等待方向改变完成
+      })
+    })
+
     onUnmounted(() => {
       if (captchaInterval) {
         clearInterval(captchaInterval)
       }
+      
+      // 清理事件监听器
+      window.removeEventListener('resize', setVH)
+      window.removeEventListener('orientationchange', setVH)
     })
 
     return {
@@ -1263,68 +1284,129 @@ export default {
 }
 
 /* 响应式设计 */
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
   .register-container {
     flex-direction: column;
   }
   
   .illustration-section {
     order: -1;
-    min-height: 300px;
+    flex: 0 0 auto;
+    min-height: 280px;
+    padding: 20px;
+  }
+  
+  .form-section {
+    flex: 1;
+    min-height: auto;
   }
   
   .main-illustration {
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
   
   .central-icon {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
   }
   
   .central-icon i {
-    font-size: 32px;
+    font-size: 28px;
   }
   
   .floating-icons {
-    width: 200px;
-    height: 200px;
+    width: 180px;
+    height: 180px;
   }
   
   .floating-icon {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
   }
   
   .floating-icon i {
-    font-size: 16px;
+    font-size: 14px;
+  }
+  
+  .illustration-text h3 {
+    font-size: 20px;
+  }
+  
+  .illustration-text p {
+    font-size: 13px;
   }
 }
 
 @media (max-width: 768px) {
+  .register-container {
+    height: auto;
+    min-height: 100vh;
+  }
+  
+  .illustration-section {
+    min-height: 200px;
+    padding: 16px;
+  }
+  
+  .form-section {
+    padding: 16px;
+  }
+  
+  .form-content {
+    max-width: 100%;
+  }
+  
   .form-row {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 14px;
+    margin-bottom: 16px;
   }
   
   .form-card {
-    padding: 32px 24px;
+    padding: 24px 20px;
+    border-radius: 16px;
   }
   
   .brand-title {
-    font-size: 28px;
+    font-size: 24px;
+  }
+  
+  .brand-subtitle {
+    font-size: 13px;
   }
   
   .form-header h2 {
-    font-size: 24px;
+    font-size: 20px;
+  }
+  
+  .form-header p {
+    font-size: 13px;
+  }
+  
+  .form-input {
+    padding: 12px 14px 12px 38px;
+    font-size: 14px;
+  }
+  
+  .input-icon {
+    left: 12px;
+    font-size: 13px;
   }
   
   .captcha-container {
     flex-direction: column;
+    gap: 10px;
   }
   
   .captcha-btn {
     min-width: auto;
+    padding: 12px 20px;
+    font-size: 13px;
+  }
+  
+  .register-btn {
+    padding: 14px;
+    font-size: 14px;
   }
   
   .toast-notification {
@@ -1333,28 +1415,361 @@ export default {
     left: 16px;
     max-width: none;
   }
+  
+  .central-icon {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .central-icon i {
+    font-size: 24px;
+  }
+  
+  .floating-icons {
+    width: 140px;
+    height: 140px;
+  }
+  
+  .floating-icon {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .floating-icon i {
+    font-size: 12px;
+  }
+  
+  .illustration-text h3 {
+    font-size: 18px;
+  }
+  
+  .illustration-text p {
+    font-size: 12px;
+  }
+  
+  .feature-item {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  
+  .feature-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .feature-icon i {
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 480px) {
+  .register-container {
+    overflow-x: hidden;
+  }
+  
   .form-section,
   .illustration-section {
-    padding: 24px 16px;
+    padding: 12px;
   }
   
   .form-card {
-    padding: 24px 20px;
+    padding: 20px 16px;
+    margin: 0;
+    border-radius: 12px;
+  }
+  
+  .brand-logo {
+    margin-bottom: 20px;
+  }
+  
+  .brand-title {
+    font-size: 22px;
+  }
+  
+  .form-header {
+    margin-bottom: 20px;
+  }
+  
+  .form-header h2 {
+    font-size: 18px;
+  }
+  
+  .form-row {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  
+  .form-group label {
+    font-size: 12px;
+    margin-bottom: 5px;
   }
   
   .form-input {
-    padding: 14px 16px 14px 44px;
+    padding: 11px 12px 11px 36px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+  
+  .input-icon {
+    left: 11px;
+    font-size: 12px;
+  }
+  
+  .input-status {
+    right: 12px;
+    font-size: 12px;
+  }
+  
+  .password-strength {
+    gap: 8px;
+    margin-top: 6px;
+  }
+  
+  .strength-text {
+    font-size: 11px;
+  }
+  
+  .field-hint {
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  
+  .captcha-container {
+    gap: 8px;
+  }
+  
+  .captcha-btn {
+    padding: 11px 16px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+  
+  .captcha-success {
+    font-size: 11px;
+    margin-top: 6px;
+  }
+  
+  .terms-agreement {
+    margin: 16px 0;
+  }
+  
+  .custom-checkbox {
+    font-size: 12px;
+    gap: 8px;
+  }
+  
+  .checkmark {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .checkmark i {
+    font-size: 10px;
   }
   
   .register-btn {
-    padding: 16px;
+    padding: 12px;
+    font-size: 13px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+  
+  .form-footer p {
+    font-size: 12px;
   }
   
   .shape {
     display: none;
+  }
+  
+  .illustration-section {
+    min-height: 160px;
+  }
+  
+  .central-icon {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .central-icon i {
+    font-size: 20px;
+  }
+  
+  .floating-icons {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .floating-icon {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .floating-icon i {
+    font-size: 10px;
+  }
+  
+  .illustration-text h3 {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+  
+  .illustration-text p {
+    font-size: 11px;
+    margin-bottom: 16px;
+  }
+  
+  .feature-highlights {
+    gap: 8px;
+  }
+  
+  .feature-item {
+    padding: 8px 10px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+  
+  .feature-icon {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .feature-icon i {
+    font-size: 10px;
+  }
+  
+  .toast-notification {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    padding: 12px;
+  }
+  
+  .toast-icon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .toast-title {
+    font-size: 13px;
+  }
+  
+  .toast-message {
+    font-size: 12px;
+  }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 360px) {
+  .form-card {
+    padding: 16px 12px;
+  }
+  
+  .brand-title {
+    font-size: 20px;
+  }
+  
+  .form-header h2 {
+    font-size: 16px;
+  }
+  
+  .form-input {
+    padding: 10px 11px 10px 34px;
+    font-size: 13px;
+  }
+  
+  .input-icon {
+    left: 10px;
+  }
+  
+  .captcha-btn {
+    padding: 10px 14px;
+    font-size: 11px;
+  }
+  
+  .register-btn {
+    padding: 11px;
+    font-size: 12px;
+  }
+  
+  .illustration-section {
+    min-height: 140px;
+  }
+  
+  .central-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .central-icon i {
+    font-size: 16px;
+  }
+  
+  .floating-icons {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .floating-icon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .floating-icon i {
+    font-size: 8px;
+  }
+}
+
+/* 横屏模式优化 */
+@media (max-width: 768px) and (orientation: landscape) {
+  .register-container {
+    flex-direction: row;
+  }
+  
+  .illustration-section {
+    order: 0;
+    flex: 0 0 35%;
+    min-height: 100vh;
+  }
+  
+  .form-section {
+    flex: 1;
+    overflow-y: auto;
+  }
+  
+  .form-card {
+    margin: 20px 0;
+  }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+  .form-input {
+    padding: 14px 16px 14px 40px;
+    font-size: 16px; /* 防止iOS缩放 */
+  }
+  
+  .captcha-btn,
+  .register-btn {
+    min-height: 44px; /* iOS推荐的最小触摸目标 */
+  }
+  
+  .custom-checkbox {
+    padding: 8px;
+  }
+  
+  .checkmark {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* 高分辨率屏幕优化 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .form-input,
+  .captcha-btn,
+  .register-btn {
+    border-width: 0.5px;
   }
 }
 </style>

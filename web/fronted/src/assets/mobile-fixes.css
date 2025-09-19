@@ -1,0 +1,184 @@
+/* 移动端专用修复样式 */
+
+/* 防止iOS Safari地址栏影响100vh */
+.register-container {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* iOS Safari 100vh修复 */
+@supports (-webkit-touch-callout: none) {
+  .register-container {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* 防止移动端输入框缩放 */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px !important;
+    transform-origin: left top;
+    transition: none;
+  }
+}
+
+/* 移动端触摸反馈优化 */
+.form-input:focus,
+.captcha-btn:active,
+.register-btn:active,
+.custom-checkbox:active {
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+/* 移动端滚动优化 */
+.form-section {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* 防止移动端横屏时内容被遮挡 */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .illustration-section {
+    display: none;
+  }
+  
+  .register-container {
+    flex-direction: column;
+  }
+  
+  .form-section {
+    padding: 8px;
+  }
+  
+  .form-card {
+    padding: 16px;
+  }
+  
+  .brand-logo {
+    margin-bottom: 12px;
+  }
+  
+  .form-header {
+    margin-bottom: 16px;
+  }
+  
+  .form-row {
+    margin-bottom: 12px;
+  }
+}
+
+/* 修复移动端键盘弹出时的布局问题 */
+@media screen and (max-height: 600px) {
+  .illustration-section {
+    min-height: 120px;
+  }
+  
+  .brand-logo {
+    margin-bottom: 16px;
+  }
+  
+  .form-header {
+    margin-bottom: 16px;
+  }
+}
+
+/* 安全区域适配（刘海屏等） */
+@supports (padding: max(0px)) {
+  .register-container {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-top: max(0px, env(safe-area-inset-top));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* 修复Android Chrome地址栏问题 */
+@media screen and (max-width: 768px) {
+  .register-container {
+    height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+  }
+}
+
+/* 优化小屏幕设备的表单间距 */
+@media screen and (max-width: 375px) {
+  .form-row {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  
+  .form-group {
+    margin-bottom: 0;
+  }
+  
+  .captcha-group {
+    margin-bottom: 12px;
+  }
+  
+  .terms-agreement {
+    margin: 12px 0;
+  }
+}
+
+/* 修复某些Android设备的输入框样式问题 */
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-clip: padding-box;
+}
+
+/* 优化移动端按钮点击体验 */
+.captcha-btn,
+.register-btn,
+.custom-checkbox {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 移动端文本选择优化 */
+.brand-title,
+.form-header h2,
+.illustration-text h3 {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 修复移动端浮动元素可能的性能问题 */
+.floating-shapes,
+.floating-icons {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* 移动端动画性能优化 */
+@media (max-width: 768px) {
+  .shape,
+  .floating-icon,
+  .pulse-ring {
+    animation-duration: 4s;
+  }
+}
+
+/* 修复移动端可能的字体渲染问题 */
+@media screen and (max-width: 768px) {
+  body,
+  .form-card,
+  .form-input {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}

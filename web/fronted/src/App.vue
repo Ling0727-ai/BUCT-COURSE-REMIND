@@ -10,6 +10,7 @@ export default {
 
 <style>
 @import './assets/global.css';
+@import './assets/mobile-fixes.css';
 
 /* 应用级别的样式 */
 #app {
