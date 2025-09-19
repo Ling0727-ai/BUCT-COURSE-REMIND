@@ -545,6 +545,12 @@ class BUCTScraperEnhanced:
             return None
         finally:
             # 清理资源
+            if self.client:
+                try:
+                    self.client.logout()
+                    logger.info("已成功登出BUCT课程平台")
+                except Exception as e:
+                    logger.warning(f"登出时发生错误: {str(e)}")
             if self.mongo_client:
                 self.mongo_client.close()
 
@@ -601,6 +607,12 @@ def get_standard_format_details(user_id=None):
         return []
     finally:
         # 清理资源
+        if scraper.client:
+            try:
+                scraper.client.logout()
+                logger.info("已成功登出BUCT课程平台")
+            except Exception as e:
+                logger.warning(f"登出时发生错误: {str(e)}")
         if scraper.mongo_client:
             scraper.mongo_client.close()
 

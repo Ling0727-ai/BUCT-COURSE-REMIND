@@ -66,7 +66,7 @@ services:
   frontend:
     build: ./fronted
     ports:
-      - "${FRONTEND_PORT:-3000}:80"
+      - "${FRONTEND_PORT:-3033}:80"
     depends_on:
       - backend
     restart: unless-stopped
