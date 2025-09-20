@@ -170,7 +170,92 @@ class User:
 """
 
 # ==============================================================================
-# 7. completed_assignments (已完成作业记录)
+# 7. todos (待办事项)
+# ==============================================================================
+"""
+存储用户的待办事项。
+
+{
+    "_id": ObjectId("..."),
+    "user_id": ObjectId("..."),            // ObjectId, 用户ID
+    "title": "完成项目报告",               // String, 待办标题
+    "description": "需要完成第三章内容",   // String, 待办描述 (可选)
+    "priority": "medium",                  // String, 优先级 ("low", "medium", "high")
+    "due_date": ISODate("..."),            // DateTime, 截止日期 (可选)
+    "completed": false,                    // Boolean, 是否已完成
+    "completed_at": ISODate("..."),        // DateTime, 完成时间 (可选)
+    "created_at": ISODate("..."),          // DateTime, 创建时间
+    "updated_at": ISODate("...")           // DateTime, 更新时间
+}
+"""
+
+class Todo:
+    """待办事项模型类"""
+    
+    def __init__(self, mongo_db):
+        self.db = mongo_db
+        self.collection = 'todos'
+    
+    def create_todo(self, user_id, title, description=None, priority='medium', due_date=None):
+        """创建新的待办事项"""
+        todo_data = {
+            'user_id': ObjectId(user_id),
+            'title': title,
+            'description': description,
+            'priority': priority,
+            'due_date': due_date,
+            'completed': False,
+            'completed_at': None,
+            'created_at': datetime.utcnow(),
+            'updated_at': datetime.utcnow()
+        }
+        
+        result = self.db[self.collection].insert_one(todo_data)
+        return result.inserted_id
+    
+    def get_user_todos(self, user_id, include_completed=False):
+        """获取用户的待办事项列表"""
+        query = {'user_id': ObjectId(user_id)}
+        if not include_completed:
+            query['completed'] = False
+        
+        todos = list(self.db[self.collection].find(query).sort('created_at', -1))
+        return todos
+    
+    def get_todo_by_id(self, todo_id, user_id):
+        """根据ID获取待办事项"""
+        return self.db[self.collection].find_one({
+            '_id': ObjectId(todo_id),
+            'user_id': ObjectId(user_id)
+        })
+    
+    def update_todo(self, todo_id, user_id, update_data):
+        """更新待办事项"""
+        update_data['updated_at'] = datetime.utcnow()
+        return self.db[self.collection].update_one(
+            {
+                '_id': ObjectId(todo_id),
+                'user_id': ObjectId(user_id)
+            },
+            {'$set': update_data}
+        )
+    
+    def mark_completed(self, todo_id, user_id):
+        """标记待办事项为已完成"""
+        return self.update_todo(todo_id, user_id, {
+            'completed': True,
+            'completed_at': datetime.utcnow()
+        })
+    
+    def delete_todo(self, todo_id, user_id):
+        """删除待办事项"""
+        return self.db[self.collection].delete_one({
+            '_id': ObjectId(todo_id),
+            'user_id': ObjectId(user_id)
+        })
+
+# ==============================================================================
+# 8. completed_assignments (已完成作业记录)
 # ==============================================================================
 """
 存储用户标记为已完成的作业记录，12小时后自动清除。

@@ -69,6 +69,11 @@
           <h3>{{ completedCount }}</h3>
           <p>已完成</p>
         </div>
+        <div class="stat-card todos">
+          <i class="fas fa-list-check"></i>
+          <h3>{{ todoCount }}</h3>
+          <p>待办事项</p>
+        </div>
       </div>
     </div>
 
@@ -96,9 +101,15 @@
           v-for="assignment in filteredAssignments" 
           :key="assignment.id"
           :class="['assignment-card', assignmentStatus(assignment)]"
+          :data-type="assignment.type"
           @click="openAssignmentUrl(assignment)"
           style="cursor: pointer;"
         >
+          <!-- 优先级指示器 (仅待办显示) -->
+          <div 
+            v-if="assignment.type === '待办' && assignment.priority" 
+            :class="['priority-indicator', assignment.priority]"
+          ></div>
           <div class="card-header">
             <span class="subject-tag">{{ assignment.subject }}</span>
             <small>{{ assignment.type }}</small>
@@ -157,6 +168,77 @@
         </div>
       </div>
     </div>
+
+    <!-- 添加待办按钮 -->
+    <button class="floating-add" @click="showAddTodoModal = true" title="添加待办">
+      <i class="fas fa-plus"></i>
+    </button>
+
+    <!-- 添加待办弹窗 -->
+    <div v-if="showAddTodoModal" class="modal-overlay" @click="closeAddTodoModal">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3><i class="fas fa-plus-circle"></i> 添加待办事项</h3>
+          <button class="close-btn" @click="closeAddTodoModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="todoTitle">名称 *</label>
+            <input 
+              id="todoTitle"
+              type="text" 
+              v-model="newTodo.title" 
+              placeholder="请输入待办事项名称"
+              maxlength="100"
+              @keyup.enter="addTodo"
+            >
+          </div>
+          <div class="form-group">
+            <label for="todoDueDate">预计时间</label>
+            <input 
+              id="todoDueDate"
+              type="datetime-local" 
+              v-model="newTodo.dueDate"
+            >
+          </div>
+          <div class="form-group">
+            <label for="todoDescription">备注</label>
+            <textarea 
+              id="todoDescription"
+              v-model="newTodo.description" 
+              placeholder="请输入备注信息（可选）"
+              rows="3"
+              maxlength="500"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="todoPriority">优先级</label>
+            <select id="todoPriority" v-model="newTodo.priority">
+              <option value="low">低</option>
+              <option value="medium">中</option>
+              <option value="high">高</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeAddTodoModal">取消</button>
+          <button 
+            class="btn btn-primary" 
+            @click="addTodo"
+            :disabled="!newTodo.title.trim() || addingTodo"
+          >
+            <span v-if="!addingTodo">
+              <i class="fas fa-plus"></i> 添加
+            </span>
+            <span v-else>
+              <i class="fas fa-spinner fa-spin"></i> 添加中...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -193,6 +275,7 @@ export default {
     
     // 动态数据
     const assignments = ref([])
+    const todos = ref([])
     const loading = ref(false)
     const error = ref('')
 
@@ -201,23 +284,64 @@ export default {
     const statusFilter = ref('')
     const filteredAssignments = ref([])
 
-    // 计算统计信息
+    // 待办相关状态
+    const showAddTodoModal = ref(false)
+    const addingTodo = ref(false)
+    const newTodo = ref({
+      title: '',
+      description: '',
+      dueDate: '',
+      priority: 'medium'
+    })
+
+    // 计算统计信息 - 包含作业和待办
+    const allItems = computed(() => {
+      const items = []
+      
+      // 添加作业数据
+      if (assignments.value && Array.isArray(assignments.value)) {
+        items.push(...assignments.value)
+      }
+      
+      // 添加待办数据，转换为统一格式
+      if (todos.value && Array.isArray(todos.value)) {
+        const todoItems = todos.value.map(todo => ({
+          id: `todo_${todo._id}`,
+          subject: '待办事项',
+          title: todo.title,
+          content: todo.description || '无备注',
+          dueDate: todo.due_date,
+          type: '待办',
+          completed: todo.completed,
+          priority: todo.priority,
+          _todoId: todo._id
+        }))
+        items.push(...todoItems)
+      }
+      
+      return items
+    })
+
     const urgentCount = computed(() => 
-      assignments.value.filter(a => assignmentStatus(a) === 'urgent').length
+      allItems.value.filter(a => assignmentStatus(a) === 'urgent').length
     )
 
     const soonCount = computed(() => 
-      assignments.value.filter(a => assignmentStatus(a) === 'warning').length
+      allItems.value.filter(a => assignmentStatus(a) === 'warning').length
     )
 
-    const totalCount = computed(() => assignments.value.length)
+    const totalCount = computed(() => allItems.value.length)
 
     const completedCount = computed(() => 
-      assignments.value.filter(a => a.completed).length
+      allItems.value.filter(a => a.completed).length
+    )
+
+    const todoCount = computed(() => 
+      todos.value.filter(t => !t.completed).length
     )
 
     const subjects = computed(() => {
-      const uniqueSubjects = new Set(assignments.value.map(a => a.subject))
+      const uniqueSubjects = new Set(allItems.value.map(a => a.subject))
       return Array.from(uniqueSubjects)
     })
 
@@ -296,31 +420,40 @@ export default {
       return formatted
     }
 
-    // 筛选作业
+    // 筛选作业和待办
     const filterAssignments = () => {
-      console.log('开始筛选作业，原始数据:', assignments.value)
+      console.log('开始筛选作业和待办，原始数据:', assignments.value, todos.value)
       
-      if (!assignments.value || !Array.isArray(assignments.value)) {
-        console.warn('assignments.value 不是有效数组:', assignments.value)
+      // 使用计算属性中的合并数据
+      const items = allItems.value.map(item => ({
+        ...item,
+        publisher: item.publisher || (item.type === '待办' ? '用户' : '系统'),
+        url: item.url || '',
+        completing: item.completing || false,
+        undoing: item.undoing || false
+      }))
+      
+      if (!items || !Array.isArray(items)) {
+        console.warn('合并后的数据不是有效数组:', items)
         filteredAssignments.value = []
         return
       }
       
-      filteredAssignments.value = assignments.value.filter(assignment => {
+      filteredAssignments.value = items.filter(item => {
         // 安全检查
-        if (!assignment) {
-          console.warn('发现空的 assignment 项')
+        if (!item) {
+          console.warn('发现空的 item 项')
           return false
         }
         
-        const title = assignment.title || ''
-        const subject = assignment.subject || ''
+        const title = item.title || ''
+        const subject = item.subject || ''
         const searchTerm_lower = (searchTerm.value || '').toLowerCase()
         
         const matchesSearch = title.toLowerCase().includes(searchTerm_lower) ||
                             subject.toLowerCase().includes(searchTerm_lower)
         const matchesSubject = !subjectFilter.value || subject === subjectFilter.value
-        const matchesStatus = !statusFilter.value || assignmentStatus(assignment) === statusFilter.value
+        const matchesStatus = !statusFilter.value || assignmentStatus(item) === statusFilter.value
         
         return matchesSearch && matchesSubject && matchesStatus
       })
@@ -363,17 +496,27 @@ export default {
       assignment.completing = true
       
       try {
-        const response = await fetch(`/api/assignments/${assignment.id}/complete`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            title: assignment.title,
-            subject: assignment.subject
+        let response
+        
+        // 判断是作业还是待办
+        if (assignment.type === '待办') {
+          response = await fetch(`/api/todos/${assignment._todoId}/complete`, {
+            method: 'POST',
+            credentials: 'include'
           })
-        })
+        } else {
+          response = await fetch(`/api/assignments/${assignment.id}/complete`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: assignment.title,
+              subject: assignment.subject
+            })
+          })
+        }
         
         if (response.ok) {
           const result = await response.json()
@@ -382,11 +525,19 @@ export default {
           assignment.completed = true
           assignment.completedAt = new Date().toISOString()
           
+          // 如果是待办，更新待办列表
+          if (assignment.type === '待办') {
+            await fetchTodos()
+          }
+          
           filterAssignments()
           
           // 显示成功提示
-          showToast('success', '任务完成', `${assignment.title} 已标记为完成，12小时后自动清除`)
-          console.log('作业标记完成成功:', result)
+          const message = assignment.type === '待办' ? 
+            `${assignment.title} 已完成` : 
+            `${assignment.title} 已标记为完成，12小时后自动清除`
+          showToast('success', '任务完成', message)
+          console.log('标记完成成功:', result)
         } else {
           const errorData = await response.json()
           console.error('标记完成失败:', errorData)
@@ -407,13 +558,23 @@ export default {
       assignment.undoing = true
       
       try {
-        const response = await fetch(`/api/assignments/${assignment.id}/uncomplete`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        })
+        let response
+        
+        // 判断是作业还是待办
+        if (assignment.type === '待办') {
+          response = await fetch(`/api/todos/${assignment._todoId}/uncomplete`, {
+            method: 'POST',
+            credentials: 'include'
+          })
+        } else {
+          response = await fetch(`/api/assignments/${assignment.id}/uncomplete`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          })
+        }
         
         if (response.ok) {
           const result = await response.json()
@@ -421,6 +582,11 @@ export default {
           // 更新本地状态
           assignment.completed = false
           assignment.completedAt = null
+          
+          // 如果是待办，更新待办列表
+          if (assignment.type === '待办') {
+            await fetchTodos()
+          }
           
           filterAssignments()
           
@@ -485,14 +651,22 @@ export default {
       error.value = ''
       
       try {
-        const response = await fetch('/api/assignments/standard', {
-          method: 'GET',
-          credentials: 'include'
-        })
+        // 并行获取作业和待办数据
+        const [assignmentsResponse, todosResponse] = await Promise.all([
+          fetch('/api/assignments/standard', {
+            method: 'GET',
+            credentials: 'include'
+          }),
+          fetch('/api/todos/', {
+            method: 'GET',
+            credentials: 'include'
+          })
+        ])
         
-        if (response.ok) {
-          const result = await response.json()
-          console.log('后端返回的原始数据:', result)
+        // 处理作业数据
+        if (assignmentsResponse.ok) {
+          const result = await assignmentsResponse.json()
+          console.log('后端返回的作业数据:', result)
           
           // 适配后端实际返回的数据结构
           let dataArray = []
@@ -505,7 +679,6 @@ export default {
           }
           
           if (dataArray.length > 0) {
-            // 转换后端统一格式为前端期望格式
             // 获取数据库中的已完成状态
             let completedIds = new Set()
             try {
@@ -556,19 +729,36 @@ export default {
               }
             }).filter(assignment => !assignment.subject.includes('英语'))
             
-            console.log('转换后的前端数据:', assignments.value)
-            filterAssignments()
+            console.log('转换后的作业数据:', assignments.value)
           } else {
-            console.error('数据格式错误:', result)
-            error.value = result?.error || '获取作业数据失败 - 数据格式错误'
+            console.error('作业数据格式错误:', result)
           }
-        } else if (response.status === 401) {
+        } else if (assignmentsResponse.status === 401) {
           router.push('/login')
-        } else {
-          error.value = '获取作业数据失败'
+          return
         }
+
+        // 处理待办数据
+        if (todosResponse.ok) {
+          const todosResult = await todosResponse.json()
+          console.log('后端返回的待办数据:', todosResult)
+          
+          if (todosResult.success && todosResult.todos) {
+            todos.value = todosResult.todos
+            console.log('获取待办数据成功:', todos.value)
+          } else {
+            console.warn('待办数据格式错误:', todosResult)
+            todos.value = []
+          }
+        } else {
+          console.warn('获取待办数据失败')
+          todos.value = []
+        }
+
+        filterAssignments()
+        
       } catch (err) {
-        console.error('获取作业数据错误:', err)
+        console.error('获取数据错误:', err)
         error.value = '网络连接错误'
       } finally {
         loading.value = false
@@ -619,6 +809,128 @@ export default {
       } catch (error) {
         console.error('检查用户状态失败:', error)
         router.push('/login')
+      }
+    }
+
+    // 待办相关方法
+    const closeAddTodoModal = () => {
+      showAddTodoModal.value = false
+      newTodo.value = {
+        title: '',
+        description: '',
+        dueDate: '',
+        priority: 'medium'
+      }
+    }
+
+    const addTodo = async () => {
+      if (!newTodo.value.title.trim()) {
+        showToast('warning', '提示', '请输入待办事项名称')
+        return
+      }
+
+      addingTodo.value = true
+
+      try {
+        const todoData = {
+          title: newTodo.value.title.trim(),
+          description: newTodo.value.description.trim() || null,
+          priority: newTodo.value.priority,
+          due_date: newTodo.value.dueDate || null
+        }
+
+        const response = await fetch('/api/todos/', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(todoData)
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          console.log('添加待办成功:', result)
+          
+          showToast('success', '成功', '待办事项添加成功')
+          closeAddTodoModal()
+          
+          // 重新获取待办列表
+          await fetchTodos()
+          filterAssignments()
+        } else {
+          const errorData = await response.json()
+          console.error('添加待办失败:', errorData)
+          showToast('error', '添加失败', errorData.error || '请重试')
+        }
+      } catch (error) {
+        console.error('添加待办错误:', error)
+        showToast('error', '网络错误', '请检查网络连接后重试')
+      } finally {
+        addingTodo.value = false
+      }
+    }
+
+    const fetchTodos = async () => {
+      try {
+        const response = await fetch('/api/todos/', {
+          method: 'GET',
+          credentials: 'include'
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.todos) {
+            todos.value = result.todos
+            console.log('获取待办列表成功:', todos.value)
+          }
+        } else {
+          console.warn('获取待办列表失败')
+        }
+      } catch (error) {
+        console.error('获取待办列表错误:', error)
+      }
+    }
+
+    const completeTodo = async (todoId) => {
+      try {
+        const response = await fetch(`/api/todos/${todoId}/complete`, {
+          method: 'POST',
+          credentials: 'include'
+        })
+
+        if (response.ok) {
+          showToast('success', '完成', '待办事项已完成')
+          await fetchTodos()
+          filterAssignments()
+        } else {
+          const errorData = await response.json()
+          showToast('error', '操作失败', errorData.error || '请重试')
+        }
+      } catch (error) {
+        console.error('完成待办错误:', error)
+        showToast('error', '网络错误', '请检查网络连接后重试')
+      }
+    }
+
+    const uncompleteTodo = async (todoId) => {
+      try {
+        const response = await fetch(`/api/todos/${todoId}/uncomplete`, {
+          method: 'POST',
+          credentials: 'include'
+        })
+
+        if (response.ok) {
+          showToast('info', '已撤销', '待办事项已撤销完成状态')
+          await fetchTodos()
+          filterAssignments()
+        } else {
+          const errorData = await response.json()
+          showToast('error', '操作失败', errorData.error || '请重试')
+        }
+      } catch (error) {
+        console.error('撤销待办错误:', error)
+        showToast('error', '网络错误', '请检查网络连接后重试')
       }
     }
 
@@ -687,6 +999,7 @@ export default {
       isPageLoaded,
       user,
       assignments,
+      todos,
       loading,
       error,
       searchTerm,
@@ -697,6 +1010,7 @@ export default {
       soonCount,
       totalCount,
       completedCount,
+      todoCount,
       subjects,
       assignmentStatus,
       statusIcon,
@@ -708,7 +1022,15 @@ export default {
       undoCompleted,
       handleLogout,
       fetchAssignments,
-      refreshAssignments
+      refreshAssignments,
+      showAddTodoModal,
+      addingTodo,
+      newTodo,
+      closeAddTodoModal,
+      addTodo,
+      fetchTodos,
+      completeTodo,
+      uncompleteTodo
     }
   }
 }
@@ -1061,6 +1383,10 @@ export default {
   color: #27ae60;
   text-shadow: 0 2px 10px rgba(39, 174, 96, 0.3);
 }
+.stat-card.todos i { 
+  color: #9b59b6;
+  text-shadow: 0 2px 10px rgba(155, 89, 182, 0.3);
+}
 
 .stat-card h3 {
   font-size: 2.2em;
@@ -1385,6 +1711,223 @@ export default {
 
 .assignment-card.completed .card-content {
   color: #6c757d;
+}
+
+/* 浮动添加按钮 */
+.floating-add {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floating-add:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6);
+  background: linear-gradient(135deg, #5a6fd8, #6a42a0);
+}
+
+.floating-add:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+/* 弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  padding: 25px 30px 20px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.4em;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-header h3 i {
+  color: #667eea;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.close-btn:hover {
+  background: #f8f9fa;
+  color: #495057;
+  transform: rotate(90deg);
+}
+
+.modal-body {
+  padding: 25px 30px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-weight: 500;
+  font-size: 0.95em;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: #f8f9fa;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.modal-footer {
+  padding: 20px 30px 25px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modal-footer .btn {
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 100px;
+}
+
+/* 待办卡片特殊样式 */
+.assignment-card[data-type="待办"] {
+  border-left-color: #9b59b6;
+  background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(142, 68, 173, 0.05));
+}
+
+.assignment-card[data-type="待办"] .subject-tag {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+}
+
+.assignment-card[data-type="待办"]:hover {
+  box-shadow: 0 20px 40px rgba(155, 89, 182, 0.15);
+}
+
+/* 优先级指示器 */
+.priority-indicator {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.priority-indicator.high {
+  background: #e74c3c;
+  box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+}
+
+.priority-indicator.medium {
+  background: #f39c12;
+  box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+}
+
+.priority-indicator.low {
+  background: #27ae60;
+  box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
 }
 
 /* Toast 通知样式 */
