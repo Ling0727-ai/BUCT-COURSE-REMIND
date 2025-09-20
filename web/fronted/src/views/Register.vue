@@ -208,19 +208,7 @@
     <!-- 右侧插图区域 - 优化版本 -->
     <div class="illustration-section">
       <div class="illustration-content">
-        <!-- 顶部装饰图标 -->
-        <div class="top-decorative-icons">
-          <div class="deco-icon deco-1">
-            <i class="fas fa-cog"></i>
-          </div>
-          <div class="deco-icon deco-2">
-            <i class="fas fa-envelope"></i>
-          </div>
-          <div class="deco-icon deco-3">
-            <i class="fas fa-user"></i>
-            <i class="fas fa-chevron-down"></i>
-          </div>
-        </div>
+
 
         <!-- 主要插图 -->
         <div class="main-illustration">
@@ -1038,51 +1026,6 @@ export default {
   z-index: 10;
 }
 
-/* 顶部装饰图标 - 新增 */
-.top-decorative-icons {
-  position: absolute;
-  top: -20px;
-  right: 0;
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-
-.deco-icon {
-  width: 36px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.deco-icon:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
-}
-
-.deco-icon i {
-  font-size: 14px;
-  color: white;
-}
-
-.deco-3 {
-  position: relative;
-}
-
-.deco-3 i:last-child {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  font-size: 8px;
-}
-
 /* 主要插图优化 */
 .main-illustration {
   position: relative;
@@ -1414,21 +1357,6 @@ export default {
     min-height: auto;
   }
   
-  .top-decorative-icons {
-    top: -10px;
-    right: 10px;
-    gap: 12px;
-  }
-  
-  .deco-icon {
-    width: 32px;
-    height: 32px;
-  }
-  
-  .deco-icon i {
-    font-size: 12px;
-  }
-  
   .main-illustration {
     margin: 40px 0 32px 0;
   }
@@ -1514,10 +1442,6 @@ export default {
   .form-card {
     padding: 24px 20px;
     border-radius: 16px;
-  }
-  
-  .top-decorative-icons {
-    display: none;
   }
   
   .main-illustration {
