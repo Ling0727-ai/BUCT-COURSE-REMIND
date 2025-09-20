@@ -7,19 +7,9 @@ const getApiBaseUrl = () => {
     return ''  // 使用相对路径，通过Vite代理
   }
   
-  // 在生产环境中直接访问后端
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname
-    // 如果是localhost，使用5000端口
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:5000'
-    }
-    // 如果是其他域名，假设后端在同一域名的5000端口
-    return `http://${hostname}:5000`
-  }
-  
-  // 默认回退
-  return 'http://localhost:5000'
+  // 在生产环境中，使用相对路径通过Nginx代理
+  // Nginx已配置 location /api/ 代理到后端服务
+  return ''
 }
 
 export const API_BASE_URL = getApiBaseUrl()

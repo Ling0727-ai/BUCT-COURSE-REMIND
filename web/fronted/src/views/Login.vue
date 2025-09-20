@@ -224,8 +224,8 @@ export default {
       errorMessage.value = ''
 
       try {
-        // 调用真实的登录API
-        const response = await fetch('http://localhost:5000/api/auth/login', {
+        // 调用真实的登录API - 使用相对路径，通过Nginx代理
+        const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

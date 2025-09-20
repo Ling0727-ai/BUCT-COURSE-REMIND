@@ -6,7 +6,12 @@ import logging
 
 # Extensions
 mongo = PyMongo()
-cors = CORS(supports_credentials=True)
+cors = CORS(
+    supports_credentials=True,
+    origins=['*'],  # 在生产环境中应该设置为具体的域名
+    allow_headers=['Content-Type', 'Authorization'],
+    methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+)
 
 def create_app():
     """Application factory"""
@@ -14,6 +19,11 @@ def create_app():
     
     # Load config from config.py in the root directory
     app.config.from_object('config.Config')
+    
+    # Session配置 - 生产环境安全设置
+    app.config['SESSION_COOKIE_SECURE'] = False  # 如果使用HTTPS则设为True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     
     # Configure logging
     logging.basicConfig(level=logging.INFO)
