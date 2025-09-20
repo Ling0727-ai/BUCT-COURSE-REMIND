@@ -85,29 +85,13 @@ def logout():
 
 @auth_bp.route('/status', methods=['GET'])
 def auth_status():
-    current_app.logger.info(f"检查认证状态，session内容: {dict(session)}")
-    
     if 'user_id' in session:
-        try:
-            user = mongo.db[USERS_COLLECTION].find_one({'_id': ObjectId(session['user_id'])})
-            if user:
-                current_app.logger.info(f"用户认证成功: {user['username']}")
-                return jsonify({
-                    'authenticated': True,
-                    'user': { 
-                        'id': str(user['_id']), 
-                        'username': user['username'], 
-                        'is_admin': user.get('is_admin', False) 
-                    }
-                })
-            else:
-                current_app.logger.warning(f"用户ID {session['user_id']} 在数据库中不存在")
-                session.clear()  # 清除无效session
-        except Exception as e:
-            current_app.logger.error(f"认证状态检查异常: {str(e)}")
-            session.clear()  # 清除异常session
-    
-    current_app.logger.info("用户未认证")
+        user = mongo.db[USERS_COLLECTION].find_one({'_id': ObjectId(session['user_id'])})
+        if user:
+            return jsonify({
+                'authenticated': True,
+                'user': { 'id': str(user['_id']), 'username': user['username'], 'is_admin': user.get('is_admin', False) }
+            })
     return jsonify({'authenticated': False})
 
 def generate_verification_code(length=6):

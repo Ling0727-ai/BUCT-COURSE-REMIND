@@ -468,28 +468,17 @@ export default {
         
         if (response.ok) {
           const data = await response.json()
-          console.log('Home页面认证检查结果:', data)
           if (data.authenticated) {
             user.value = data.user
-            console.log('用户已认证，设置用户信息:', user.value)
           } else {
-            console.log('用户未认证，准备跳转到登录页')
-            // 延迟跳转，避免与路由守卫冲突
-            setTimeout(() => {
-              router.push('/login')
-            }, 100)
+            router.push('/login')
           }
         } else {
-          console.log('认证检查响应失败:', response.status)
-          setTimeout(() => {
-            router.push('/login')
-          }, 100)
+          router.push('/login')
         }
       } catch (error) {
         console.error('检查用户状态失败:', error)
-        setTimeout(() => {
-          router.push('/login')
-        }, 100)
+        router.push('/login')
       }
     }
 

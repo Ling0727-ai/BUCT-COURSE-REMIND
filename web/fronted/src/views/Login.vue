@@ -241,7 +241,6 @@ export default {
 
         if (response.ok) {
           showSuccess.value = true
-          console.log('登录成功，用户数据:', data.user)
           
           // 保存登录状态到localStorage
           const userInfo = {
@@ -253,18 +252,14 @@ export default {
           
           if (rememberMe.value) {
             localStorage.setItem('user', JSON.stringify(userInfo))
-            console.log('用户信息已保存到localStorage')
           } else {
             // 即使不记住密码，也要保存当前会话的用户信息
             sessionStorage.setItem('user', JSON.stringify(userInfo))
-            console.log('用户信息已保存到sessionStorage')
           }
           
-          // 延迟跳转，确保登录状态已保存
           setTimeout(() => {
-            console.log('准备跳转到首页')
             router.push('/')
-          }, 1000)
+          }, 800)
         } else {
           errorMessage.value = data.error || '登录失败'
           setTimeout(() => { errorMessage.value = '' }, 3000)
