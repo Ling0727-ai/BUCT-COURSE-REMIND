@@ -123,17 +123,35 @@
               </button>
               <button 
                 v-if="!assignment.completed"
-                class="btn btn-success"
+                class="btn btn-success complete-btn"
                 @click="markCompleted(assignment)"
+                :disabled="assignment.completing"
               >
-                <i class="fas fa-check"></i> 完成
+                <span v-if="!assignment.completing" class="btn-content">
+                  <i class="fas fa-check"></i> 完成
+                </span>
+                <span v-else class="btn-loading">
+                  <i class="fas fa-spinner fa-spin"></i> 处理中...
+                </span>
               </button>
-              <button 
-                v-else
-                class="btn btn-success"
-              >
-                <i class="fas fa-check"></i> 已完成
-              </button>
+              <div v-else class="completed-actions">
+                <button class="btn btn-completed">
+                  <i class="fas fa-check-circle"></i> 已完成
+                </button>
+                <button 
+                  class="btn btn-secondary undo-btn"
+                  @click="undoCompleted(assignment)"
+                  :disabled="assignment.undoing"
+                  title="撤销完成"
+                >
+                  <span v-if="!assignment.undoing">
+                    <i class="fas fa-undo"></i>
+                  </span>
+                  <span v-else>
+                    <i class="fas fa-spinner fa-spin"></i>
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -340,6 +358,10 @@ export default {
 
     // 标记完成
     const markCompleted = async (assignment) => {
+      if (assignment.completing) return
+      
+      assignment.completing = true
+      
       try {
         const response = await fetch(`/api/assignments/${assignment.id}/complete`, {
           method: 'POST',
@@ -350,17 +372,122 @@ export default {
         })
         
         if (response.ok) {
+          // 添加完成动画效果
           assignment.completed = true
+          assignment.completedAt = new Date().toISOString()
+          
+          // 保存到本地存储
+          const completedAssignments = JSON.parse(localStorage.getItem('completedAssignments') || '[]')
+          completedAssignments.push({
+            id: assignment.id,
+            completedAt: assignment.completedAt
+          })
+          localStorage.setItem('completedAssignments', JSON.stringify(completedAssignments))
+          
           filterAssignments()
+          
+          // 显示成功提示
+          showToast('success', '任务完成', `${assignment.title} 已标记为完成`)
           console.log('作业标记完成成功')
         } else {
           console.error('标记完成失败')
-          alert('标记完成失败，请重试')
+          showToast('error', '操作失败', '标记完成失败，请重试')
         }
       } catch (error) {
         console.error('标记完成错误:', error)
-        alert('网络错误，请检查连接')
+        showToast('error', '网络错误', '请检查网络连接后重试')
+      } finally {
+        assignment.completing = false
       }
+    }
+
+    // 撤销完成
+    const undoCompleted = async (assignment) => {
+      if (assignment.undoing) return
+      
+      assignment.undoing = true
+      
+      try {
+        const response = await fetch(`/api/assignments/${assignment.id}/uncomplete`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          assignment.completed = false
+          assignment.completedAt = null
+          
+          // 从本地存储中移除
+          const completedAssignments = JSON.parse(localStorage.getItem('completedAssignments') || '[]')
+          const updatedCompleted = completedAssignments.filter(item => item.id !== assignment.id)
+          localStorage.setItem('completedAssignments', JSON.stringify(updatedCompleted))
+          
+          filterAssignments()
+          
+          showToast('info', '已撤销', `${assignment.title} 已撤销完成状态`)
+          console.log('撤销完成成功')
+        } else {
+          console.error('撤销完成失败')
+          showToast('error', '操作失败', '撤销失败，请重试')
+        }
+      } catch (error) {
+        console.error('撤销完成错误:', error)
+        // 如果API失败，仍然允许本地撤销
+        assignment.completed = false
+        assignment.completedAt = null
+        
+        const completedAssignments = JSON.parse(localStorage.getItem('completedAssignments') || '[]')
+        const updatedCompleted = completedAssignments.filter(item => item.id !== assignment.id)
+        localStorage.setItem('completedAssignments', JSON.stringify(updatedCompleted))
+        
+        filterAssignments()
+        showToast('warning', '本地撤销', '网络错误，已进行本地撤销')
+      } finally {
+        assignment.undoing = false
+      }
+    }
+
+    // 显示提示消息
+    const showToast = (type, title, message) => {
+      const toast = document.createElement('div')
+      toast.className = `toast toast-${type}`
+      toast.innerHTML = `
+        <div class="toast-icon">
+          <i class="fas ${getToastIcon(type)}"></i>
+        </div>
+        <div class="toast-content">
+          <div class="toast-title">${title}</div>
+          <div class="toast-message">${message}</div>
+        </div>
+      `
+      
+      document.body.appendChild(toast)
+      
+      // 显示动画
+      setTimeout(() => toast.classList.add('show'), 100)
+      
+      // 自动移除
+      setTimeout(() => {
+        toast.classList.remove('show')
+        setTimeout(() => {
+          if (document.body.contains(toast)) {
+            document.body.removeChild(toast)
+          }
+        }, 300)
+      }, 3000)
+    }
+
+    const getToastIcon = (type) => {
+      const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-exclamation-circle',
+        warning: 'fa-exclamation-triangle',
+        info: 'fa-info-circle'
+      }
+      return icons[type] || 'fa-info-circle'
     }
 
     // 获取作业数据
@@ -390,6 +517,10 @@ export default {
           
           if (dataArray.length > 0) {
             // 转换后端统一格式为前端期望格式
+            // 获取本地存储的已完成状态
+            const completedAssignments = JSON.parse(localStorage.getItem('completedAssignments') || '[]')
+            const completedIds = new Set(completedAssignments.map(item => item.id))
+            
             assignments.value = dataArray.map((item, index) => {
               // 数据验证和默认值处理
               const safeItem = {
@@ -404,15 +535,21 @@ export default {
               
               console.log(`处理第${index}项数据:`, safeItem)
               
+              const assignmentId = `${safeItem.type}_${safeItem.subject}_${safeItem.details.task}`.replace(/\s+/g, '_')
+              const completedInfo = completedAssignments.find(comp => comp.id === assignmentId)
+              
               return {
-                id: `${safeItem.type}_${index}_${Date.now()}`, // 生成更唯一的ID
+                id: assignmentId,
                 subject: safeItem.subject,
                 title: safeItem.details.task,
                 content: `${safeItem.subject} - ${safeItem.details.task}`,
                 dueDate: safeItem.details.deadline,
                 type: safeItem.type === 'homework' ? '作业' : '测试',
-                completed: false,
-                url: safeItem.details.url
+                completed: completedIds.has(assignmentId),
+                completedAt: completedInfo?.completedAt || null,
+                url: safeItem.details.url,
+                completing: false,
+                undoing: false
               }
             }).filter(assignment => !assignment.subject.includes('英语'))
             
@@ -565,6 +702,7 @@ export default {
       openAssignmentUrl,
       setReminder,
       markCompleted,
+      undoCompleted,
       handleLogout,
       fetchAssignments,
       refreshAssignments
@@ -1131,6 +1269,203 @@ export default {
   background: linear-gradient(135deg, #219a52, #27ae60);
   transform: translateY(-3px);
   box-shadow: 0 8px 25px rgba(39, 174, 96, 0.4);
+}
+
+/* 完成按钮特殊样式 */
+.complete-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.complete-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 已完成状态样式 */
+.completed-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-completed {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-completed::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #6c757d, #495057);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  padding: 8px 12px;
+  min-width: auto;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6268, #3d4043);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.undo-btn {
+  transition: all 0.3s ease;
+}
+
+.undo-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  color: white;
+}
+
+/* 已完成卡片的特殊样式 */
+.assignment-card.completed {
+  position: relative;
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.05), rgba(46, 204, 113, 0.05));
+  border-left-color: #27ae60;
+  opacity: 0.9;
+}
+
+.assignment-card.completed::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, transparent, rgba(39, 174, 96, 0.1));
+  pointer-events: none;
+}
+
+.assignment-card.completed .card-title {
+  color: #27ae60;
+  text-decoration: line-through;
+  text-decoration-color: rgba(39, 174, 96, 0.5);
+}
+
+.assignment-card.completed .card-content {
+  color: #6c757d;
+}
+
+/* Toast 通知样式 */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  max-width: 400px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  z-index: 1000;
+  transform: translateX(100%);
+  opacity: 0;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  gap: 12px;
+}
+
+.toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-success {
+  border-left: 4px solid #10b981;
+}
+
+.toast-error {
+  border-left: 4px solid #ef4444;
+}
+
+.toast-warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.toast-info {
+  border-left: 4px solid #3b82f6;
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast-success .toast-icon {
+  color: #10b981;
+}
+
+.toast-error .toast-icon {
+  color: #ef4444;
+}
+
+.toast-warning .toast-icon {
+  color: #f59e0b;
+}
+
+.toast-info .toast-icon {
+  color: #3b82f6;
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.toast-message {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.4;
 }
 
 
