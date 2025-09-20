@@ -368,30 +368,29 @@ export default {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify({
+            title: assignment.title,
+            subject: assignment.subject
+          })
         })
         
         if (response.ok) {
-          // 添加完成动画效果
+          const result = await response.json()
+          
+          // 更新本地状态
           assignment.completed = true
           assignment.completedAt = new Date().toISOString()
-          
-          // 保存到本地存储
-          const completedAssignments = JSON.parse(localStorage.getItem('completedAssignments') || '[]')
-          completedAssignments.push({
-            id: assignment.id,
-            completedAt: assignment.completedAt
-          })
-          localStorage.setItem('completedAssignments', JSON.stringify(completedAssignments))
           
           filterAssignments()
           
           // 显示成功提示
-          showToast('success', '任务完成', `${assignment.title} 已标记为完成`)
-          console.log('作业标记完成成功')
+          showToast('success', '任务完成', `${assignment.title} 已标记为完成，12小时后自动清除`)
+          console.log('作业标记完成成功:', result)
         } else {
-          console.error('标记完成失败')
-          showToast('error', '操作失败', '标记完成失败，请重试')
+          const errorData = await response.json()
+          console.error('标记完成失败:', errorData)
+          showToast('error', '操作失败', errorData.error || '标记完成失败，请重试')
         }
       } catch (error) {
         console.error('标记完成错误:', error)
@@ -417,34 +416,24 @@ export default {
         })
         
         if (response.ok) {
+          const result = await response.json()
+          
+          // 更新本地状态
           assignment.completed = false
           assignment.completedAt = null
-          
-          // 从本地存储中移除
-          const completedAssignments = JSON.parse(localStorage.getItem('completedAssignments') || '[]')
-          const updatedCompleted = completedAssignments.filter(item => item.id !== assignment.id)
-          localStorage.setItem('completedAssignments', JSON.stringify(updatedCompleted))
           
           filterAssignments()
           
           showToast('info', '已撤销', `${assignment.title} 已撤销完成状态`)
-          console.log('撤销完成成功')
+          console.log('撤销完成成功:', result)
         } else {
-          console.error('撤销完成失败')
-          showToast('error', '操作失败', '撤销失败，请重试')
+          const errorData = await response.json()
+          console.error('撤销完成失败:', errorData)
+          showToast('error', '操作失败', errorData.error || '撤销失败，请重试')
         }
       } catch (error) {
         console.error('撤销完成错误:', error)
-        // 如果API失败，仍然允许本地撤销
-        assignment.completed = false
-        assignment.completedAt = null
-        
-        const completedAssignments = JSON.parse(localStorage.getItem('completedAssignments') || '[]')
-        const updatedCompleted = completedAssignments.filter(item => item.id !== assignment.id)
-        localStorage.setItem('completedAssignments', JSON.stringify(updatedCompleted))
-        
-        filterAssignments()
-        showToast('warning', '本地撤销', '网络错误，已进行本地撤销')
+        showToast('error', '网络错误', '请检查网络连接后重试')
       } finally {
         assignment.undoing = false
       }
@@ -517,9 +506,24 @@ export default {
           
           if (dataArray.length > 0) {
             // 转换后端统一格式为前端期望格式
-            // 获取本地存储的已完成状态
-            const completedAssignments = JSON.parse(localStorage.getItem('completedAssignments') || '[]')
-            const completedIds = new Set(completedAssignments.map(item => item.id))
+            // 获取数据库中的已完成状态
+            let completedIds = new Set()
+            try {
+              const completedResponse = await fetch('/api/assignments/completed', {
+                method: 'GET',
+                credentials: 'include'
+              })
+              
+              if (completedResponse.ok) {
+                const completedData = await completedResponse.json()
+                completedIds = new Set(completedData.completed_assignments || [])
+                console.log('获取已完成作业列表成功:', completedData.completed_assignments)
+              } else {
+                console.warn('获取已完成作业列表失败，使用空列表')
+              }
+            } catch (error) {
+              console.error('获取已完成作业列表错误:', error)
+            }
             
             assignments.value = dataArray.map((item, index) => {
               // 数据验证和默认值处理
@@ -536,7 +540,6 @@ export default {
               console.log(`处理第${index}项数据:`, safeItem)
               
               const assignmentId = `${safeItem.type}_${safeItem.subject}_${safeItem.details.task}`.replace(/\s+/g, '_')
-              const completedInfo = completedAssignments.find(comp => comp.id === assignmentId)
               
               return {
                 id: assignmentId,
@@ -546,7 +549,7 @@ export default {
                 dueDate: safeItem.details.deadline,
                 type: safeItem.type === 'homework' ? '作业' : '测试',
                 completed: completedIds.has(assignmentId),
-                completedAt: completedInfo?.completedAt || null,
+                completedAt: completedIds.has(assignmentId) ? new Date().toISOString() : null,
                 url: safeItem.details.url,
                 completing: false,
                 undoing: false

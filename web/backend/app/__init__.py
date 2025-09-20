@@ -34,7 +34,7 @@ def create_app():
 
     with app.app_context():
         # Import and register blueprints
-        from . import auth, assignments, webhooks, settings, utils, test_routes, health
+        from . import auth, assignments, webhooks, settings, utils, test_routes, health, admin
         
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(assignments.assignments_bp)
@@ -43,5 +43,11 @@ def create_app():
         app.register_blueprint(utils.utils_bp)
         app.register_blueprint(test_routes.test_bp)
         app.register_blueprint(health.health_bp)
+        app.register_blueprint(admin.admin_bp)
+        
+        # Initialize cleanup tasks
+        from .cleanup_tasks import init_cleanup_tasks
+        init_cleanup_tasks(app)
+        app.logger.info("清理任务已初始化")
 
     return app

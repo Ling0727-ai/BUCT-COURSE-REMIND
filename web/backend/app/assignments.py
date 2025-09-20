@@ -247,60 +247,102 @@ def get_assignments_detailed():
 def mark_assignment_completed(assignment_id):
     """标记作业为已完成"""
     try:
-        from bson import ObjectId
-        from datetime import datetime
+        from .model import CompletedAssignment
+        from flask import request
         
-        # 由于现在使用实时查询，标记完成功能暂时禁用
-        # 实时数据不保存到数据库，无法持久化完成状态
-        return jsonify({'message': '实时查询模式下暂不支持标记完成', 'success': False}), 501
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': '用户未登录', 'success': False}), 401
         
-        # 检查是否是测试类型的作业
-        if assignment_id.startswith('test_'):
-            # 处理测试类型
-            test_id = assignment_id.replace('test_', '')
-            result = mongo.db[TESTS_COLLECTION].update_one(
-                {'_id': ObjectId(test_id)},
-                {'$set': {'completed': True, 'completed_at': datetime.utcnow()}}
-            )
-        else:
-            # 处理普通作业
-            result = mongo.db[ASSIGNMENTS_COLLECTION].update_one(
-                {'_id': ObjectId(assignment_id)},
-                {'$set': {'completed': True, 'completed_at': datetime.utcnow()}}
-            )
+        # 获取请求数据
+        data = request.get_json() or {}
+        assignment_title = data.get('title', '未知作业')
+        assignment_subject = data.get('subject', '未知科目')
         
-        if result.matched_count > 0:
-            current_app.logger.info(f"作业 {assignment_id} 标记为已完成")
-            return jsonify({'message': '作业已标记为完成', 'success': True})
-        else:
-            return jsonify({'error': '作业不存在', 'success': False}), 404
+        # 创建完成记录模型实例
+        completed_model = CompletedAssignment(mongo.db)
+        
+        # 标记为已完成
+        result = completed_model.mark_completed(
+            user_id=user_id,
+            assignment_id=assignment_id,
+            assignment_title=assignment_title,
+            assignment_subject=assignment_subject
+        )
+        
+        current_app.logger.info(f"用户 {user_id} 标记作业 {assignment_id} 为已完成")
+        return jsonify({
+            'message': '作业已标记为完成',
+            'success': True,
+            'assignment_id': assignment_id,
+            'expires_in_hours': 12
+        })
             
     except Exception as e:
         current_app.logger.error(f"标记作业完成失败: {str(e)}")
         return jsonify({'error': '标记完成失败', 'details': str(e), 'success': False}), 500
 
-@assignments_bp.route('/mark-completed', methods=['POST'])
+@assignments_bp.route('/<assignment_id>/uncomplete', methods=['POST'])
 @login_required
-def mark_completed():
-    """新的标记完成接口 - 支持JSON请求体"""
+def unmark_assignment_completed(assignment_id):
+    """取消作业完成标记"""
     try:
-        from flask import request
-        from bson import ObjectId
-        from datetime import datetime
+        from .model import CompletedAssignment
         
-        data = request.get_json()
-        if not data or 'id' not in data:
-            return jsonify({'error': '缺少作业ID', 'success': False}), 400
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': '用户未登录', 'success': False}), 401
         
-        assignment_id = data['id']
+        # 创建完成记录模型实例
+        completed_model = CompletedAssignment(mongo.db)
         
-        # 由于现在使用实时查询，标记完成功能暂时禁用
-        # 实时数据不保存到数据库，无法持久化完成状态
-        return jsonify({'message': '实时查询模式下暂不支持标记完成', 'success': False}), 501
+        # 取消完成标记
+        result = completed_model.unmark_completed(user_id, assignment_id)
+        
+        if result.deleted_count > 0:
+            current_app.logger.info(f"用户 {user_id} 取消作业 {assignment_id} 的完成标记")
+            return jsonify({
+                'message': '已取消完成标记',
+                'success': True,
+                'assignment_id': assignment_id
+            })
+        else:
+            return jsonify({
+                'message': '该作业未标记为完成',
+                'success': False,
+                'assignment_id': assignment_id
+            }), 404
             
     except Exception as e:
-        current_app.logger.error(f"标记作业完成失败: {str(e)}")
-        return jsonify({'error': '标记完成失败', 'details': str(e), 'success': False}), 500
+        current_app.logger.error(f"取消完成标记失败: {str(e)}")
+        return jsonify({'error': '取消完成标记失败', 'details': str(e), 'success': False}), 500
+
+@assignments_bp.route('/completed', methods=['GET'])
+@login_required
+def get_completed_assignments():
+    """获取用户的已完成作业列表"""
+    try:
+        from .model import CompletedAssignment
+        
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': '用户未登录', 'success': False}), 401
+        
+        # 创建完成记录模型实例
+        completed_model = CompletedAssignment(mongo.db)
+        
+        # 获取已完成作业列表
+        completed_ids = completed_model.get_user_completed(user_id)
+        
+        return jsonify({
+            'success': True,
+            'completed_assignments': completed_ids,
+            'count': len(completed_ids)
+        })
+            
+    except Exception as e:
+        current_app.logger.error(f"获取已完成作业列表失败: {str(e)}")
+        return jsonify({'error': '获取已完成作业列表失败', 'details': str(e), 'success': False}), 500
 
 def scrape_assignments_job():
     """定时任务：使用增强版爬虫抓取作业数据"""

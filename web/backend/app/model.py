@@ -168,3 +168,91 @@ class User:
     "created_at": ISODate("...")           // DateTime, 日志创建时间
 }
 """
+
+# ==============================================================================
+# 7. completed_assignments (已完成作业记录)
+# ==============================================================================
+"""
+存储用户标记为已完成的作业记录，12小时后自动清除。
+
+{
+    "_id": ObjectId("..."),
+    "user_id": ObjectId("..."),            // ObjectId, 用户ID
+    "assignment_id": "homework_math_123",  // String, 作业唯一标识
+    "assignment_title": "数学作业第一章", // String, 作业标题
+    "assignment_subject": "高等数学",      // String, 作业科目
+    "completed_at": ISODate("..."),        // DateTime, 完成时间
+    "expires_at": ISODate("...")           // DateTime, 过期时间 (完成时间 + 12小时)
+}
+"""
+
+class CompletedAssignment:
+    """已完成作业模型类"""
+    
+    def __init__(self, mongo_db):
+        self.db = mongo_db
+        self.collection = 'completed_assignments'
+        # 创建过期时间索引，MongoDB会自动删除过期文档
+        self.db[self.collection].create_index("expires_at", expireAfterSeconds=0)
+    
+    def mark_completed(self, user_id, assignment_id, assignment_title, assignment_subject):
+        """标记作业为已完成"""
+        from datetime import datetime, timedelta
+        
+        completed_at = datetime.utcnow()
+        expires_at = completed_at + timedelta(hours=12)  # 12小时后过期
+        
+        # 使用 upsert 避免重复记录
+        result = self.db[self.collection].update_one(
+            {
+                'user_id': ObjectId(user_id),
+                'assignment_id': assignment_id
+            },
+            {
+                '$set': {
+                    'user_id': ObjectId(user_id),
+                    'assignment_id': assignment_id,
+                    'assignment_title': assignment_title,
+                    'assignment_subject': assignment_subject,
+                    'completed_at': completed_at,
+                    'expires_at': expires_at
+                }
+            },
+            upsert=True
+        )
+        
+        return result
+    
+    def unmark_completed(self, user_id, assignment_id):
+        """取消完成标记"""
+        result = self.db[self.collection].delete_one({
+            'user_id': ObjectId(user_id),
+            'assignment_id': assignment_id
+        })
+        return result
+    
+    def get_user_completed(self, user_id):
+        """获取用户的所有已完成作业"""
+        completed_assignments = list(self.db[self.collection].find({
+            'user_id': ObjectId(user_id)
+        }))
+        
+        # 返回assignment_id列表，方便前端使用
+        return [item['assignment_id'] for item in completed_assignments]
+    
+    def is_completed(self, user_id, assignment_id):
+        """检查作业是否已完成"""
+        result = self.db[self.collection].find_one({
+            'user_id': ObjectId(user_id),
+            'assignment_id': assignment_id
+        })
+        return result is not None
+    
+    def cleanup_expired(self):
+        """手动清理过期记录（MongoDB TTL索引会自动处理，这个方法作为备用）"""
+        from datetime import datetime
+        
+        result = self.db[self.collection].delete_many({
+            'expires_at': {'$lt': datetime.utcnow()}
+        })
+        return result.deleted_count
