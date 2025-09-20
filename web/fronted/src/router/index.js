@@ -38,7 +38,7 @@ router.beforeEach(async (to, from, next) => {
   if (to.matched.some(record => record.meta.requiresAuth)) {
     try {
       // 检查是否已登录
-      const response = await fetch('http://localhost:5000/api/auth/status', {
+      const response = await fetch('/api/auth/status', {
         method: 'GET',
         credentials: 'include' // 包含cookies以支持session
       })
@@ -61,7 +61,7 @@ router.beforeEach(async (to, from, next) => {
     // 如果用户已登录且访问登录/注册页面，重定向到首页
     if (to.path === '/login' || to.path === '/register') {
       try {
-        const response = await fetch('http://localhost:5000/api/auth/status', {
+        const response = await fetch('/api/auth/status', {
           method: 'GET',
           credentials: 'include'
         })

@@ -341,7 +341,7 @@ export default {
     // 标记完成
     const markCompleted = async (assignment) => {
       try {
-        const response = await fetch(`http://localhost:5000/api/assignments/${assignment.id}/complete`, {
+        const response = await fetch(`/api/assignments/${assignment.id}/complete`, {
           method: 'POST',
           credentials: 'include',
           headers: {
@@ -369,7 +369,7 @@ export default {
       error.value = ''
       
       try {
-        const response = await fetch('http://localhost:5000/api/assignments/standard', {
+        const response = await fetch('/api/assignments/standard', {
           method: 'GET',
           credentials: 'include'
         })
@@ -439,7 +439,7 @@ export default {
     const refreshAssignments = async () => {
       try {
         loading.value = true
-        const response = await fetch('http://localhost:5000/api/assignments/refresh', {
+        const response = await fetch('/api/assignments/refresh', {
           method: 'POST',
           credentials: 'include'
         })
@@ -461,7 +461,7 @@ export default {
     // 检查用户登录状态
     const checkUserStatus = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/auth/status', {
+        const response = await fetch('/api/auth/status', {
           method: 'GET',
           credentials: 'include'
         })
@@ -485,7 +485,7 @@ export default {
     // 登出功能
     const handleLogout = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/auth/logout', {
+        const response = await fetch('/api/auth/logout', {
           method: 'POST',
           credentials: 'include'
         })

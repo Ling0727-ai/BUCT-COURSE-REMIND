@@ -356,7 +356,7 @@ export default {
       }
 
       try {
-        const response = await fetch('http://localhost:5000/api/auth/send-verification-code', {
+        const response = await fetch('/api/auth/send-verification-code', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -453,7 +453,7 @@ export default {
 
       try {
         // 先验证验证码
-        const verifyResponse = await fetch('http://localhost:5000/api/auth/verify-code', {
+        const verifyResponse = await fetch('/api/auth/verify-code', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -472,7 +472,7 @@ export default {
         }
 
         // 注册用户
-        const response = await fetch('http://localhost:5000/api/auth/register', {
+        const response = await fetch('/api/auth/register', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
