@@ -69,37 +69,6 @@
           <h3>{{ completedCount }}</h3>
           <p>已完成</p>
         </div>
-        <div class="stat-card todo">
-          <i class="fas fa-clipboard-list"></i>
-          <h3>{{ todoCount }}</h3>
-          <p>待办事项</p>
-        </div>
-      </div>
-
-      <!-- 待办事项快速添加 -->
-      <div class="quick-todo-section">
-        <div class="quick-todo-form">
-          <input 
-            v-model="newTodo.title" 
-            type="text" 
-            placeholder="快速添加待办事项..."
-            @keyup.enter="addTodo"
-            class="quick-todo-input"
-          >
-          <select v-model="newTodo.priority" class="quick-priority-select">
-            <option value="low">低</option>
-            <option value="medium">中</option>
-            <option value="high">高</option>
-          </select>
-          <button @click="addTodo" class="quick-add-btn" :disabled="!newTodo.title.trim() || todoLoading">
-            <span v-if="!todoLoading">
-              <i class="fas fa-plus"></i> 添加
-            </span>
-            <span v-else>
-              <i class="fas fa-spinner fa-spin"></i>
-            </span>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -187,72 +156,6 @@
           </div>
         </div>
       </div>
-
-      <!-- 待办事项列表 -->
-      <div v-if="todos.length > 0" class="todo-section">
-        <div class="section-header">
-          <h3><i class="fas fa-clipboard-list"></i> 我的待办事项</h3>
-        </div>
-        
-        <div class="todo-list">
-          <div 
-            v-for="todo in todos" 
-            :key="todo._id"
-            class="todo-item"
-            :class="{ 'completed': todo.completed, [`priority-${todo.priority}`]: true }"
-          >
-            <div class="todo-content">
-              <button 
-                v-if="!todo.completed"
-                @click="completeTodo(todo._id)" 
-                class="complete-btn"
-                :disabled="todo.completing"
-              >
-                <span v-if="!todo.completing">
-                  <i class="fas fa-check"></i>
-                </span>
-                <span v-else>
-                  <i class="fas fa-spinner fa-spin"></i>
-                </span>
-              </button>
-              <div v-else class="completed-todo-actions">
-                <button class="btn btn-completed-todo">
-                  <i class="fas fa-check-circle"></i> 已完成
-                </button>
-                <button 
-                  class="btn btn-secondary undo-todo-btn"
-                  @click="undoCompleteTodo(todo._id)"
-                  :disabled="todo.undoing"
-                  title="撤销完成"
-                >
-                  <span v-if="!todo.undoing">
-                    <i class="fas fa-undo"></i>
-                  </span>
-                  <span v-else>
-                    <i class="fas fa-spinner fa-spin"></i>
-                  </span>
-                </button>
-              </div>
-              <span class="todo-title" :class="{ 'completed': todo.completed }">
-                {{ todo.title }}
-              </span>
-              <span class="priority-badge" :class="`priority-${todo.priority}`">
-                {{ getPriorityText(todo.priority) }}
-              </span>
-            </div>
-            <div class="todo-actions">
-              <span class="todo-date">{{ formatTodoDate(todo.created_at) }}</span>
-              <button 
-                v-if="!todo.completed"
-                @click="deleteTodo(todo._id)" 
-                class="delete-btn"
-              >
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -298,14 +201,6 @@ export default {
     const statusFilter = ref('')
     const filteredAssignments = ref([])
 
-    // 待办相关数据
-    const todos = ref([])
-    const newTodo = ref({
-      title: '',
-      priority: 'medium'
-    })
-    const todoLoading = ref(false)
-
     // 计算统计信息
     const urgentCount = computed(() => 
       assignments.value.filter(a => assignmentStatus(a) === 'urgent').length
@@ -319,10 +214,6 @@ export default {
 
     const completedCount = computed(() => 
       assignments.value.filter(a => a.completed).length
-    )
-
-    const todoCount = computed(() => 
-      todos.value.filter(t => !t.completed).length
     )
 
     const subjects = computed(() => {
@@ -611,30 +502,29 @@ export default {
             dataArray = result.data
           } else if (result.success && result.data && Array.isArray(result.data)) {
             dataArray = result.data
-          } else if (Array.isArray(result)) {
-            dataArray = result
-          }
-          
-          // 获取数据库中的已完成状态
-          let completedIds = new Set()
-          try {
-            const completedResponse = await fetch('/api/assignments/completed', {
-              method: 'GET',
-              credentials: 'include'
-            })
-            
-            if (completedResponse.ok) {
-              const completedData = await completedResponse.json()
-              completedIds = new Set(completedData.completed_assignments || [])
-              console.log('获取已完成作业列表成功:', completedData.completed_assignments)
-            } else {
-              console.warn('获取已完成作业列表失败，使用空列表')
-            }
-          } catch (error) {
-            console.error('获取已完成作业列表错误:', error)
           }
           
           if (dataArray.length > 0) {
+            // 转换后端统一格式为前端期望格式
+            // 获取数据库中的已完成状态
+            let completedIds = new Set()
+            try {
+              const completedResponse = await fetch('/api/assignments/completed', {
+                method: 'GET',
+                credentials: 'include'
+              })
+              
+              if (completedResponse.ok) {
+                const completedData = await completedResponse.json()
+                completedIds = new Set(completedData.completed_assignments || [])
+                console.log('获取已完成作业列表成功:', completedData.completed_assignments)
+              } else {
+                console.warn('获取已完成作业列表失败，使用空列表')
+              }
+            } catch (error) {
+              console.error('获取已完成作业列表错误:', error)
+            }
+            
             assignments.value = dataArray.map((item, index) => {
               // 数据验证和默认值处理
               const safeItem = {
@@ -669,21 +559,17 @@ export default {
             console.log('转换后的前端数据:', assignments.value)
             filterAssignments()
           } else {
-            // 没有数据时显示空状态，而不是错误
-            assignments.value = []
-            filteredAssignments.value = []
-            console.log('没有作业数据')
+            console.error('数据格式错误:', result)
+            error.value = result?.error || '获取作业数据失败 - 数据格式错误'
           }
         } else if (response.status === 401) {
           router.push('/login')
         } else {
-          const errorData = await response.json().catch(() => ({}))
-          error.value = errorData.error || '获取作业数据失败'
-          console.error('API错误:', response.status, errorData)
+          error.value = '获取作业数据失败'
         }
       } catch (err) {
         console.error('获取作业数据错误:', err)
-        error.value = '网络连接错误，请检查网络后重试'
+        error.value = '网络连接错误'
       } finally {
         loading.value = false
       }
@@ -710,165 +596,6 @@ export default {
       } finally {
         loading.value = false
       }
-    }
-
-    // 待办功能方法
-    const fetchTodos = async () => {
-      try {
-        const response = await fetch('/api/todos', {
-          method: 'GET',
-          credentials: 'include'
-        })
-        
-        if (response.ok) {
-          const result = await response.json()
-          todos.value = result.todos || []
-        } else {
-          console.error('获取待办列表失败')
-        }
-      } catch (error) {
-        console.error('获取待办列表错误:', error)
-      }
-    }
-
-    const addTodo = async () => {
-      if (!newTodo.value.title.trim()) return
-      
-      todoLoading.value = true
-      
-      try {
-        const response = await fetch('/api/todos', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            title: newTodo.value.title.trim(),
-            priority: newTodo.value.priority
-          })
-        })
-        
-        if (response.ok) {
-          const result = await response.json()
-          todos.value.push(result.todo)
-          newTodo.value.title = ''
-          newTodo.value.priority = 'medium'
-          showToast('success', '添加成功', '待办事项已添加')
-        } else {
-          const errorData = await response.json()
-          showToast('error', '添加失败', errorData.error || '请重试')
-        }
-      } catch (error) {
-        console.error('添加待办错误:', error)
-        showToast('error', '网络错误', '请检查网络连接')
-      } finally {
-        todoLoading.value = false
-      }
-    }
-
-    const completeTodo = async (todoId) => {
-      const todo = todos.value.find(t => t._id === todoId)
-      if (!todo || todo.completing) return
-      
-      todo.completing = true
-      
-      try {
-        const response = await fetch(`/api/todos/${todoId}/complete`, {
-          method: 'POST',
-          credentials: 'include'
-        })
-        
-        if (response.ok) {
-          const result = await response.json()
-          
-          // 更新本地状态为已完成
-          todo.completed = true
-          todo.completedAt = new Date().toISOString()
-          
-          showToast('success', '任务完成', `${todo.title} 已标记为完成，12小时后自动清除`)
-        } else {
-          const errorData = await response.json()
-          showToast('error', '操作失败', errorData.error || '请重试')
-        }
-      } catch (error) {
-        console.error('完成待办错误:', error)
-        showToast('error', '网络错误', '请检查网络连接')
-      } finally {
-        todo.completing = false
-      }
-    }
-
-    const undoCompleteTodo = async (todoId) => {
-      const todo = todos.value.find(t => t._id === todoId)
-      if (!todo || todo.undoing) return
-      
-      todo.undoing = true
-      
-      try {
-        const response = await fetch(`/api/todos/${todoId}/uncomplete`, {
-          method: 'POST',
-          credentials: 'include'
-        })
-        
-        if (response.ok) {
-          const result = await response.json()
-          
-          // 更新本地状态为未完成
-          todo.completed = false
-          todo.completedAt = null
-          
-          showToast('info', '已撤销', `${todo.title} 已撤销完成状态`)
-        } else {
-          const errorData = await response.json()
-          showToast('error', '操作失败', errorData.error || '撤销失败，请重试')
-        }
-      } catch (error) {
-        console.error('撤销待办完成错误:', error)
-        showToast('error', '网络错误', '请检查网络连接')
-      } finally {
-        todo.undoing = false
-      }
-    }
-
-    const deleteTodo = async (todoId) => {
-      try {
-        const response = await fetch(`/api/todos/${todoId}`, {
-          method: 'DELETE',
-          credentials: 'include'
-        })
-        
-        if (response.ok) {
-          todos.value = todos.value.filter(todo => todo._id !== todoId)
-          showToast('info', '已删除', '待办事项已删除')
-        } else {
-          const errorData = await response.json()
-          showToast('error', '删除失败', errorData.error || '请重试')
-        }
-      } catch (error) {
-        console.error('删除待办错误:', error)
-        showToast('error', '网络错误', '请检查网络连接')
-      }
-    }
-
-    const getPriorityText = (priority) => {
-      const priorityMap = {
-        low: '低',
-        medium: '中',
-        high: '高'
-      }
-      return priorityMap[priority] || '中'
-    }
-
-    const formatTodoDate = (dateString) => {
-      if (!dateString) return ''
-      const date = new Date(dateString)
-      return date.toLocaleDateString('zh-CN', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
     }
 
     // 检查用户登录状态
@@ -927,9 +654,8 @@ export default {
       // 检查用户登录状态
       await checkUserStatus()
       
-      // 获取作业数据和待办数据
+      // 获取作业数据
       await fetchAssignments()
-      await fetchTodos()
       
       updateTime()
       timeInterval = setInterval(updateTime, 1000)
@@ -947,7 +673,6 @@ export default {
       // 每5分钟自动刷新一次数据
       setInterval(() => {
         fetchAssignments()
-        fetchTodos()
       }, 300000)
     })
     
@@ -972,7 +697,6 @@ export default {
       soonCount,
       totalCount,
       completedCount,
-      todoCount,
       subjects,
       assignmentStatus,
       statusIcon,
@@ -984,17 +708,7 @@ export default {
       undoCompleted,
       handleLogout,
       fetchAssignments,
-      refreshAssignments,
-      // 待办相关
-      todos,
-      newTodo,
-      todoLoading,
-      addTodo,
-      completeTodo,
-      undoCompleteTodo,
-      deleteTodo,
-      getPriorityText,
-      formatTodoDate
+      refreshAssignments
     }
   }
 }
@@ -1237,85 +951,6 @@ export default {
   border-bottom: 1px solid #e9ecef;
 }
 
-/* 快速待办添加区域 */
-.quick-todo-section {
-  padding: 20px 40px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid #e9ecef;
-}
-
-.quick-todo-form {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.quick-todo-input {
-  flex: 1;
-  padding: 12px 20px;
-  border: 2px solid #e1e5e9;
-  border-radius: 25px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  background: white;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.quick-todo-input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 15px rgba(102, 126, 234, 0.2);
-}
-
-.quick-priority-select {
-  padding: 12px 18px;
-  border: 2px solid #e1e5e9;
-  border-radius: 25px;
-  font-size: 14px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 80px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.quick-priority-select:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.quick-add-btn {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 25px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-}
-
-.quick-add-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5a6fd8, #6a42a0);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-}
-
-.quick-add-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
 .controls-row {
   display: flex;
   gap: 20px;
@@ -1425,10 +1060,6 @@ export default {
 .stat-card.completed i { 
   color: #27ae60;
   text-shadow: 0 2px 10px rgba(39, 174, 96, 0.3);
-}
-.stat-card.todo i { 
-  color: #667eea;
-  text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
 }
 
 .stat-card h3 {
@@ -1935,21 +1566,6 @@ export default {
     font-size: 1.8em;
   }
 
-  .quick-todo-section {
-    padding: 15px 20px;
-  }
-
-  .quick-todo-form {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .quick-todo-input,
-  .quick-priority-select,
-  .quick-add-btn {
-    width: 100%;
-  }
-
   .main-content {
     padding: 15px 30px 30px 30px;
   }
@@ -1961,11 +1577,6 @@ export default {
 
   .assignment-card {
     padding: 22px;
-  }
-
-  .todo-section {
-    margin: 20px 15px 0 15px;
-    padding: 20px;
   }
 
   .floating-add {
@@ -2004,348 +1615,6 @@ export default {
 
   .actions {
     justify-content: center;
-  }
-}
-
-/* 待办功能样式 */
-.todo-section {
-  margin-top: 40px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  padding: 30px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.section-header {
-  margin-bottom: 25px;
-  border-bottom: 2px solid #f1f3f4;
-  padding-bottom: 15px;
-}
-
-.section-header h3 {
-  color: #2c3e50;
-  font-size: 1.4em;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-}
-
-.section-header i {
-  color: #667eea;
-}
-
-.todo-form {
-  margin-bottom: 25px;
-}
-
-.form-group {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.todo-input {
-  flex: 1;
-  min-width: 250px;
-  padding: 12px 18px;
-  border: 2px solid #e1e5e9;
-  border-radius: 25px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  background: white;
-}
-
-.todo-input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 15px rgba(102, 126, 234, 0.2);
-}
-
-.priority-select {
-  padding: 12px 18px;
-  border: 2px solid #e1e5e9;
-  border-radius: 25px;
-  font-size: 14px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 120px;
-}
-
-.priority-select:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.add-btn {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 25px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-
-.add-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5a6fd8, #6a42a0);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-}
-
-.add-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.todo-list {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.todo-item {
-  background: white;
-  border: 1px solid #e1e5e9;
-  border-radius: 12px;
-  padding: 18px;
-  margin-bottom: 12px;
-  transition: all 0.3s ease;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 15px;
-}
-
-.todo-item:hover {
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-}
-
-.todo-item.completed {
-  opacity: 0.7;
-  background: #f8f9fa;
-}
-
-.todo-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-
-.complete-btn {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #ddd;
-  border-radius: 50%;
-  background: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  font-size: 12px;
-  color: transparent;
-}
-
-.complete-btn:hover {
-  border-color: #27ae60;
-  background: #27ae60;
-  color: white;
-}
-
-.complete-btn.completed {
-  border-color: #27ae60;
-  background: #27ae60;
-  color: white;
-}
-
-.completed-todo-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.btn-completed-todo {
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
-  cursor: default;
-  position: relative;
-  overflow: hidden;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.btn-completed-todo::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  animation: shimmer 2s infinite;
-}
-
-.undo-todo-btn {
-  background: linear-gradient(135deg, #6c757d, #495057);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.undo-todo-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5a6268, #3d4043);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
-}
-
-.undo-todo-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-.todo-title {
-  font-size: 14px;
-  color: #2c3e50;
-  font-weight: 500;
-  flex: 1;
-}
-
-.todo-title.completed {
-  text-decoration: line-through;
-  color: #6c757d;
-}
-
-.priority-badge {
-  padding: 4px 12px;
-  border-radius: 15px;
-  font-size: 12px;
-  font-weight: 500;
-  text-align: center;
-}
-
-.priority-badge.priority-low {
-  background: #e8f5e8;
-  color: #27ae60;
-}
-
-.priority-badge.priority-medium {
-  background: #fff3cd;
-  color: #f39c12;
-}
-
-.priority-badge.priority-high {
-  background: #f8d7da;
-  color: #e74c3c;
-}
-
-.todo-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.todo-date {
-  font-size: 12px;
-  color: #6c757d;
-  white-space: nowrap;
-}
-
-.delete-btn {
-  background: #dc3545;
-  color: white;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.delete-btn:hover {
-  background: #c82333;
-  transform: translateY(-1px);
-}
-
-.todo-list .empty-state {
-  background: #f8f9fa;
-  color: #6c757d;
-  padding: 40px 20px;
-  border-radius: 12px;
-  border: 2px dashed #dee2e6;
-}
-
-.todo-list .empty-state i {
-  font-size: 2.5em;
-  margin-bottom: 15px;
-  color: #adb5bd;
-}
-
-.todo-list .empty-state p {
-  margin: 0;
-  font-size: 14px;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .todo-section {
-    margin: 20px 15px 0 15px;
-    padding: 20px;
-  }
-  
-  .form-group {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .todo-input,
-  .priority-select,
-  .add-btn {
-    width: 100%;
-    min-width: auto;
-  }
-  
-  .todo-item {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .todo-actions {
-    justify-content: space-between;
   }
 }
 </style>
