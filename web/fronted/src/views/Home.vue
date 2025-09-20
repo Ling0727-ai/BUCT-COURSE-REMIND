@@ -2042,7 +2042,7 @@ export default {
 /* 待办卡片特殊样式 */
 .assignment-card[data-type="待办"] {
   border-left-color: #9b59b6;
-  background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(142, 68, 173, 0.08));
+  background: white;
 }
 
 .assignment-card[data-type="待办"] .card-title {
