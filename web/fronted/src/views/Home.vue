@@ -985,7 +985,7 @@ export default {
 
     const fetchTodos = async () => {
       try {
-        const response = await fetch('/api/todos/', {
+        const response = await fetch('/api/todos/?include_completed=true', {
           method: 'GET',
           credentials: 'include'
         })

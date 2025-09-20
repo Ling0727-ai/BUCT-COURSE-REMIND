@@ -216,7 +216,7 @@ class Todo:
         result = self.db[self.collection].insert_one(todo_data)
         return result.inserted_id
     
-    def get_user_todos(self, user_id, include_completed=False):
+    def get_user_todos(self, user_id, include_completed=True):
         """获取用户的待办事项列表"""
         query = {'user_id': ObjectId(user_id)}
         if not include_completed:
