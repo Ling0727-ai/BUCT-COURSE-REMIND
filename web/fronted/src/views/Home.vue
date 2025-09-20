@@ -145,7 +145,16 @@
                   <i class="fas fa-spinner fa-spin"></i> 处理中...
                 </span>
               </button>
-              <div v-else class="completed-actions">
+              <!-- 待办事项的删除按钮 - 无论是否完成都显示 -->
+              <button 
+                v-if="assignment.type === '待办' && !assignment.completed"
+                class="btn btn-danger delete-btn"
+                @click="deleteTodo(assignment)"
+                title="删除待办"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
+              <div v-else-if="assignment.completed" class="completed-actions">
                 <button class="btn btn-completed">
                   <i class="fas fa-check-circle"></i> 已完成
                 </button>
@@ -1779,6 +1788,23 @@ export default {
   transform: none !important;
 }
 
+.btn-danger {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  transition: all 0.3s ease;
+  min-width: auto;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #c82333, #a71e2a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
 .undo-btn {
   transition: all 0.3s ease;
 }
@@ -2016,7 +2042,22 @@ export default {
 /* 待办卡片特殊样式 */
 .assignment-card[data-type="待办"] {
   border-left-color: #9b59b6;
-  background: linear-gradient(135deg, rgba(155, 89, 182, 0.05), rgba(142, 68, 173, 0.05));
+  background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(142, 68, 173, 0.08));
+}
+
+.assignment-card[data-type="待办"] .card-title {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.assignment-card[data-type="待办"] .card-content {
+  color: #4a5568;
+}
+
+.assignment-card[data-type="待办"] .subject-tag {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+  color: white;
+  font-weight: 500;
 }
 
 .assignment-card[data-type="待办"] .subject-tag {
