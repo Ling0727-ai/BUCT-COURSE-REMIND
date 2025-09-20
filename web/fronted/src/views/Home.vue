@@ -2068,6 +2068,23 @@ export default {
   box-shadow: 0 20px 40px rgba(155, 89, 182, 0.15);
 }
 
+/* 待办事项完成时的样式 - 覆盖默认完成样式 */
+.assignment-card[data-type="待办"].completed {
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.05), rgba(46, 204, 113, 0.05));
+  border-left-color: #27ae60;
+  opacity: 0.9;
+}
+
+.assignment-card[data-type="待办"].completed .card-title {
+  color: #27ae60;
+  text-decoration: line-through;
+  text-decoration-color: rgba(39, 174, 96, 0.5);
+}
+
+.assignment-card[data-type="待办"].completed .card-content {
+  color: #6c757d;
+}
+
 /* 优先级指示器 */
 .priority-indicator {
   position: absolute;
