@@ -201,6 +201,37 @@ def complete_todo(todo_id):
         current_app.logger.error(f"完成待办事项失败: {str(e)}")
         return jsonify({'error': '完成待办事项失败', 'details': str(e), 'success': False}), 500
 
+@todos_bp.route('/<todo_id>/uncomplete', methods=['POST'])
+@login_required
+def uncomplete_todo(todo_id):
+    """撤销待办事项完成状态"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': '用户未登录', 'success': False}), 401
+        
+        # 创建待办模型实例
+        todo_model = Todo(mongo.db)
+        
+        # 撤销完成状态
+        result = todo_model.update_todo(todo_id, user_id, {
+            'completed': False,
+            'completed_at': None
+        })
+        
+        if result.matched_count > 0:
+            current_app.logger.info(f"用户 {user_id} 撤销待办事项完成状态 {todo_id}")
+            return jsonify({
+                'success': True,
+                'message': '已撤销完成状态'
+            })
+        else:
+            return jsonify({'error': '待办事项不存在', 'success': False}), 404
+        
+    except Exception as e:
+        current_app.logger.error(f"撤销待办完成状态失败: {str(e)}")
+        return jsonify({'error': '撤销完成状态失败', 'details': str(e), 'success': False}), 500
+
 @todos_bp.route('/<todo_id>', methods=['DELETE'])
 @login_required
 def delete_todo(todo_id):

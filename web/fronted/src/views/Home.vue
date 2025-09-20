@@ -69,6 +69,37 @@
           <h3>{{ completedCount }}</h3>
           <p>已完成</p>
         </div>
+        <div class="stat-card todo">
+          <i class="fas fa-clipboard-list"></i>
+          <h3>{{ todoCount }}</h3>
+          <p>待办事项</p>
+        </div>
+      </div>
+
+      <!-- 待办事项快速添加 -->
+      <div class="quick-todo-section">
+        <div class="quick-todo-form">
+          <input 
+            v-model="newTodo.title" 
+            type="text" 
+            placeholder="快速添加待办事项..."
+            @keyup.enter="addTodo"
+            class="quick-todo-input"
+          >
+          <select v-model="newTodo.priority" class="quick-priority-select">
+            <option value="low">低</option>
+            <option value="medium">中</option>
+            <option value="high">高</option>
+          </select>
+          <button @click="addTodo" class="quick-add-btn" :disabled="!newTodo.title.trim() || todoLoading">
+            <span v-if="!todoLoading">
+              <i class="fas fa-plus"></i> 添加
+            </span>
+            <span v-else>
+              <i class="fas fa-spinner fa-spin"></i>
+            </span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -157,40 +188,13 @@
         </div>
       </div>
 
-      <!-- 待办事项区域 -->
-      <div class="todo-section">
+      <!-- 待办事项列表 -->
+      <div v-if="todos.length > 0" class="todo-section">
         <div class="section-header">
-          <h3><i class="fas fa-tasks"></i> 我的待办</h3>
+          <h3><i class="fas fa-clipboard-list"></i> 我的待办事项</h3>
         </div>
         
-        <!-- 添加待办表单 -->
-        <div class="todo-form">
-          <div class="form-group">
-            <input 
-              v-model="newTodo.title" 
-              type="text" 
-              placeholder="输入待办事项..."
-              @keyup.enter="addTodo"
-              class="todo-input"
-            >
-            <select v-model="newTodo.priority" class="priority-select">
-              <option value="low">低优先级</option>
-              <option value="medium">中优先级</option>
-              <option value="high">高优先级</option>
-            </select>
-            <button @click="addTodo" class="add-btn" :disabled="!newTodo.title.trim()">
-              <i class="fas fa-plus"></i> 添加
-            </button>
-          </div>
-        </div>
-
-        <!-- 待办列表 -->
         <div class="todo-list">
-          <div v-if="todos.length === 0" class="empty-state">
-            <i class="fas fa-clipboard-list"></i>
-            <p>暂无待办事项</p>
-          </div>
-          
           <div 
             v-for="todo in todos" 
             :key="todo._id"
@@ -315,6 +319,10 @@ export default {
 
     const completedCount = computed(() => 
       assignments.value.filter(a => a.completed).length
+    )
+
+    const todoCount = computed(() => 
+      todos.value.filter(t => !t.completed).length
     )
 
     const subjects = computed(() => {
@@ -603,29 +611,30 @@ export default {
             dataArray = result.data
           } else if (result.success && result.data && Array.isArray(result.data)) {
             dataArray = result.data
+          } else if (Array.isArray(result)) {
+            dataArray = result
+          }
+          
+          // 获取数据库中的已完成状态
+          let completedIds = new Set()
+          try {
+            const completedResponse = await fetch('/api/assignments/completed', {
+              method: 'GET',
+              credentials: 'include'
+            })
+            
+            if (completedResponse.ok) {
+              const completedData = await completedResponse.json()
+              completedIds = new Set(completedData.completed_assignments || [])
+              console.log('获取已完成作业列表成功:', completedData.completed_assignments)
+            } else {
+              console.warn('获取已完成作业列表失败，使用空列表')
+            }
+          } catch (error) {
+            console.error('获取已完成作业列表错误:', error)
           }
           
           if (dataArray.length > 0) {
-            // 转换后端统一格式为前端期望格式
-            // 获取数据库中的已完成状态
-            let completedIds = new Set()
-            try {
-              const completedResponse = await fetch('/api/assignments/completed', {
-                method: 'GET',
-                credentials: 'include'
-              })
-              
-              if (completedResponse.ok) {
-                const completedData = await completedResponse.json()
-                completedIds = new Set(completedData.completed_assignments || [])
-                console.log('获取已完成作业列表成功:', completedData.completed_assignments)
-              } else {
-                console.warn('获取已完成作业列表失败，使用空列表')
-              }
-            } catch (error) {
-              console.error('获取已完成作业列表错误:', error)
-            }
-            
             assignments.value = dataArray.map((item, index) => {
               // 数据验证和默认值处理
               const safeItem = {
@@ -660,17 +669,21 @@ export default {
             console.log('转换后的前端数据:', assignments.value)
             filterAssignments()
           } else {
-            console.error('数据格式错误:', result)
-            error.value = result?.error || '获取作业数据失败 - 数据格式错误'
+            // 没有数据时显示空状态，而不是错误
+            assignments.value = []
+            filteredAssignments.value = []
+            console.log('没有作业数据')
           }
         } else if (response.status === 401) {
           router.push('/login')
         } else {
-          error.value = '获取作业数据失败'
+          const errorData = await response.json().catch(() => ({}))
+          error.value = errorData.error || '获取作业数据失败'
+          console.error('API错误:', response.status, errorData)
         }
       } catch (err) {
         console.error('获取作业数据错误:', err)
-        error.value = '网络连接错误'
+        error.value = '网络连接错误，请检查网络后重试'
       } finally {
         loading.value = false
       }
@@ -959,6 +972,7 @@ export default {
       soonCount,
       totalCount,
       completedCount,
+      todoCount,
       subjects,
       assignmentStatus,
       statusIcon,
@@ -1223,6 +1237,85 @@ export default {
   border-bottom: 1px solid #e9ecef;
 }
 
+/* 快速待办添加区域 */
+.quick-todo-section {
+  padding: 20px 40px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #e9ecef;
+}
+
+.quick-todo-form {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.quick-todo-input {
+  flex: 1;
+  padding: 12px 20px;
+  border: 2px solid #e1e5e9;
+  border-radius: 25px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.quick-todo-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 15px rgba(102, 126, 234, 0.2);
+}
+
+.quick-priority-select {
+  padding: 12px 18px;
+  border: 2px solid #e1e5e9;
+  border-radius: 25px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 80px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.quick-priority-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.quick-add-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.quick-add-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6fd8, #6a42a0);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.quick-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .controls-row {
   display: flex;
   gap: 20px;
@@ -1332,6 +1425,10 @@ export default {
 .stat-card.completed i { 
   color: #27ae60;
   text-shadow: 0 2px 10px rgba(39, 174, 96, 0.3);
+}
+.stat-card.todo i { 
+  color: #667eea;
+  text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
 }
 
 .stat-card h3 {
@@ -1838,6 +1935,21 @@ export default {
     font-size: 1.8em;
   }
 
+  .quick-todo-section {
+    padding: 15px 20px;
+  }
+
+  .quick-todo-form {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .quick-todo-input,
+  .quick-priority-select,
+  .quick-add-btn {
+    width: 100%;
+  }
+
   .main-content {
     padding: 15px 30px 30px 30px;
   }
@@ -1849,6 +1961,11 @@ export default {
 
   .assignment-card {
     padding: 22px;
+  }
+
+  .todo-section {
+    margin: 20px 15px 0 15px;
+    padding: 20px;
   }
 
   .floating-add {
