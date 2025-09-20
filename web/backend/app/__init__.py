@@ -34,9 +34,10 @@ def create_app():
 
     with app.app_context():
         # Import and register blueprints
-        from . import auth, webhooks, settings, utils, test_routes, health, admin, todos
+        from . import auth, assignments, webhooks, settings, utils, test_routes, health, admin, todos
         
         app.register_blueprint(auth.auth_bp)
+        app.register_blueprint(assignments.assignments_bp)
         app.register_blueprint(webhooks.webhooks_bp)
         app.register_blueprint(settings.settings_bp)
         app.register_blueprint(utils.utils_bp)
