@@ -205,30 +205,52 @@
       </div>
     </div>
 
-    <!-- 右侧插图区域 -->
+    <!-- 右侧插图区域 - 优化版本 -->
     <div class="illustration-section">
       <div class="illustration-content">
-        <!-- 主要图标 -->
+        <!-- 顶部装饰图标 -->
+        <div class="top-decorative-icons">
+          <div class="deco-icon deco-1">
+            <i class="fas fa-cog"></i>
+          </div>
+          <div class="deco-icon deco-2">
+            <i class="fas fa-envelope"></i>
+          </div>
+          <div class="deco-icon deco-3">
+            <i class="fas fa-user"></i>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+        </div>
+
+        <!-- 主要插图 -->
         <div class="main-illustration">
           <div class="central-icon">
-            <i class="fas fa-user-plus"></i>
+            <i class="fas fa-rocket"></i>
             <div class="pulse-ring"></div>
             <div class="pulse-ring pulse-ring-2"></div>
           </div>
           
-          <!-- 浮动功能图标 -->
-          <div class="floating-icons">
-            <div class="floating-icon icon-1">
-              <i class="fas fa-tasks"></i>
+          <!-- 重新设计的浮动功能图标 -->
+          <div class="floating-icons-grid">
+            <div class="floating-icon-item" data-tooltip="任务管理">
+              <div class="icon-wrapper">
+                <i class="fas fa-tasks"></i>
+              </div>
             </div>
-            <div class="floating-icon icon-2">
-              <i class="fas fa-bell"></i>
+            <div class="floating-icon-item" data-tooltip="智能提醒">
+              <div class="icon-wrapper">
+                <i class="fas fa-bell"></i>
+              </div>
             </div>
-            <div class="floating-icon icon-3">
-              <i class="fas fa-chart-line"></i>
+            <div class="floating-icon-item" data-tooltip="数据分析">
+              <div class="icon-wrapper">
+                <i class="fas fa-chart-line"></i>
+              </div>
             </div>
-            <div class="floating-icon icon-4">
-              <i class="fas fa-graduation-cap"></i>
+            <div class="floating-icon-item" data-tooltip="学习管理">
+              <div class="icon-wrapper">
+                <i class="fas fa-graduation-cap"></i>
+              </div>
             </div>
           </div>
         </div>
@@ -238,24 +260,34 @@
           <h3>开启学习管理之旅</h3>
           <p>注册账号，开始高效管理您的学习任务和作业进度</p>
           
+          <!-- 重新设计的功能亮点 -->
           <div class="feature-highlights">
-            <div class="feature-item">
-              <div class="feature-icon">
-                <i class="fas fa-bell"></i>
+            <div class="feature-card">
+              <div class="feature-card-icon">
+                <i class="fas fa-brain"></i>
               </div>
-              <span>智能作业提醒</span>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon">
-                <i class="fas fa-tasks"></i>
+              <div class="feature-card-content">
+                <h4>智能作业提醒</h4>
+                <p>AI驱动的智能提醒系统</p>
               </div>
-              <span>多科目管理</span>
             </div>
-            <div class="feature-item">
-              <div class="feature-icon">
+            <div class="feature-card">
+              <div class="feature-card-icon">
+                <i class="fas fa-list-alt"></i>
+              </div>
+              <div class="feature-card-content">
+                <h4>多科目管理</h4>
+                <p>统一管理所有学科任务</p>
+              </div>
+            </div>
+            <div class="feature-card">
+              <div class="feature-card-icon">
                 <i class="fas fa-chart-line"></i>
               </div>
-              <span>进度跟踪分析</span>
+              <div class="feature-card-content">
+                <h4>进度跟踪分析</h4>
+                <p>可视化学习进度报告</p>
+              </div>
             </div>
           </div>
         </div>
@@ -294,7 +326,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 export default {
-  name: 'Register',
+  name: 'RegisterOptimized',
   setup() {
     const router = useRouter()
     const formData = reactive({
@@ -350,7 +382,6 @@ export default {
         return
       }
 
-      // 防止重复点击
       if (captchaCooldown.value > 0) {
         return
       }
@@ -372,9 +403,7 @@ export default {
           captchaCooldown.value = 60
           captchaSent.value = true
           
-          // 检查是否为测试模式
           if (data.test_mode && data.verification_code) {
-            // 测试模式：显示验证码
             const testTip = document.createElement('div')
             testTip.className = 'toast success test-mode'
             testTip.innerHTML = `
@@ -408,9 +437,8 @@ export default {
               if (document.body.contains(testTip)) {
                 document.body.removeChild(testTip)
               }
-            }, 10000) // 显示10秒
+            }, 10000)
           } else {
-            // 正常模式：显示成功提示
             const successTip = document.createElement('div')
             successTip.className = 'toast success'
             successTip.innerHTML = '<i class="fas fa-check-circle"></i><span>验证码已发送到邮箱</span>'
@@ -452,7 +480,6 @@ export default {
       errorMessage.value = ''
 
       try {
-        // 先验证验证码
         const verifyResponse = await fetch('/api/auth/verify-code', {
           method: 'POST',
           headers: {
@@ -471,7 +498,6 @@ export default {
           return
         }
 
-        // 注册用户
         const response = await fetch('/api/auth/register', {
           method: 'POST',
           headers: {
@@ -490,7 +516,6 @@ export default {
 
         if (response.ok) {
           showSuccess.value = true
-          // 清空表单
           Object.keys(formData).forEach(key => {
             formData[key] = ''
           })
@@ -513,20 +538,16 @@ export default {
       }
     }
 
-    // 移动端viewport高度修复
     const setVH = () => {
       const vh = window.innerHeight * 0.01
       document.documentElement.style.setProperty('--vh', `${vh}px`)
     }
 
     onMounted(() => {
-      // 设置初始viewport高度
       setVH()
-      
-      // 监听窗口大小变化
       window.addEventListener('resize', setVH)
       window.addEventListener('orientationchange', () => {
-        setTimeout(setVH, 100) // 延迟执行，等待方向改变完成
+        setTimeout(setVH, 100)
       })
     })
 
@@ -534,8 +555,6 @@ export default {
       if (captchaInterval) {
         clearInterval(captchaInterval)
       }
-      
-      // 清理事件监听器
       window.removeEventListener('resize', setVH)
       window.removeEventListener('orientationchange', setVH)
     })
@@ -560,7 +579,7 @@ export default {
 </script>
 
 <style scoped>
-/* 容器和背景 */
+/* 基础样式保持不变 */
 .register-container {
   height: 100vh;
   max-width: 100vw;
@@ -570,7 +589,6 @@ export default {
   overflow: hidden;
 }
 
-/* 浮动装饰元素 */
 .floating-shapes {
   position: absolute;
   top: 0;
@@ -634,7 +652,7 @@ export default {
   50% { transform: translateY(-20px) rotate(180deg); }
 }
 
-/* 左侧表单区域 */
+/* 左侧表单区域样式保持不变 */
 .form-section {
   flex: 1;
   display: flex;
@@ -651,7 +669,6 @@ export default {
   max-width: 480px;
 }
 
-/* 品牌标识 */
 .brand-logo {
   text-align: center;
   margin-bottom: 24px;
@@ -674,7 +691,6 @@ export default {
   margin: 0;
 }
 
-/* 表单卡片 */
 .form-card {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
@@ -704,7 +720,6 @@ export default {
   margin: 0;
 }
 
-/* 表单行和组 */
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -730,7 +745,6 @@ export default {
   font-size: 12px;
 }
 
-/* 输入框样式 */
 .input-wrapper {
   position: relative;
   display: flex;
@@ -774,7 +788,6 @@ export default {
   font-size: 14px;
 }
 
-/* 密码强度指示器 */
 .password-strength {
   display: flex;
   align-items: center;
@@ -817,7 +830,6 @@ export default {
   color: #6b7280;
 }
 
-/* 字段提示 */
 .field-hint {
   font-size: 12px;
   color: #6b7280;
@@ -827,7 +839,6 @@ export default {
   gap: 6px;
 }
 
-/* 验证码组 */
 .captcha-group {
   grid-column: 1 / -1;
   margin-bottom: 16px;
@@ -877,7 +888,6 @@ export default {
   gap: 6px;
 }
 
-/* 条款同意 */
 .terms-agreement {
   margin: 20px 0;
 }
@@ -938,7 +948,6 @@ export default {
   text-decoration: underline;
 }
 
-/* 注册按钮 */
 .register-btn {
   width: 100%;
   padding: 14px;
@@ -989,7 +998,6 @@ export default {
   gap: 8px;
 }
 
-/* 表单底部 */
 .form-footer {
   text-align: center;
 }
@@ -1010,13 +1018,13 @@ export default {
   text-decoration: underline;
 }
 
-/* 右侧插图区域 */
+/* 优化后的右侧插图区域 */
 .illustration-section {
   flex: 0 0 40%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 32px 24px;
   position: relative;
   z-index: 2;
 }
@@ -1024,16 +1032,61 @@ export default {
 .illustration-content {
   text-align: center;
   color: white;
-  max-width: 300px;
+  max-width: 320px;
   width: 100%;
   position: relative;
   z-index: 10;
 }
 
-/* 主要插图 */
+/* 顶部装饰图标 - 新增 */
+.top-decorative-icons {
+  position: absolute;
+  top: -20px;
+  right: 0;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.deco-icon {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.deco-icon:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+}
+
+.deco-icon i {
+  font-size: 14px;
+  color: white;
+}
+
+.deco-3 {
+  position: relative;
+}
+
+.deco-3 i:last-child {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  font-size: 8px;
+}
+
+/* 主要插图优化 */
 .main-illustration {
   position: relative;
-  margin-bottom: 24px;
+  margin: 60px 0 40px 0;
 }
 
 .central-icon {
@@ -1041,18 +1094,20 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
-  background: rgba(255, 255, 255, 0.15);
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
   border-radius: 50%;
-  backdrop-filter: blur(10px);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(15px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   z-index: 10;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .central-icon i {
-  font-size: 32px;
+  font-size: 40px;
   color: white;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .pulse-ring {
@@ -1060,153 +1115,212 @@ export default {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 80px;
-  height: 80px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 100px;
+  height: 100px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
   animation: pulse 3s ease-in-out infinite;
   z-index: 1;
 }
 
 .pulse-ring-2 {
-  width: 100px;
-  height: 100px;
+  width: 130px;
+  height: 130px;
   animation-delay: 1.5s;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 @keyframes pulse {
   0% {
     transform: translate(-50%, -50%) scale(1);
-    opacity: 0.6;
+    opacity: 0.8;
   }
   100% {
-    transform: translate(-50%, -50%) scale(1.2);
+    transform: translate(-50%, -50%) scale(1.3);
     opacity: 0;
   }
 }
 
-/* 浮动功能图标 */
-.floating-icons {
+/* 重新设计的浮动图标网格 */
+.floating-icons-grid {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 180px;
-  height: 180px;
+  width: 240px;
+  height: 240px;
   z-index: 1;
 }
 
-.floating-icon {
+.floating-icon-item {
   position: absolute;
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.floating-icon-item:nth-child(1) {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: floatUp 4s ease-in-out infinite;
+}
+
+.floating-icon-item:nth-child(2) {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  animation: floatRight 4s ease-in-out infinite 1s;
+}
+
+.floating-icon-item:nth-child(3) {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: floatDown 4s ease-in-out infinite 2s;
+}
+
+.floating-icon-item:nth-child(4) {
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  animation: floatLeft 4s ease-in-out infinite 3s;
+}
+
+.icon-wrapper {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  animation: floatAround 8s ease-in-out infinite;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
 }
 
-.floating-icon i {
-  font-size: 16px;
+.icon-wrapper:hover {
+  transform: translateY(-4px) scale(1.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.icon-wrapper i {
+  font-size: 20px;
   color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.icon-1 {
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  animation-delay: 0s;
-}
-
-.icon-2 {
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  animation-delay: 2s;
-}
-
-.icon-3 {
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  animation-delay: 4s;
-}
-
-.icon-4 {
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  animation-delay: 6s;
-}
-
-@keyframes floatAround {
+@keyframes floatUp {
   0%, 100% { transform: translateX(-50%) translateY(0); }
-  25% { transform: translateX(-50%) translateY(-5px); }
-  50% { transform: translateX(-50%) translateY(0); }
-  75% { transform: translateX(-50%) translateY(5px); }
+  50% { transform: translateX(-50%) translateY(-8px); }
 }
 
-/* 插图文字 */
+@keyframes floatRight {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  50% { transform: translateY(-50%) translateX(8px); }
+}
+
+@keyframes floatDown {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(8px); }
+}
+
+@keyframes floatLeft {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  50% { transform: translateY(-50%) translateX(-8px); }
+}
+
+/* 插图文字优化 */
 .illustration-text {
   position: relative;
   z-index: 10;
 }
 
 .illustration-text h3 {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
-  margin: 0 0 12px 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 0 0 16px 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .illustration-text p {
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.6;
   opacity: 0.9;
-  margin: 0 0 24px 0;
+  margin: 0 0 32px 0;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* 功能亮点 */
+/* 重新设计的功能亮点卡片 */
 .feature-highlights {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.feature-item {
+.feature-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
+  gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+  border-radius: 16px;
+  backdrop-filter: blur(15px);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  cursor: pointer;
 }
 
-.feature-icon {
-  width: 32px;
-  height: 32px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
+.feature-card:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.feature-card-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2));
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
-.feature-icon i {
-  font-size: 14px;
+.feature-card-icon i {
+  font-size: 20px;
   color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* 消息提示 */
+.feature-card-content {
+  flex: 1;
+  text-align: left;
+}
+
+.feature-card-content h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.feature-card-content p {
+  font-size: 13px;
+  margin: 0;
+  opacity: 0.8;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 消息提示样式保持不变 */
 .toast-notification {
   position: fixed;
   top: 24px;
@@ -1267,7 +1381,6 @@ export default {
   color: #6b7280;
 }
 
-/* 动画 */
 .toast-slide-enter-active,
 .toast-slide-leave-active {
   transition: all 0.3s ease;
@@ -1292,8 +1405,8 @@ export default {
   .illustration-section {
     order: -1;
     flex: 0 0 auto;
-    min-height: 280px;
-    padding: 20px;
+    min-height: 320px;
+    padding: 24px 20px;
   }
   
   .form-section {
@@ -1301,39 +1414,75 @@ export default {
     min-height: auto;
   }
   
+  .top-decorative-icons {
+    top: -10px;
+    right: 10px;
+    gap: 12px;
+  }
+  
+  .deco-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .deco-icon i {
+    font-size: 12px;
+  }
+  
   .main-illustration {
-    margin-bottom: 20px;
+    margin: 40px 0 32px 0;
   }
   
   .central-icon {
-    width: 70px;
-    height: 70px;
+    width: 80px;
+    height: 80px;
   }
   
   .central-icon i {
-    font-size: 28px;
+    font-size: 32px;
   }
   
-  .floating-icons {
-    width: 180px;
-    height: 180px;
+  .floating-icons-grid {
+    width: 200px;
+    height: 200px;
   }
   
-  .floating-icon {
-    width: 36px;
-    height: 36px;
+  .icon-wrapper {
+    width: 40px;
+    height: 40px;
   }
   
-  .floating-icon i {
-    font-size: 14px;
+  .icon-wrapper i {
+    font-size: 16px;
   }
   
   .illustration-text h3 {
-    font-size: 20px;
+    font-size: 24px;
   }
   
   .illustration-text p {
-    font-size: 13px;
+    font-size: 14px;
+  }
+  
+  .feature-card {
+    padding: 14px 16px;
+  }
+  
+  .feature-card-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .feature-card-icon i {
+    font-size: 16px;
+  }
+  
+  .feature-card-content h4 {
+    font-size: 14px;
+  }
+  
+  .feature-card-content p {
+    font-size: 12px;
   }
 }
 
@@ -1344,8 +1493,8 @@ export default {
   }
   
   .illustration-section {
-    min-height: 200px;
-    padding: 16px;
+    min-height: 240px;
+    padding: 20px 16px;
   }
   
   .form-section {
@@ -1367,53 +1516,81 @@ export default {
     border-radius: 16px;
   }
   
-  .brand-title {
-    font-size: 24px;
+  .top-decorative-icons {
+    display: none;
   }
   
-  .brand-subtitle {
-    font-size: 13px;
+  .main-illustration {
+    margin: 20px 0 24px 0;
   }
   
-  .form-header h2 {
+  .central-icon {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .central-icon i {
+    font-size: 28px;
+  }
+  
+  .floating-icons-grid {
+    width: 160px;
+    height: 160px;
+  }
+  
+  .icon-wrapper {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .icon-wrapper i {
+    font-size: 14px;
+  }
+  
+  .illustration-text h3 {
     font-size: 20px;
+    margin-bottom: 12px;
   }
   
-  .form-header p {
+  .illustration-text p {
     font-size: 13px;
+    margin-bottom: 24px;
   }
   
-  .form-input {
-    padding: 12px 14px 12px 38px;
+  .feature-highlights {
+    gap: 12px;
+  }
+  
+  .feature-card {
+    padding: 12px 14px;
+  }
+  
+  .feature-card-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .feature-card-icon i {
     font-size: 14px;
   }
   
-  .input-icon {
-    left: 12px;
+  .feature-card-content h4 {
     font-size: 13px;
   }
   
-  .captcha-container {
-    flex-direction: column;
-    gap: 10px;
+  .feature-card-content p {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .illustration-section {
+    min-height: 200px;
+    padding: 16px 12px;
   }
   
-  .captcha-btn {
-    min-width: auto;
-    padding: 12px 20px;
-    font-size: 13px;
-  }
-  
-  .register-btn {
-    padding: 14px;
-    font-size: 14px;
-  }
-  
-  .toast-notification {
-    top: 16px;
-    right: 16px;
-    left: 16px;
-    max-width: none;
+  .main-illustration {
+    margin: 16px 0 20px 0;
   }
   
   .central-icon {
@@ -1425,351 +1602,53 @@ export default {
     font-size: 24px;
   }
   
-  .floating-icons {
+  .floating-icons-grid {
     width: 140px;
     height: 140px;
   }
   
-  .floating-icon {
-    width: 30px;
-    height: 30px;
+  .icon-wrapper {
+    width: 32px;
+    height: 32px;
   }
   
-  .floating-icon i {
+  .icon-wrapper i {
     font-size: 12px;
   }
   
   .illustration-text h3 {
     font-size: 18px;
+    margin-bottom: 10px;
   }
   
   .illustration-text p {
     font-size: 12px;
-  }
-  
-  .feature-item {
-    padding: 10px 12px;
-    font-size: 12px;
-  }
-  
-  .feature-icon {
-    width: 28px;
-    height: 28px;
-  }
-  
-  .feature-icon i {
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .register-container {
-    overflow-x: hidden;
-  }
-  
-  .form-section,
-  .illustration-section {
-    padding: 12px;
-  }
-  
-  .form-card {
-    padding: 20px 16px;
-    margin: 0;
-    border-radius: 12px;
-  }
-  
-  .brand-logo {
     margin-bottom: 20px;
-  }
-  
-  .brand-title {
-    font-size: 22px;
-  }
-  
-  .form-header {
-    margin-bottom: 20px;
-  }
-  
-  .form-header h2 {
-    font-size: 18px;
-  }
-  
-  .form-row {
-    gap: 12px;
-    margin-bottom: 14px;
-  }
-  
-  .form-group label {
-    font-size: 12px;
-    margin-bottom: 5px;
-  }
-  
-  .form-input {
-    padding: 11px 12px 11px 36px;
-    font-size: 14px;
-    border-radius: 8px;
-  }
-  
-  .input-icon {
-    left: 11px;
-    font-size: 12px;
-  }
-  
-  .input-status {
-    right: 12px;
-    font-size: 12px;
-  }
-  
-  .password-strength {
-    gap: 8px;
-    margin-top: 6px;
-  }
-  
-  .strength-text {
-    font-size: 11px;
-  }
-  
-  .field-hint {
-    font-size: 11px;
-    margin-top: 4px;
-  }
-  
-  .captcha-container {
-    gap: 8px;
-  }
-  
-  .captcha-btn {
-    padding: 11px 16px;
-    font-size: 12px;
-    border-radius: 8px;
-  }
-  
-  .captcha-success {
-    font-size: 11px;
-    margin-top: 6px;
-  }
-  
-  .terms-agreement {
-    margin: 16px 0;
-  }
-  
-  .custom-checkbox {
-    font-size: 12px;
-    gap: 8px;
-  }
-  
-  .checkmark {
-    width: 18px;
-    height: 18px;
-  }
-  
-  .checkmark i {
-    font-size: 10px;
-  }
-  
-  .register-btn {
-    padding: 12px;
-    font-size: 13px;
-    border-radius: 8px;
-    margin-bottom: 14px;
-  }
-  
-  .form-footer p {
-    font-size: 12px;
-  }
-  
-  .shape {
-    display: none;
-  }
-  
-  .illustration-section {
-    min-height: 160px;
-  }
-  
-  .central-icon {
-    width: 50px;
-    height: 50px;
-  }
-  
-  .central-icon i {
-    font-size: 20px;
-  }
-  
-  .floating-icons {
-    width: 120px;
-    height: 120px;
-  }
-  
-  .floating-icon {
-    width: 24px;
-    height: 24px;
-  }
-  
-  .floating-icon i {
-    font-size: 10px;
-  }
-  
-  .illustration-text h3 {
-    font-size: 16px;
-    margin-bottom: 8px;
-  }
-  
-  .illustration-text p {
-    font-size: 11px;
-    margin-bottom: 16px;
   }
   
   .feature-highlights {
-    gap: 8px;
+    gap: 10px;
   }
   
-  .feature-item {
-    padding: 8px 10px;
-    font-size: 11px;
-    border-radius: 8px;
+  .feature-card {
+    padding: 10px 12px;
   }
   
-  .feature-icon {
-    width: 24px;
-    height: 24px;
+  .feature-card-icon {
+    width: 32px;
+    height: 32px;
   }
   
-  .feature-icon i {
+  .feature-card-icon i {
+    font-size: 12px;
+  }
+  
+  .feature-card-content h4 {
+    font-size: 12px;
+  }
+  
+  .feature-card-content p {
     font-size: 10px;
-  }
-  
-  .toast-notification {
-    top: 12px;
-    right: 12px;
-    left: 12px;
-    padding: 12px;
-  }
-  
-  .toast-icon {
-    width: 20px;
-    height: 20px;
-  }
-  
-  .toast-title {
-    font-size: 13px;
-  }
-  
-  .toast-message {
-    font-size: 12px;
-  }
-}
-
-/* 超小屏幕优化 */
-@media (max-width: 360px) {
-  .form-card {
-    padding: 16px 12px;
-  }
-  
-  .brand-title {
-    font-size: 20px;
-  }
-  
-  .form-header h2 {
-    font-size: 16px;
-  }
-  
-  .form-input {
-    padding: 10px 11px 10px 34px;
-    font-size: 13px;
-  }
-  
-  .input-icon {
-    left: 10px;
-  }
-  
-  .captcha-btn {
-    padding: 10px 14px;
-    font-size: 11px;
-  }
-  
-  .register-btn {
-    padding: 11px;
-    font-size: 12px;
-  }
-  
-  .illustration-section {
-    min-height: 140px;
-  }
-  
-  .central-icon {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .central-icon i {
-    font-size: 16px;
-  }
-  
-  .floating-icons {
-    width: 100px;
-    height: 100px;
-  }
-  
-  .floating-icon {
-    width: 20px;
-    height: 20px;
-  }
-  
-  .floating-icon i {
-    font-size: 8px;
-  }
-}
-
-/* 横屏模式优化 */
-@media (max-width: 768px) and (orientation: landscape) {
-  .register-container {
-    flex-direction: row;
-  }
-  
-  .illustration-section {
-    order: 0;
-    flex: 0 0 35%;
-    min-height: 100vh;
-  }
-  
-  .form-section {
-    flex: 1;
-    overflow-y: auto;
-  }
-  
-  .form-card {
-    margin: 20px 0;
-  }
-}
-
-/* 触摸设备优化 */
-@media (hover: none) and (pointer: coarse) {
-  .form-input {
-    padding: 14px 16px 14px 40px;
-    font-size: 16px; /* 防止iOS缩放 */
-  }
-  
-  .captcha-btn,
-  .register-btn {
-    min-height: 44px; /* iOS推荐的最小触摸目标 */
-  }
-  
-  .custom-checkbox {
-    padding: 8px;
-  }
-  
-  .checkmark {
-    width: 22px;
-    height: 22px;
-  }
-}
-
-/* 高分辨率屏幕优化 */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .form-input,
-  .captcha-btn,
-  .register-btn {
-    border-width: 0.5px;
   }
 }
 </style>
