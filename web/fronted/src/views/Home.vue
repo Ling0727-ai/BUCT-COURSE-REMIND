@@ -119,7 +119,7 @@
           <div class="card-footer">
             <div v-if="assignment.dueDate && assignment.type !== '作业'" :class="['due-date', assignmentStatus(assignment)]">
               <i :class="statusIcon(assignment)"></i>
-              <span>{{ formatDate(assignment.dueDate) }}</span>
+              <span>{{ formatDate(assignment.dueDate, assignment.type) }}</span>
             </div>
             <div v-else class="due-date-placeholder">
               <!-- 作业类型不显示时间或无截止日期 -->
@@ -162,6 +162,14 @@
                     <i class="fas fa-spinner fa-spin"></i>
                   </span>
                 </button>
+                <button 
+                  v-if="assignment.type === '待办'"
+                  class="btn btn-danger delete-btn"
+                  @click="deleteTodo(assignment)"
+                  title="删除待办"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
               </div>
             </div>
           </div>
@@ -196,12 +204,19 @@
             >
           </div>
           <div class="form-group">
-            <label for="todoDueDate">预计时间</label>
-            <input 
-              id="todoDueDate"
-              type="datetime-local" 
-              v-model="newTodo.dueDate"
-            >
+            <label for="todoHours">预计时间</label>
+            <div class="hours-input-group">
+              <input 
+                id="todoHours"
+                type="number" 
+                v-model="newTodo.hours"
+                placeholder="1"
+                min="0.5"
+                max="168"
+                step="0.5"
+              >
+              <span class="hours-suffix">小时后</span>
+            </div>
           </div>
           <div class="form-group">
             <label for="todoDescription">备注</label>
@@ -290,7 +305,7 @@ export default {
     const newTodo = ref({
       title: '',
       description: '',
-      dueDate: '',
+      hours: 1,
       priority: 'medium'
     })
 
@@ -392,12 +407,44 @@ export default {
       return icons[status]
     }
 
-    // 格式化日期
-    const formatDate = (dateString) => {
+    // 格式化日期 - 待办只显示剩余时间
+    const formatDate = (dateString, itemType) => {
       if (!dateString) return ''
-      const date = new Date(dateString)
-      const days = getDaysUntilDue(dateString)
       
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffMs = date.getTime() - now.getTime()
+      
+      // 如果是待办事项，只显示剩余时间
+      if (itemType === '待办') {
+        if (diffMs < 0) {
+          // 已超时
+          const overdueDays = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60 * 24))
+          const overdueHours = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60)) % 24
+          
+          if (overdueDays > 0) {
+            return `已超时 ${overdueDays}天${overdueHours > 0 ? overdueHours + '小时' : ''}`
+          } else {
+            return `已超时 ${overdueHours}小时`
+          }
+        } else {
+          // 剩余时间
+          const remainingDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+          const remainingHours = Math.floor(diffMs / (1000 * 60 * 60)) % 24
+          const remainingMinutes = Math.floor(diffMs / (1000 * 60)) % 60
+          
+          if (remainingDays > 0) {
+            return `剩余 ${remainingDays}天${remainingHours > 0 ? remainingHours + '小时' : ''}`
+          } else if (remainingHours > 0) {
+            return `剩余 ${remainingHours}小时${remainingMinutes > 0 ? remainingMinutes + '分钟' : ''}`
+          } else {
+            return `剩余 ${remainingMinutes}分钟`
+          }
+        }
+      }
+      
+      // 作业显示原有格式
+      const days = getDaysUntilDue(dateString)
       const options = { 
         month: 'short', 
         day: 'numeric', 
@@ -471,21 +518,70 @@ export default {
     }
 
     // 设置提醒
-    const setReminder = (assignment) => {
-      if (assignment.type === '作业') {
-        alert(`已设置提醒：${assignment.title}`)
-        console.log('发送提醒webhook:', {
-          type: 'reminder',
-          assignment: assignment,
-          message: `提醒：${assignment.subject} - ${assignment.title}`
+    const setReminder = async (assignment) => {
+      try {
+        let response
+        
+        if (assignment.type === '待办') {
+          // 待办提醒API
+          response = await fetch(`/api/todos/${assignment._todoId}/remind`, {
+            method: 'POST',
+            credentials: 'include'
+          })
+        } else {
+          // 作业/测试提醒API
+          response = await fetch(`/api/assignments/${assignment.id}/remind`, {
+            method: 'POST',
+            credentials: 'include'
+          })
+        }
+        
+        if (response.ok) {
+          const result = await response.json()
+          showToast('success', '提醒设置', result.message)
+          console.log('提醒成功:', result)
+        } else {
+          const errorData = await response.json()
+          console.error('提醒失败:', errorData)
+          showToast('error', '提醒失败', errorData.error || '设置提醒失败，请重试')
+        }
+      } catch (error) {
+        console.error('提醒错误:', error)
+        showToast('error', '网络错误', '请检查网络连接后重试')
+      }
+    }
+
+    // 删除待办
+    const deleteTodo = async (assignment) => {
+      if (assignment.type !== '待办') return
+      
+      if (!confirm(`确定要删除待办事项"${assignment.title}"吗？`)) {
+        return
+      }
+      
+      try {
+        const response = await fetch(`/api/todos/${assignment._todoId}`, {
+          method: 'DELETE',
+          credentials: 'include'
         })
-      } else {
-        alert(`已设置提醒：${assignment.title}\n截止时间：${formatDate(assignment.dueDate)}`)
-        console.log('发送提醒webhook:', {
-          type: 'reminder',
-          assignment: assignment,
-          message: `提醒：${assignment.subject} - ${assignment.title} 将于 ${formatDate(assignment.dueDate)} 截止`
-        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          
+          // 从待办列表中移除
+          await fetchTodos()
+          filterAssignments()
+          
+          showToast('success', '删除成功', `待办事项"${assignment.title}"已删除`)
+          console.log('删除待办成功:', result)
+        } else {
+          const errorData = await response.json()
+          console.error('删除待办失败:', errorData)
+          showToast('error', '删除失败', errorData.error || '删除待办失败，请重试')
+        }
+      } catch (error) {
+        console.error('删除待办错误:', error)
+        showToast('error', '网络错误', '请检查网络连接后重试')
       }
     }
 
@@ -818,7 +914,7 @@ export default {
       newTodo.value = {
         title: '',
         description: '',
-        dueDate: '',
+        hours: 1,
         priority: 'medium'
       }
     }
@@ -832,11 +928,18 @@ export default {
       addingTodo.value = true
 
       try {
+        // 计算截止时间：当前时间 + 指定小时数
+        let dueDate = null
+        if (newTodo.value.hours && newTodo.value.hours > 0) {
+          const now = new Date()
+          dueDate = new Date(now.getTime() + (newTodo.value.hours * 60 * 60 * 1000))
+        }
+
         const todoData = {
           title: newTodo.value.title.trim(),
           description: newTodo.value.description.trim() || null,
           priority: newTodo.value.priority,
-          due_date: newTodo.value.dueDate || null
+          due_date: dueDate ? dueDate.toISOString() : null
         }
 
         const response = await fetch('/api/todos/', {
@@ -1030,7 +1133,8 @@ export default {
       addTodo,
       fetchTodos,
       completeTodo,
-      uncompleteTodo
+      uncompleteTodo,
+      deleteTodo
     }
   }
 }
@@ -1873,6 +1977,25 @@ export default {
   resize: vertical;
   min-height: 80px;
   font-family: inherit;
+}
+
+.hours-input-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hours-input-group input {
+  flex: 1;
+  min-width: 0;
+}
+
+.hours-suffix {
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 0 4px;
 }
 
 .modal-footer {

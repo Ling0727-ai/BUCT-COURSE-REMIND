@@ -6,7 +6,7 @@
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
-from datetime import datetime
+from datetime import datetime, timedelta
 from .auth import login_required
 from .model import Todo
 from . import mongo
@@ -71,15 +71,28 @@ def create_todo():
         title = data.get('title').strip()
         description = data.get('description', '').strip() or None
         priority = data.get('priority', 'medium')
-        due_date_str = data.get('due_date')
         
         # 验证优先级
         if priority not in ['low', 'medium', 'high']:
             priority = 'medium'
         
-        # 处理截止日期
+        # 处理截止日期 - 支持两种格式：小时数或ISO日期字符串
         due_date = None
-        if due_date_str:
+        hours = data.get('hours')
+        due_date_str = data.get('due_date')
+        
+        if hours is not None:
+            # 前端发送小时数，计算截止时间
+            try:
+                hours_float = float(hours)
+                if hours_float <= 0:
+                    return jsonify({'error': '小时数必须大于0', 'success': False}), 400
+                due_date = datetime.now() + timedelta(hours=hours_float)
+                current_app.logger.info(f"根据小时数 {hours_float} 计算截止时间: {due_date}")
+            except (ValueError, TypeError):
+                return jsonify({'error': '小时数格式错误', 'success': False}), 400
+        elif due_date_str:
+            # 兼容旧格式：ISO日期字符串
             try:
                 due_date = datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
             except ValueError:
@@ -147,7 +160,23 @@ def update_todo(todo_id):
             if priority in ['low', 'medium', 'high']:
                 update_data['priority'] = priority
         
-        if 'due_date' in data:
+        # 处理截止日期更新 - 支持小时数或ISO日期字符串
+        if 'hours' in data:
+            # 前端发送小时数，计算截止时间
+            hours = data['hours']
+            if hours is not None:
+                try:
+                    hours_float = float(hours)
+                    if hours_float <= 0:
+                        return jsonify({'error': '小时数必须大于0', 'success': False}), 400
+                    update_data['due_date'] = datetime.now() + timedelta(hours=hours_float)
+                    current_app.logger.info(f"根据小时数 {hours_float} 更新截止时间: {update_data['due_date']}")
+                except (ValueError, TypeError):
+                    return jsonify({'error': '小时数格式错误', 'success': False}), 400
+            else:
+                update_data['due_date'] = None
+        elif 'due_date' in data:
+            # 兼容旧格式：ISO日期字符串
             due_date_str = data['due_date']
             if due_date_str:
                 try:
@@ -176,7 +205,7 @@ def update_todo(todo_id):
 @todos_bp.route('/<todo_id>/complete', methods=['POST'])
 @login_required
 def complete_todo(todo_id):
-    """标记待办事项为已完成"""
+    """标记待办事项为已完成，12小时后自动删除"""
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -185,17 +214,22 @@ def complete_todo(todo_id):
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
         
-        # 标记为已完成
+        # 检查待办是否存在
+        existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
+        if not existing_todo:
+            return jsonify({'error': '待办事项不存在', 'success': False}), 404
+        
+        # 标记为已完成，设置12小时后过期
         result = todo_model.mark_completed(todo_id, user_id)
         
         if result.matched_count > 0:
-            current_app.logger.info(f"用户 {user_id} 完成待办事项 {todo_id}")
+            current_app.logger.info(f"用户 {user_id} 完成待办事项: {existing_todo.get('title')}，12小时后自动删除")
             return jsonify({
                 'success': True,
-                'message': '待办事项已完成'
+                'message': '待办事项已完成，12小时后自动删除'
             })
         else:
-            return jsonify({'error': '待办事项不存在', 'success': False}), 404
+            return jsonify({'error': '更新失败', 'success': False}), 500
         
     except Exception as e:
         current_app.logger.error(f"完成待办事项失败: {str(e)}")
@@ -213,24 +247,62 @@ def uncomplete_todo(todo_id):
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
         
-        # 撤销完成状态
-        result = todo_model.update_todo(todo_id, user_id, {
-            'completed': False,
-            'completed_at': None
-        })
+        # 检查待办是否存在
+        existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
+        if not existing_todo:
+            return jsonify({'error': '待办事项不存在', 'success': False}), 404
+        
+        # 撤销完成状态，清除过期时间
+        result = todo_model.mark_uncompleted(todo_id, user_id)
         
         if result.matched_count > 0:
-            current_app.logger.info(f"用户 {user_id} 撤销待办事项完成状态 {todo_id}")
+            current_app.logger.info(f"用户 {user_id} 撤销完成待办事项: {existing_todo.get('title')}")
             return jsonify({
                 'success': True,
-                'message': '已撤销完成状态'
+                'message': '待办事项完成状态已撤销'
             })
         else:
-            return jsonify({'error': '待办事项不存在', 'success': False}), 404
+            return jsonify({'error': '更新失败', 'success': False}), 500
         
     except Exception as e:
         current_app.logger.error(f"撤销待办完成状态失败: {str(e)}")
         return jsonify({'error': '撤销完成状态失败', 'details': str(e), 'success': False}), 500
+
+@todos_bp.route('/<todo_id>/remind', methods=['POST'])
+@login_required
+def remind_todo(todo_id):
+    """提醒待办事项"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': '用户未登录', 'success': False}), 401
+        
+        # 创建待办模型实例
+        todo_model = Todo(mongo.db)
+        
+        # 检查待办是否存在
+        existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
+        if not existing_todo:
+            return jsonify({'error': '待办事项不存在', 'success': False}), 404
+        
+        # 这里可以添加提醒逻辑，比如发送通知、邮件等
+        # 目前只是记录日志和返回提醒信息
+        current_app.logger.info(f"用户 {user_id} 提醒待办事项: {existing_todo.get('title')}")
+        
+        return jsonify({
+            'success': True,
+            'message': f"已提醒待办事项: {existing_todo.get('title')}",
+            'todo': {
+                'title': existing_todo.get('title'),
+                'description': existing_todo.get('description'),
+                'priority': existing_todo.get('priority'),
+                'due_date': existing_todo.get('due_date').isoformat() if existing_todo.get('due_date') else None
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"提醒待办事项失败: {str(e)}")
+        return jsonify({'error': '提醒待办事项失败', 'details': str(e), 'success': False}), 500
 
 @todos_bp.route('/<todo_id>', methods=['DELETE'])
 @login_required

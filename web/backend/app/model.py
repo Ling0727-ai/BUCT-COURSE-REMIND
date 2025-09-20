@@ -195,6 +195,8 @@ class Todo:
     def __init__(self, mongo_db):
         self.db = mongo_db
         self.collection = 'todos'
+        # 创建过期时间索引，MongoDB会自动删除过期的已完成待办
+        self.db[self.collection].create_index("expires_at", expireAfterSeconds=0)
     
     def create_todo(self, user_id, title, description=None, priority='medium', due_date=None):
         """创建新的待办事项"""
@@ -206,6 +208,7 @@ class Todo:
             'due_date': due_date,
             'completed': False,
             'completed_at': None,
+            'expires_at': None,  # 完成后12小时过期时间
             'created_at': datetime.utcnow(),
             'updated_at': datetime.utcnow()
         }
@@ -241,10 +244,23 @@ class Todo:
         )
     
     def mark_completed(self, todo_id, user_id):
-        """标记待办事项为已完成"""
+        """标记待办事项为已完成，12小时后自动删除"""
+        from datetime import timedelta
+        completed_at = datetime.utcnow()
+        expires_at = completed_at + timedelta(hours=12)  # 12小时后过期
+        
         return self.update_todo(todo_id, user_id, {
             'completed': True,
-            'completed_at': datetime.utcnow()
+            'completed_at': completed_at,
+            'expires_at': expires_at
+        })
+    
+    def mark_uncompleted(self, todo_id, user_id):
+        """撤销待办事项完成状态"""
+        return self.update_todo(todo_id, user_id, {
+            'completed': False,
+            'completed_at': None,
+            'expires_at': None
         })
     
     def delete_todo(self, todo_id, user_id):

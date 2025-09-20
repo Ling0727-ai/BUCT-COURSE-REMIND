@@ -164,6 +164,56 @@ def mark_assignment_uncomplete(assignment_id):
         logger.error(f"撤销作业完成失败: {str(e)}")
         return jsonify({'success': False, 'error': '撤销失败'}), 500
 
+@assignments_bp.route('/<assignment_id>/remind', methods=['POST'])
+@login_required
+def remind_assignment(assignment_id):
+    """提醒作业/测试"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': '用户未登录'}), 401
+        
+        logger.info(f"用户 {user_id} 提醒作业: {assignment_id}")
+        
+        # 通过scraper获取实时数据来验证作业是否存在
+        scraper_data = get_scraper_data(user_id)
+        
+        # 查找对应的作业
+        target_assignment = None
+        for item in scraper_data:
+            item_id = f"{item.get('type', 'unknown')}_{hash(item.get('subject', '') + item.get('details', {}).get('task', ''))}"
+            if item_id == assignment_id:
+                target_assignment = item
+                break
+        
+        if not target_assignment:
+            return jsonify({'success': False, 'error': '作业不存在'}), 404
+        
+        # 构建提醒信息
+        subject = target_assignment.get('subject', '未知科目')
+        task = target_assignment.get('details', {}).get('task', '未知任务')
+        deadline = target_assignment.get('details', {}).get('deadline', '')
+        assignment_type = '作业' if target_assignment.get('type') == 'homework' else '测试'
+        
+        # 这里可以添加实际的提醒逻辑，比如发送邮件、推送通知等
+        # 目前只是记录日志
+        logger.info(f"提醒{assignment_type}: {subject} - {task}, 截止时间: {deadline}")
+        
+        return jsonify({
+            'success': True,
+            'message': f"已提醒{assignment_type}: {subject} - {task}",
+            'assignment': {
+                'subject': subject,
+                'task': task,
+                'deadline': deadline,
+                'type': assignment_type
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"提醒作业失败: {str(e)}")
+        return jsonify({'success': False, 'error': '提醒失败'}), 500
+
 @assignments_bp.route('/stats', methods=['GET'])
 @login_required
 def get_assignments_stats():
