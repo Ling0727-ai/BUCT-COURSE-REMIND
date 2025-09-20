@@ -22,7 +22,7 @@ def init_scraper_module():
     global get_enhanced_details, get_standard_format_details
     
     try:
-        from scraper import get_enhanced_details, get_standard_format_details
+        from ..scraper import get_enhanced_details, get_standard_format_details
         print("成功导入爬虫模块")
         return True
     except ImportError as e:
@@ -51,23 +51,37 @@ scraper_available = init_scraper_module()
 
 def get_scraper_data(username=None, password=None):
     """获取真实的爬虫数据"""
+    print(f"爬虫模块可用性: {scraper_available}")
+    print(f"get_enhanced_details函数: {get_enhanced_details}")
+    
     if not scraper_available or not get_enhanced_details:
-        print("爬虫模块不可用")
+        print("爬虫模块不可用，返回空数据")
+        return {'assignments': [], 'tests': []}
+    
+    if not username or not password:
+        print(f"用户名或密码为空: username={username}, password={'***' if password else None}")
         return {'assignments': [], 'tests': []}
     
     try:
         print(f"开始获取用户 {username} 的爬虫数据")
         scraper_data = get_enhanced_details(username, password)
         
+        print(f"爬虫原始返回数据: {scraper_data}")
+        
         if not scraper_data:
             print("爬虫返回空数据")
             return {'assignments': [], 'tests': []}
         
-        print(f"爬虫数据获取成功: {len(scraper_data.get('assignments', []))} 个作业, {len(scraper_data.get('tests', []))} 个测试")
+        assignments_count = len(scraper_data.get('assignments', [])) if isinstance(scraper_data, dict) else 0
+        tests_count = len(scraper_data.get('tests', [])) if isinstance(scraper_data, dict) else 0
+        
+        print(f"爬虫数据获取成功: {assignments_count} 个作业, {tests_count} 个测试")
         return scraper_data
         
     except Exception as e:
         print(f"获取爬虫数据时出错: {e}")
+        import traceback
+        traceback.print_exc()
         return {'assignments': [], 'tests': []}
 
 def get_todo_data(user_id):
@@ -109,22 +123,32 @@ def get_todo_data(user_id):
 def get_user_info():
     """获取当前用户信息"""
     try:
+        print(f"Session内容: {dict(session)}")
+        
         # 尝试从session获取用户ID
         user_id = session.get('user_id')
+        print(f"从session获取的user_id: {user_id}")
+        
         if not user_id:
-            print("用户未登录")
+            print("Session中没有user_id")
             return None, None
         
         # 获取用户信息
+        print(f"查询用户: {user_id}")
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        print(f"数据库查询结果: {user}")
+        
         if not user:
-            print("用户不存在")
+            print("数据库中用户不存在")
             return None, None
         
+        print(f"用户信息获取成功: username={user.get('username')}")
         return user_id, user
         
     except Exception as e:
         print(f"获取用户信息时出错: {e}")
+        import traceback
+        traceback.print_exc()
         return None, None
 
 @assignments_bp.route('/api/assignments', methods=['GET'])
@@ -135,7 +159,10 @@ def get_assignments():
         
         # 获取用户信息
         user_id, user = get_user_info()
+        print(f"用户信息: user_id={user_id}, user存在={user is not None}")
+        
         if not user_id or not user:
+            print("用户未登录")
             return jsonify({
                 'assignments': [],
                 'statistics': {
@@ -147,7 +174,7 @@ def get_assignments():
                 },
                 'query_time': datetime.now().isoformat(),
                 'total_count': 0,
-                'message': '用户未登录'
+                'message': '用户未登录，请先登录'
             }), 401
         
         # 获取真实的爬虫数据
@@ -252,18 +279,24 @@ def get_assignments_standard():
         
         # 获取用户信息
         user_id, user = get_user_info()
+        print(f"用户信息: user_id={user_id}, user={user}")
+        
         if not user_id or not user:
+            print("用户未登录，返回空数据")
             return jsonify({
-                'success': False,
+                'success': True,
                 'data': [],
                 'total_count': 0,
                 'query_time': datetime.now().isoformat(),
-                'message': '用户未登录'
-            }), 401
+                'message': '用户未登录，请先登录'
+            })
         
         # 获取真实数据
         scraper_data = get_scraper_data(user.get('username'), user.get('password'))
         todo_data = get_todo_data(user_id)
+        
+        print(f"爬虫数据: {scraper_data}")
+        print(f"待办数据: {todo_data}")
         
         # 整合所有数据为标准格式
         all_data = []
