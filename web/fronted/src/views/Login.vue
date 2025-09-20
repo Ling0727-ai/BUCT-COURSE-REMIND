@@ -35,7 +35,7 @@
             
             <div class="form-body">
               <div class="form-group">
-                <label class="form-label">账号</label>
+                <label class="form-label">用户名</label>
                 <div class="input-wrapper">
                   <div class="input-icon">
                     <i class="fas fa-user"></i>
@@ -43,7 +43,7 @@
                   <input 
                     type="text" 
                     v-model="username" 
-                    placeholder="请输入您的账号"
+                    placeholder="请输入用户名"
                     @keyup.enter="handleLogin"
                     class="form-input"
                     :class="{ 'has-value': username.length > 0 }"
