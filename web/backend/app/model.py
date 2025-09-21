@@ -7,8 +7,15 @@
 
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from bson import ObjectId
+
+# 定义北京时区
+BEIJING_TZ = timezone(timedelta(hours=8))
+
+def get_beijing_time():
+    """获取北京时间"""
+    return datetime.now(BEIJING_TZ)
 
 # ==============================================================================
 # 1. users (用户信息)
@@ -45,8 +52,8 @@ class User:
             'student_id': student_id,
             's_password': s_password,  # 注意：实际应用中应该加密存储
             'is_admin': False,
-            'created_at': datetime.now(),
-            'updated_at': datetime.now()
+            'created_at': get_beijing_time(),
+            'updated_at': get_beijing_time()
         }
         
         result = self.db[self.collection].insert_one(user_data)
@@ -66,7 +73,7 @@ class User:
     
     def update_user(self, user_id, update_data):
         """更新用户信息"""
-        update_data['updated_at'] = datetime.now()
+        update_data['updated_at'] = get_beijing_time()
         return self.db[self.collection].update_one(
             {'_id': ObjectId(user_id)},
             {'$set': update_data}
@@ -210,8 +217,8 @@ class Todo:
             'completed': False,
             'completed_at': None,
             'expires_at': None,  # 完成后12小时过期时间
-            'created_at': datetime.now(),
-            'updated_at': datetime.now()
+            'created_at': get_beijing_time(),
+            'updated_at': get_beijing_time()
         }
         
         result = self.db[self.collection].insert_one(todo_data)
@@ -247,7 +254,7 @@ class Todo:
     def mark_completed(self, todo_id, user_id):
         """标记待办事项为已完成，12小时后自动删除"""
         from datetime import timedelta
-        completed_at = datetime.now()
+        completed_at = get_beijing_time()
         expires_at = completed_at + timedelta(hours=12)  # 12小时后过期
         
         return self.update_todo(todo_id, user_id, {
@@ -301,7 +308,7 @@ class CompletedAssignment:
         """标记作业为已完成"""
         from datetime import datetime, timedelta
         
-        completed_at = datetime.now()
+        completed_at = get_beijing_time()
         expires_at = completed_at + timedelta(hours=12)  # 12小时后过期
         
         # 使用 upsert 避免重复记录
@@ -355,6 +362,6 @@ class CompletedAssignment:
         from datetime import datetime
         
         result = self.db[self.collection].delete_many({
-            'expires_at': {'$lt': datetime.now()}
+            'expires_at': {'$lt': get_beijing_time()}
         })
         return result.deleted_count

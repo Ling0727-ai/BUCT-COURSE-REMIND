@@ -6,11 +6,18 @@
 """
 
 from flask import Blueprint, jsonify, request, session, current_app
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from .auth import login_required
 from .model import Todo
 from . import mongo
 from bson import ObjectId
+
+# 定义北京时区
+BEIJING_TZ = timezone(timedelta(hours=8))
+
+def get_beijing_time():
+    """获取北京时间"""
+    return datetime.now(BEIJING_TZ)
 
 todos_bp = Blueprint('todos', __name__, url_prefix='/api/todos')
 
@@ -91,7 +98,7 @@ def create_todo():
                 hours_float = float(hours)
                 if hours_float <= 0:
                     return jsonify({'error': '小时数必须大于0', 'success': False}), 400
-                due_date = datetime.now() + timedelta(hours=hours_float)
+                due_date = get_beijing_time() + timedelta(hours=hours_float)
                 estimated_hours = hours_float  # 保存用户输入的原始小时数
                 current_app.logger.info(f"根据小时数 {hours_float} 计算截止时间: {due_date}")
             except (ValueError, TypeError):
@@ -175,7 +182,7 @@ def update_todo(todo_id):
                     hours_float = float(hours)
                     if hours_float <= 0:
                         return jsonify({'error': '小时数必须大于0', 'success': False}), 400
-                    update_data['due_date'] = datetime.now() + timedelta(hours=hours_float)
+                    update_data['due_date'] = get_beijing_time() + timedelta(hours=hours_float)
                     current_app.logger.info(f"根据小时数 {hours_float} 更新截止时间: {update_data['due_date']}")
                 except (ValueError, TypeError):
                     return jsonify({'error': '小时数格式错误', 'success': False}), 400
@@ -366,8 +373,9 @@ def get_todo_stats():
             priority_stats[priority] = count
         
         # 今日到期的待办
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        beijing_now = get_beijing_time()
+        today_start = beijing_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = beijing_now.replace(hour=23, minute=59, second=59, microsecond=999999)
         
         due_today = mongo.db.todos.count_documents({
             'user_id': ObjectId(user_id),
