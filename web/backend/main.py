@@ -21,7 +21,7 @@ def init_db():
                 'username': admin_username,
                 'password_hash': generate_password_hash(admin_password),
                 'is_admin': True,
-                'created_at': datetime.utcnow()
+                'created_at': datetime.now()
             }
             mongo.db.users.insert_one(admin_data)
             app.logger.info(f"Default admin user created ({admin_username})")

@@ -954,18 +954,12 @@ export default {
       addingTodo.value = true
 
       try {
-        // 计算截止时间：当前时间 + 指定小时数
-        let dueDate = null
-        if (newTodo.value.hours && newTodo.value.hours > 0) {
-          const now = new Date()
-          dueDate = new Date(now.getTime() + (newTodo.value.hours * 60 * 60 * 1000))
-        }
-
+        // 发送小时数给后端，让后端计算截止时间
         const todoData = {
           title: newTodo.value.title.trim(),
           description: newTodo.value.description.trim() || null,
           priority: newTodo.value.priority,
-          due_date: dueDate ? dueDate.toISOString() : null
+          hours: newTodo.value.hours && newTodo.value.hours > 0 ? newTodo.value.hours : null
         }
 
         const response = await fetch('/api/todos/', {

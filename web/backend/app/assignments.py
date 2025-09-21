@@ -232,7 +232,7 @@ def get_assignments_stats():
         scraper_data = get_scraper_data(user_id)
         
         # 统计各种状态
-        now = datetime.utcnow()
+        now = datetime.now()
         total = len(scraper_data)
         completed = 0
         urgent = 0
