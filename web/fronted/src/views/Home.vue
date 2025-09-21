@@ -981,7 +981,7 @@ export default {
         // 发送小时数给后端，让后端计算截止时间
         const todoData = {
           title: newTodo.value.title.trim(),
-          description: newTodo.value.description.trim() || null,
+          description: newTodo.value.description && newTodo.value.description.trim() ? newTodo.value.description.trim() : null,
           priority: newTodo.value.priority,
           hours: newTodo.value.hours && newTodo.value.hours > 0 ? newTodo.value.hours : null
         }

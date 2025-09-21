@@ -82,7 +82,12 @@ def create_todo():
             return jsonify({'error': '待办标题不能为空', 'success': False}), 400
         
         title = data.get('title').strip()
-        description = data.get('description', '').strip() or None
+        # 更健壮的描述字段处理
+        description_raw = data.get('description')
+        if description_raw is None or description_raw == '':
+            description = None
+        else:
+            description = description_raw.strip() if description_raw.strip() else None
         priority = data.get('priority', 'medium')
         
         # 验证优先级
