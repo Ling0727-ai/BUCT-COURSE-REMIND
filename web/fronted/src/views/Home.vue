@@ -119,7 +119,7 @@
           <div class="card-footer">
             <div v-if="assignment.dueDate && assignment.type !== '作业'" :class="['due-date', assignmentStatus(assignment)]">
               <i :class="statusIcon(assignment)"></i>
-              <span>{{ formatDate(assignment.dueDate, assignment.type, assignment.estimatedHours) }}</span>
+              <span v-html="formatDate(assignment.dueDate, assignment.type, assignment.estimatedHours)"></span>
             </div>
             <div v-else class="due-date-placeholder">
               <!-- 作业类型不显示时间或无截止日期 -->
@@ -458,9 +458,9 @@ export default {
           if (estimatedHours >= 24) {
             const days = Math.floor(estimatedHours / 24)
             const hours = estimatedHours % 24
-            timeInfo = `预计 ${days}天${hours > 0 ? hours + '小时' : ''} | `
+            timeInfo = `预计 ${days}天${hours > 0 ? hours + '小时' : ''}<br>`
           } else {
-            timeInfo = `预计 ${estimatedHours}小时 | `
+            timeInfo = `预计 ${estimatedHours}小时<br>`
           }
         }
         
