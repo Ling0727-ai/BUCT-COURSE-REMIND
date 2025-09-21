@@ -283,6 +283,7 @@ export default {
     
     const updateTime = () => {
       const now = new Date()
+      // 确保使用中国时区 (UTC+8)
       currentTime.value = now.toLocaleString('zh-CN', {
         year: 'numeric',
         month: '2-digit',
@@ -290,7 +291,8 @@ export default {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        hour12: false
+        hour12: false,
+        timeZone: 'Asia/Beijing'
       })
     }
     
