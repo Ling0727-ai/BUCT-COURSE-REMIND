@@ -14,8 +14,11 @@ from bson import ObjectId
 BEIJING_TZ = timezone(timedelta(hours=8))
 
 def get_beijing_time():
-    """获取北京时间"""
-    return datetime.now(BEIJING_TZ)
+    """获取北京时间（naive datetime，用于MongoDB存储）"""
+    # 获取UTC时间，然后转换为北京时间（不带时区信息）
+    utc_now = datetime.utcnow()
+    beijing_now = utc_now + timedelta(hours=8)
+    return beijing_now
 
 # ==============================================================================
 # 1. users (用户信息)

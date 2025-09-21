@@ -373,9 +373,9 @@ export default {
     })
 
     // 计算剩余天数
-    // 获取北京时间的统一函数
-    const getBeijingTime = () => {
-      return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
+    // 获取当前时间（用于比较）
+    const getCurrentTime = () => {
+      return new Date()
     }
 
     const getDaysUntilDue = (dueDate) => {
@@ -384,8 +384,16 @@ export default {
           return Infinity
         }
         
-        const now = getBeijingTime()
-        const due = new Date(dueDate)
+        const now = getCurrentTime()
+        
+        // 如果时间字符串没有时区信息，假设是北京时间
+        let due
+        if (dueDate.includes('T') && !dueDate.includes('+') && !dueDate.includes('Z')) {
+          // 没有时区信息的ISO字符串，假设是北京时间
+          due = new Date(dueDate + '+08:00')
+        } else {
+          due = new Date(dueDate)
+        }
         
         // 检查日期是否有效
         if (isNaN(due.getTime())) {
@@ -428,9 +436,17 @@ export default {
     const formatDate = (dateString, itemType, estimatedHours) => {
       if (!dateString) return ''
       
-      const date = new Date(dateString)
-      // 确保使用北京时间进行计算
-      const now = getBeijingTime()
+      // 如果时间字符串没有时区信息，假设是北京时间
+      let date
+      if (dateString.includes('T') && !dateString.includes('+') && !dateString.includes('Z')) {
+        // 没有时区信息的ISO字符串，假设是北京时间
+        date = new Date(dateString + '+08:00')
+      } else {
+        date = new Date(dateString)
+      }
+      
+      // 使用当前时间进行计算
+      const now = getCurrentTime()
       const diffMs = date.getTime() - now.getTime()
       
       // 如果是待办事项，显示预计时间和剩余时间

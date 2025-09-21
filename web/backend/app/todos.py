@@ -16,8 +16,11 @@ from bson import ObjectId
 BEIJING_TZ = timezone(timedelta(hours=8))
 
 def get_beijing_time():
-    """获取北京时间"""
-    return datetime.now(BEIJING_TZ)
+    """获取北京时间（naive datetime，用于MongoDB存储）"""
+    # 获取UTC时间，然后转换为北京时间（不带时区信息）
+    utc_now = datetime.utcnow()
+    beijing_now = utc_now + timedelta(hours=8)
+    return beijing_now
 
 todos_bp = Blueprint('todos', __name__, url_prefix='/api/todos')
 
@@ -44,27 +47,13 @@ def get_todos():
             todo['_id'] = str(todo['_id'])
             todo['user_id'] = str(todo['user_id'])
             if todo.get('due_date'):
-                # 确保返回带时区信息的时间字符串
-                if todo['due_date'].tzinfo is None:
-                    # 如果没有时区信息，假设是北京时间
-                    todo['due_date'] = todo['due_date'].replace(tzinfo=BEIJING_TZ).isoformat()
-                else:
-                    todo['due_date'] = todo['due_date'].isoformat()
+                todo['due_date'] = todo['due_date'].isoformat()
             if todo.get('completed_at'):
-                if todo['completed_at'].tzinfo is None:
-                    todo['completed_at'] = todo['completed_at'].replace(tzinfo=BEIJING_TZ).isoformat()
-                else:
-                    todo['completed_at'] = todo['completed_at'].isoformat()
+                todo['completed_at'] = todo['completed_at'].isoformat()
             if todo.get('created_at'):
-                if todo['created_at'].tzinfo is None:
-                    todo['created_at'] = todo['created_at'].replace(tzinfo=BEIJING_TZ).isoformat()
-                else:
-                    todo['created_at'] = todo['created_at'].isoformat()
+                todo['created_at'] = todo['created_at'].isoformat()
             if todo.get('updated_at'):
-                if todo['updated_at'].tzinfo is None:
-                    todo['updated_at'] = todo['updated_at'].replace(tzinfo=BEIJING_TZ).isoformat()
-                else:
-                    todo['updated_at'] = todo['updated_at'].isoformat()
+                todo['updated_at'] = todo['updated_at'].isoformat()
             # 确保 estimated_hours 字段存在
             if 'estimated_hours' not in todo:
                 todo['estimated_hours'] = None
