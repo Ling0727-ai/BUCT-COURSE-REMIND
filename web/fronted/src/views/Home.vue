@@ -587,7 +587,15 @@ export default {
           console.log('调用作业提醒API:', url, '类型:', assignment.type)
           response = await fetch(url, {
             method: 'POST',
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: assignment.title,
+              subject: assignment.subject,
+              deadline: assignment.dueDate
+            })
           })
         }
         

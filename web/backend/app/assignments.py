@@ -109,24 +109,13 @@ def mark_assignment_complete(assignment_id):
         
         logger.info(f"用户 {user_id} 标记作业 {assignment_id} 为已完成")
         
-        # 获取实时数据来验证作业是否存在
-        scraper_data = get_scraper_data(user_id)
+        # 从前端请求中获取作业信息
+        data = request.get_json() or {}
+        assignment_title = data.get('title', '未知作业')
+        assignment_subject = data.get('subject', '未知科目')
         
-        # 查找对应的作业
-        assignment = None
-        for item in scraper_data:
-            item_id = f"{item.get('type', 'unknown')}_{hash(item.get('subject', '') + item.get('details', {}).get('task', ''))}"
-            if item_id == assignment_id:
-                assignment = item
-                break
-        
-        if not assignment:
-            return jsonify({'success': False, 'error': '作业不存在'}), 404
-        
-        # 标记为已完成
+        # 直接标记为已完成，不需要验证作业是否存在（因为作业是实时获取的）
         completed_manager = CompletedAssignment(mongo.db)
-        assignment_title = assignment.get('details', {}).get('task', '未知作业')
-        assignment_subject = assignment.get('subject', '未知科目')
         result = completed_manager.mark_completed(user_id, assignment_id, assignment_title, assignment_subject)
         
         if result:
@@ -175,25 +164,12 @@ def remind_assignment(assignment_id):
         
         logger.info(f"用户 {user_id} 提醒作业: {assignment_id}")
         
-        # 通过scraper获取实时数据来验证作业是否存在
-        scraper_data = get_scraper_data(user_id)
-        
-        # 查找对应的作业
-        target_assignment = None
-        for item in scraper_data:
-            item_id = f"{item.get('type', 'unknown')}_{hash(item.get('subject', '') + item.get('details', {}).get('task', ''))}"
-            if item_id == assignment_id:
-                target_assignment = item
-                break
-        
-        if not target_assignment:
-            return jsonify({'success': False, 'error': '作业不存在'}), 404
-        
-        # 构建提醒信息
-        subject = target_assignment.get('subject', '未知科目')
-        task = target_assignment.get('details', {}).get('task', '未知任务')
-        deadline = target_assignment.get('details', {}).get('deadline', '')
-        assignment_type = '作业' if target_assignment.get('type') == 'homework' else '测试'
+        # 从前端请求中获取作业信息（如果有的话）
+        data = request.get_json() or {}
+        subject = data.get('subject', '作业')
+        task = data.get('title', '任务')
+        deadline = data.get('deadline', '')
+        assignment_type = '作业' if 'homework' in assignment_id else '测试'
         
         # 这里可以添加实际的提醒逻辑，比如发送邮件、推送通知等
         # 目前只是记录日志
