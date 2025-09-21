@@ -570,30 +570,43 @@ export default {
     // 设置提醒
     const setReminder = async (assignment) => {
       try {
+        console.log('设置提醒 - assignment:', assignment)
         let response
         
         if (assignment.type === '待办') {
           // 待办提醒API
-          response = await fetch(`/api/todos/${assignment._todoId}/remind`, {
+          const url = `/api/todos/${assignment._todoId}/remind`
+          console.log('调用待办提醒API:', url)
+          response = await fetch(url, {
             method: 'POST',
             credentials: 'include'
           })
         } else {
           // 作业/测试提醒API
-          response = await fetch(`/api/assignments/${assignment.id}/remind`, {
+          const url = `/api/assignments/${assignment.id}/remind`
+          console.log('调用作业提醒API:', url, '类型:', assignment.type)
+          response = await fetch(url, {
             method: 'POST',
             credentials: 'include'
           })
         }
         
+        console.log('提醒API响应状态:', response.status)
+        
         if (response.ok) {
           const result = await response.json()
-          showToast('success', '提醒设置', result.message)
           console.log('提醒成功:', result)
+          showToast('success', '提醒设置', result.message || '提醒设置成功')
         } else {
-          const errorData = await response.json()
-          console.error('提醒失败:', errorData)
-          showToast('error', '提醒失败', errorData.error || '设置提醒失败，请重试')
+          const errorText = await response.text()
+          console.error('提醒失败 - 状态码:', response.status, '响应:', errorText)
+          let errorData
+          try {
+            errorData = JSON.parse(errorText)
+          } catch (e) {
+            errorData = { error: errorText }
+          }
+          showToast('error', '提醒失败', errorData.error || `HTTP ${response.status}: 设置提醒失败`)
         }
       } catch (error) {
         console.error('提醒错误:', error)
@@ -639,6 +652,7 @@ export default {
     const markCompleted = async (assignment) => {
       if (assignment.completing) return
       
+      console.log('标记完成 - assignment:', assignment)
       assignment.completing = true
       
       try {
@@ -646,12 +660,16 @@ export default {
         
         // 判断是作业还是待办
         if (assignment.type === '待办') {
-          response = await fetch(`/api/todos/${assignment._todoId}/complete`, {
+          const url = `/api/todos/${assignment._todoId}/complete`
+          console.log('调用待办完成API:', url)
+          response = await fetch(url, {
             method: 'POST',
             credentials: 'include'
           })
         } else {
-          response = await fetch(`/api/assignments/${assignment.id}/complete`, {
+          const url = `/api/assignments/${assignment.id}/complete`
+          console.log('调用作业完成API:', url, '类型:', assignment.type, 'ID:', assignment.id)
+          response = await fetch(url, {
             method: 'POST',
             credentials: 'include',
             headers: {
@@ -664,8 +682,11 @@ export default {
           })
         }
         
+        console.log('完成API响应状态:', response.status)
+        
         if (response.ok) {
           const result = await response.json()
+          console.log('标记完成成功:', result)
           
           // 更新本地状态
           assignment.completed = true
@@ -683,11 +704,16 @@ export default {
             `${assignment.title} 已完成` : 
             `${assignment.title} 已标记为完成，12小时后自动清除`
           showToast('success', '任务完成', message)
-          console.log('标记完成成功:', result)
         } else {
-          const errorData = await response.json()
-          console.error('标记完成失败:', errorData)
-          showToast('error', '操作失败', errorData.error || '标记完成失败，请重试')
+          const errorText = await response.text()
+          console.error('标记完成失败 - 状态码:', response.status, '响应:', errorText)
+          let errorData
+          try {
+            errorData = JSON.parse(errorText)
+          } catch (e) {
+            errorData = { error: errorText }
+          }
+          showToast('error', '操作失败', errorData.error || `HTTP ${response.status}: 标记完成失败`)
         }
       } catch (error) {
         console.error('标记完成错误:', error)
@@ -858,7 +884,15 @@ export default {
               
               console.log(`处理第${index}项数据:`, safeItem)
               
-              const assignmentId = `${safeItem.type}_${safeItem.subject}_${safeItem.details.task}`.replace(/\s+/g, '_')
+              // 使用与后端相同的ID生成逻辑 - 简单哈希函数
+              const hashInput = safeItem.subject + safeItem.details.task
+              let hash = 0
+              for (let i = 0; i < hashInput.length; i++) {
+                const char = hashInput.charCodeAt(i)
+                hash = ((hash << 5) - hash) + char
+                hash = hash & hash // 转换为32位整数
+              }
+              const assignmentId = `${safeItem.type}_${Math.abs(hash)}`
               
               return {
                 id: assignmentId,
