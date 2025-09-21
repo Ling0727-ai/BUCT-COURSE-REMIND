@@ -811,13 +811,20 @@ export default {
           <div class="toast-title">${title}</div>
           <div class="toast-message">${message}</div>
         </div>
-        <button class="toast-close" onclick="this.parentElement.classList.remove('show'); setTimeout(() => { if (document.body.contains(this.parentElement)) document.body.removeChild(this.parentElement) }, 400)">
-          <i class="fas fa-times"></i>
-        </button>
         <div class="toast-progress">
           <div class="toast-progress-bar toast-progress-${type}"></div>
         </div>
       `
+      
+      // 点击整个 Toast 关闭
+      toast.addEventListener('click', () => {
+        toast.classList.remove('show')
+        setTimeout(() => {
+          if (document.body.contains(toast)) {
+            document.body.removeChild(toast)
+          }
+        }, 300)
+      })
       
       document.body.appendChild(toast)
       
@@ -827,7 +834,7 @@ export default {
         // 启动进度条动画
         const progressBar = toast.querySelector('.toast-progress-bar')
         if (progressBar) {
-          progressBar.style.animation = 'toast-progress 4s linear forwards'
+          progressBar.style.animation = 'toast-progress 3s linear forwards'
         }
       }, 100)
       
@@ -839,9 +846,9 @@ export default {
             if (document.body.contains(toast)) {
               document.body.removeChild(toast)
             }
-          }, 400)
+          }, 300)
         }
-      }, 4000)
+      }, 3000)
     }
 
     const getToastIcon = (type) => {
@@ -2223,28 +2230,38 @@ export default {
 /* Toast 通知样式 */
 .toast {
   position: fixed;
-  top: 80px;
-  right: 30px;
-  max-width: 350px;
-  min-width: 280px;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
+  max-width: 400px;
+  min-width: 320px;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(20px);
   overflow: hidden;
-  z-index: 9999;
-  transform: translateX(120%) scale(0.9);
+  z-index: 10000;
   opacity: 0;
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: flex-start;
-  padding: 20px;
-  gap: 15px;
+  padding: 16px 20px;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.toast:hover {
+  transform: translateX(-50%) translateY(0) scale(1.02);
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.toast:active {
+  transform: translateX(-50%) translateY(0) scale(0.98);
 }
 
 .toast.show {
-  transform: translateX(0) scale(1);
+  transform: translateX(-50%) translateY(0);
   opacity: 1;
 }
 
@@ -2323,29 +2340,7 @@ export default {
   font-weight: 400;
 }
 
-.toast-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: none;
-  border: none;
-  color: #9ca3af;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  font-size: 12px;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-}
 
-.toast-close:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #6b7280;
-}
 
 .toast-progress {
   position: absolute;
@@ -2381,10 +2376,10 @@ export default {
 }
 
 @keyframes toast-progress {
-  from {
+  0% {
     transform: translateX(-100%);
   }
-  to {
+  100% {
     transform: translateX(0%);
   }
 }
@@ -2537,12 +2532,24 @@ export default {
 
   /* Toast 移动端适配 */
   .toast {
-    top: 20px;
-    right: 15px;
+    top: 15px;
     left: 15px;
+    right: 15px;
     max-width: none;
     min-width: auto;
-    margin: 0;
+    transform: translateY(-100%);
+  }
+  
+  .toast.show {
+    transform: translateY(0);
+  }
+  
+  .toast:hover {
+    transform: translateY(0) scale(1.01);
+  }
+  
+  .toast:active {
+    transform: translateY(0) scale(0.99);
   }
 }
 </style>
