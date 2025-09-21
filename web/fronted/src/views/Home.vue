@@ -697,12 +697,19 @@ export default {
           console.log('标记完成成功:', result)
           
           // 更新本地状态
-          assignment.completed = true
-          assignment.completedAt = new Date().toISOString()
-          
-          // 如果是待办，更新待办列表
           if (assignment.type === '待办') {
+            // 如果是待办，重新获取待办列表
             await fetchTodos()
+          } else {
+            // 如果是作业，更新作业数组中对应的项目
+            const assignmentIndex = assignments.value.findIndex(a => a.id === assignment.id)
+            if (assignmentIndex !== -1) {
+              assignments.value[assignmentIndex].completed = true
+              assignments.value[assignmentIndex].completedAt = new Date().toISOString()
+            }
+            // 同时更新传入的assignment对象以立即反映UI变化
+            assignment.completed = true
+            assignment.completedAt = new Date().toISOString()
           }
           
           filterAssignments()
@@ -760,12 +767,19 @@ export default {
           const result = await response.json()
           
           // 更新本地状态
-          assignment.completed = false
-          assignment.completedAt = null
-          
-          // 如果是待办，更新待办列表
           if (assignment.type === '待办') {
+            // 如果是待办，重新获取待办列表
             await fetchTodos()
+          } else {
+            // 如果是作业，更新作业数组中对应的项目
+            const assignmentIndex = assignments.value.findIndex(a => a.id === assignment.id)
+            if (assignmentIndex !== -1) {
+              assignments.value[assignmentIndex].completed = false
+              assignments.value[assignmentIndex].completedAt = null
+            }
+            // 同时更新传入的assignment对象以立即反映UI变化
+            assignment.completed = false
+            assignment.completedAt = null
           }
           
           filterAssignments()
@@ -1671,10 +1685,7 @@ export default {
   border-left-color: #f39c12;
 }
 
-.assignment-card.completed {
-  border-left-color: #27ae60;
-  opacity: 0.8;
-}
+
 
 .card-header {
   display: flex;
@@ -1894,9 +1905,12 @@ export default {
 /* 已完成卡片的特殊样式 */
 .assignment-card.completed {
   position: relative;
-  background: linear-gradient(135deg, rgba(39, 174, 96, 0.05), rgba(46, 204, 113, 0.05));
-  border-left-color: #27ae60;
-  opacity: 0.9;
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.1), rgba(46, 204, 113, 0.1));
+  border-left-color: #27ae60 !important;
+  border-left-width: 6px !important;
+  opacity: 0.85;
+  transform: scale(0.98);
+  box-shadow: 0 8px 25px rgba(39, 174, 96, 0.2) !important;
 }
 
 .assignment-card.completed::after {
@@ -1911,9 +1925,12 @@ export default {
 }
 
 .assignment-card.completed .card-title {
-  color: #27ae60;
+  color: #27ae60 !important;
   text-decoration: line-through;
-  text-decoration-color: rgba(39, 174, 96, 0.5);
+  text-decoration-color: #27ae60;
+  text-decoration-thickness: 2px;
+  opacity: 0.8;
+  font-weight: 500;
 }
 
 .assignment-card.completed .card-content {
