@@ -44,6 +44,9 @@ def get_todos():
                 todo['created_at'] = todo['created_at'].isoformat()
             if todo.get('updated_at'):
                 todo['updated_at'] = todo['updated_at'].isoformat()
+            # 确保 estimated_hours 字段存在
+            if 'estimated_hours' not in todo:
+                todo['estimated_hours'] = None
         
         return jsonify({
             'success': True,
@@ -78,16 +81,18 @@ def create_todo():
         
         # 处理截止日期 - 支持两种格式：小时数或ISO日期字符串
         due_date = None
+        estimated_hours = None
         hours = data.get('hours')
         due_date_str = data.get('due_date')
         
         if hours is not None:
-            # 前端发送小时数，计算截止时间
+            # 前端发送小时数，计算截止时间并保存原始小时数
             try:
                 hours_float = float(hours)
                 if hours_float <= 0:
                     return jsonify({'error': '小时数必须大于0', 'success': False}), 400
                 due_date = datetime.now() + timedelta(hours=hours_float)
+                estimated_hours = hours_float  # 保存用户输入的原始小时数
                 current_app.logger.info(f"根据小时数 {hours_float} 计算截止时间: {due_date}")
             except (ValueError, TypeError):
                 return jsonify({'error': '小时数格式错误', 'success': False}), 400
@@ -107,7 +112,8 @@ def create_todo():
             title=title,
             description=description,
             priority=priority,
-            due_date=due_date
+            due_date=due_date,
+            estimated_hours=estimated_hours
         )
         
         current_app.logger.info(f"用户 {user_id} 创建待办事项: {title}")
@@ -360,8 +366,8 @@ def get_todo_stats():
             priority_stats[priority] = count
         
         # 今日到期的待办
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = datetime.utcnow().replace(hour=23, minute=59, second=59, microsecond=999999)
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
         
         due_today = mongo.db.todos.count_documents({
             'user_id': ObjectId(user_id),

@@ -119,7 +119,7 @@
           <div class="card-footer">
             <div v-if="assignment.dueDate && assignment.type !== '作业'" :class="['due-date', assignmentStatus(assignment)]">
               <i :class="statusIcon(assignment)"></i>
-              <span>{{ formatDate(assignment.dueDate, assignment.type) }}</span>
+              <span>{{ formatDate(assignment.dueDate, assignment.type, assignment.estimatedHours) }}</span>
             </div>
             <div v-else class="due-date-placeholder">
               <!-- 作业类型不显示时间或无截止日期 -->
@@ -338,6 +338,7 @@ export default {
           type: '待办',
           completed: todo.completed,
           priority: todo.priority,
+          estimatedHours: todo.estimated_hours, // 添加预计小时数
           _todoId: todo._id
         }))
         items.push(...todoItems)
@@ -416,25 +417,39 @@ export default {
       return icons[status]
     }
 
-    // 格式化日期 - 待办只显示剩余时间
-    const formatDate = (dateString, itemType) => {
+    // 格式化日期 - 待办显示预计时间和剩余时间
+    const formatDate = (dateString, itemType, estimatedHours) => {
       if (!dateString) return ''
       
       const date = new Date(dateString)
       const now = new Date()
       const diffMs = date.getTime() - now.getTime()
       
-      // 如果是待办事项，只显示剩余时间
+      // 如果是待办事项，显示预计时间和剩余时间
       if (itemType === '待办') {
+        let timeInfo = ''
+        
+        // 显示预计时间
+        if (estimatedHours) {
+          if (estimatedHours >= 24) {
+            const days = Math.floor(estimatedHours / 24)
+            const hours = estimatedHours % 24
+            timeInfo = `预计 ${days}天${hours > 0 ? hours + '小时' : ''} | `
+          } else {
+            timeInfo = `预计 ${estimatedHours}小时 | `
+          }
+        }
+        
+        // 显示剩余时间
         if (diffMs < 0) {
           // 已超时
           const overdueDays = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60 * 24))
           const overdueHours = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60)) % 24
           
           if (overdueDays > 0) {
-            return `已超时 ${overdueDays}天${overdueHours > 0 ? overdueHours + '小时' : ''}`
+            timeInfo += `已超时 ${overdueDays}天${overdueHours > 0 ? overdueHours + '小时' : ''}`
           } else {
-            return `已超时 ${overdueHours}小时`
+            timeInfo += `已超时 ${overdueHours}小时`
           }
         } else {
           // 剩余时间
@@ -443,13 +458,15 @@ export default {
           const remainingMinutes = Math.floor(diffMs / (1000 * 60)) % 60
           
           if (remainingDays > 0) {
-            return `剩余 ${remainingDays}天${remainingHours > 0 ? remainingHours + '小时' : ''}`
+            timeInfo += `剩余 ${remainingDays}天${remainingHours > 0 ? remainingHours + '小时' : ''}`
           } else if (remainingHours > 0) {
-            return `剩余 ${remainingHours}小时${remainingMinutes > 0 ? remainingMinutes + '分钟' : ''}`
+            timeInfo += `剩余 ${remainingHours}小时${remainingMinutes > 0 ? remainingMinutes + '分钟' : ''}`
           } else {
-            return `剩余 ${remainingMinutes}分钟`
+            timeInfo += `剩余 ${remainingMinutes}分钟`
           }
         }
+        
+        return timeInfo
       }
       
       // 作业显示原有格式

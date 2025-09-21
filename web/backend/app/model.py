@@ -45,8 +45,8 @@ class User:
             'student_id': student_id,
             's_password': s_password,  # 注意：实际应用中应该加密存储
             'is_admin': False,
-            'created_at': datetime.utcnow(),
-            'updated_at': datetime.utcnow()
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
         }
         
         result = self.db[self.collection].insert_one(user_data)
@@ -66,7 +66,7 @@ class User:
     
     def update_user(self, user_id, update_data):
         """更新用户信息"""
-        update_data['updated_at'] = datetime.utcnow()
+        update_data['updated_at'] = datetime.now()
         return self.db[self.collection].update_one(
             {'_id': ObjectId(user_id)},
             {'$set': update_data}
@@ -198,7 +198,7 @@ class Todo:
         # 创建过期时间索引，MongoDB会自动删除过期的已完成待办
         self.db[self.collection].create_index("expires_at", expireAfterSeconds=0)
     
-    def create_todo(self, user_id, title, description=None, priority='medium', due_date=None):
+    def create_todo(self, user_id, title, description=None, priority='medium', due_date=None, estimated_hours=None):
         """创建新的待办事项"""
         todo_data = {
             'user_id': ObjectId(user_id),
@@ -206,11 +206,12 @@ class Todo:
             'description': description,
             'priority': priority,
             'due_date': due_date,
+            'estimated_hours': estimated_hours,  # 保存用户输入的预计小时数
             'completed': False,
             'completed_at': None,
             'expires_at': None,  # 完成后12小时过期时间
-            'created_at': datetime.utcnow(),
-            'updated_at': datetime.utcnow()
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
         }
         
         result = self.db[self.collection].insert_one(todo_data)
@@ -234,7 +235,7 @@ class Todo:
     
     def update_todo(self, todo_id, user_id, update_data):
         """更新待办事项"""
-        update_data['updated_at'] = datetime.utcnow()
+        update_data['updated_at'] = datetime.now()
         return self.db[self.collection].update_one(
             {
                 '_id': ObjectId(todo_id),
@@ -246,7 +247,7 @@ class Todo:
     def mark_completed(self, todo_id, user_id):
         """标记待办事项为已完成，12小时后自动删除"""
         from datetime import timedelta
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now()
         expires_at = completed_at + timedelta(hours=12)  # 12小时后过期
         
         return self.update_todo(todo_id, user_id, {
@@ -300,7 +301,7 @@ class CompletedAssignment:
         """标记作业为已完成"""
         from datetime import datetime, timedelta
         
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now()
         expires_at = completed_at + timedelta(hours=12)  # 12小时后过期
         
         # 使用 upsert 避免重复记录
@@ -354,6 +355,6 @@ class CompletedAssignment:
         from datetime import datetime
         
         result = self.db[self.collection].delete_many({
-            'expires_at': {'$lt': datetime.utcnow()}
+            'expires_at': {'$lt': datetime.now()}
         })
         return result.deleted_count
