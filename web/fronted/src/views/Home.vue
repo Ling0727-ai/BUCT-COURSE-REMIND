@@ -811,22 +811,37 @@ export default {
           <div class="toast-title">${title}</div>
           <div class="toast-message">${message}</div>
         </div>
+        <button class="toast-close" onclick="this.parentElement.classList.remove('show'); setTimeout(() => { if (document.body.contains(this.parentElement)) document.body.removeChild(this.parentElement) }, 400)">
+          <i class="fas fa-times"></i>
+        </button>
+        <div class="toast-progress">
+          <div class="toast-progress-bar toast-progress-${type}"></div>
+        </div>
       `
       
       document.body.appendChild(toast)
       
       // 显示动画
-      setTimeout(() => toast.classList.add('show'), 100)
+      setTimeout(() => {
+        toast.classList.add('show')
+        // 启动进度条动画
+        const progressBar = toast.querySelector('.toast-progress-bar')
+        if (progressBar) {
+          progressBar.style.animation = 'toast-progress 4s linear forwards'
+        }
+      }, 100)
       
       // 自动移除
       setTimeout(() => {
-        toast.classList.remove('show')
-        setTimeout(() => {
-          if (document.body.contains(toast)) {
-            document.body.removeChild(toast)
-          }
-        }, 300)
-      }, 3000)
+        if (toast.classList.contains('show')) {
+          toast.classList.remove('show')
+          setTimeout(() => {
+            if (document.body.contains(toast)) {
+              document.body.removeChild(toast)
+            }
+          }, 400)
+        }
+      }, 4000)
     }
 
     const getToastIcon = (type) => {
@@ -2208,85 +2223,170 @@ export default {
 /* Toast 通知样式 */
 .toast {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  max-width: 400px;
+  top: 80px;
+  right: 30px;
+  max-width: 350px;
+  min-width: 280px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
   overflow: hidden;
-  z-index: 1000;
-  transform: translateX(100%);
+  z-index: 9999;
+  transform: translateX(120%) scale(0.9);
   opacity: 0;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   display: flex;
   align-items: flex-start;
-  padding: 16px;
-  gap: 12px;
+  padding: 20px;
+  gap: 15px;
 }
 
 .toast.show {
-  transform: translateX(0);
+  transform: translateX(0) scale(1);
   opacity: 1;
 }
 
 .toast-success {
-  border-left: 4px solid #10b981;
+  border-left: 5px solid #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.02));
+  box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.25), 0 0 0 1px rgba(16, 185, 129, 0.1);
 }
 
 .toast-error {
-  border-left: 4px solid #ef4444;
+  border-left: 5px solid #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
+  box-shadow: 0 25px 50px -12px rgba(239, 68, 68, 0.25), 0 0 0 1px rgba(239, 68, 68, 0.1);
 }
 
 .toast-warning {
-  border-left: 4px solid #f59e0b;
+  border-left: 5px solid #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.02));
+  box-shadow: 0 25px 50px -12px rgba(245, 158, 11, 0.25), 0 0 0 1px rgba(245, 158, 11, 0.1);
 }
 
 .toast-info {
-  border-left: 4px solid #3b82f6;
+  border-left: 5px solid #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 0.02));
+  box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.25), 0 0 0 1px rgba(59, 130, 246, 0.1);
 }
 
 .toast-icon {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
+  font-size: 16px;
 }
 
 .toast-success .toast-icon {
   color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .toast-error .toast-icon {
   color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .toast-warning .toast-icon {
   color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
 }
 
 .toast-info .toast-icon {
   color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .toast-content {
   flex: 1;
+  padding-top: 2px;
 }
 
 .toast-title {
-  font-weight: 600;
+  font-weight: 700;
   color: #1f2937;
-  margin-bottom: 4px;
-  font-size: 14px;
+  margin-bottom: 6px;
+  font-size: 15px;
+  letter-spacing: -0.025em;
 }
 
 .toast-message {
-  font-size: 13px;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.toast-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.toast-close:hover {
+  background: rgba(0, 0, 0, 0.05);
   color: #6b7280;
-  line-height: 1.4;
+}
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  border-radius: 0 0 16px 16px;
+}
+
+.toast-progress-bar {
+  height: 100%;
+  width: 100%;
+  transform: translateX(-100%);
+}
+
+.toast-progress-success {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.toast-progress-error {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.toast-progress-warning {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.toast-progress-info {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+@keyframes toast-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0%);
+  }
 }
 
 
@@ -2433,6 +2533,16 @@ export default {
 
   .actions {
     justify-content: center;
+  }
+
+  /* Toast 移动端适配 */
+  .toast {
+    top: 20px;
+    right: 15px;
+    left: 15px;
+    max-width: none;
+    min-width: auto;
+    margin: 0;
   }
 }
 </style>
