@@ -49,7 +49,7 @@ def trigger_cleanup():
         return jsonify({
             'success': True,
             'message': '清理任务已执行',
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
@@ -99,13 +99,13 @@ def get_completed_assignments_stats():
         ]))
         
         # 今日完成统计
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         today_completed = mongo.db.completed_assignments.count_documents({
             'completed_at': {'$gte': today_start}
         })
         
         # 即将过期的记录
-        next_hour = datetime.utcnow() + timedelta(hours=1)
+        next_hour = datetime.now() + timedelta(hours=1)
         expiring_soon = mongo.db.completed_assignments.count_documents({
             'expires_at': {'$lte': next_hour}
         })
@@ -118,7 +118,7 @@ def get_completed_assignments_stats():
                 'expiring_soon': expiring_soon,
                 'user_stats': user_stats
             },
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
@@ -179,7 +179,7 @@ def list_completed_assignments():
                 'total': total_count,
                 'pages': (total_count + limit - 1) // limit
             },
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
@@ -217,7 +217,7 @@ def get_system_status():
             'system_status': {
                 'database_stats': db_stats,
                 'cleanup_tasks': cleanup_status,
-                'server_time': datetime.utcnow().isoformat()
+                'server_time': datetime.now().isoformat()
             }
         })
         

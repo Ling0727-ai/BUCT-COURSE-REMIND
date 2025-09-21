@@ -21,7 +21,7 @@ def check_and_send_notifications():
         active_webhooks = [w for w in webhooks if w.get('enabled', False)]
         if not active_webhooks: return
 
-        now = datetime.utcnow()
+        now = datetime.now()
         urgent_assignments = list(mongo.db[ASSIGNMENTS_COLLECTION].find({
             'due_date': {'$lte': now + timedelta(days=1), '$gt': now}
         }))
@@ -49,7 +49,7 @@ def send_webhook_notification(webhook_config, message):
         log_data = {
             'webhook_type': webhook_type, 'message': message,
             'status': 'success' if success else 'failed',
-            'created_at': datetime.utcnow()
+            'created_at': datetime.now()
         }
         mongo.db[WEBHOOK_LOGS_COLLECTION].insert_one(log_data)
         return success

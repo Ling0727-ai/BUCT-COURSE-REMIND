@@ -42,7 +42,7 @@ def save_settings():
             
             mongo.db[SETTINGS_COLLECTION].update_one(
                 {'key': key},
-                {'$set': {'value': value_to_save, 'updated_at': datetime.utcnow()}},
+                {'$set': {'value': value_to_save, 'updated_at': datetime.now()}},
                 upsert=True
             )
         

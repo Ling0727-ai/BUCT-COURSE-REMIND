@@ -101,7 +101,7 @@ class CleanupTasks:
         """清理过期的验证码"""
         try:
             # 删除1小时前的验证码
-            cutoff_time = datetime.utcnow() - timedelta(hours=1)
+            cutoff_time = datetime.now() - timedelta(hours=1)
             
             result = mongo.db.verification_codes.delete_many({
                 'expires_at': {'$lt': cutoff_time}
@@ -118,7 +118,7 @@ class CleanupTasks:
         """清理旧的日志记录"""
         try:
             # 删除30天前的日志
-            cutoff_time = datetime.utcnow() - timedelta(days=30)
+            cutoff_time = datetime.now() - timedelta(days=30)
             
             result = mongo.db.webhook_logs.delete_many({
                 'created_at': {'$lt': cutoff_time}

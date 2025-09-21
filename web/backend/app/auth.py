@@ -237,7 +237,7 @@ def send_verification_code():
     # 检查发送频率限制（1分钟内只能发送一次）
     recent_code = mongo.db[VERIFICATION_CODES_COLLECTION].find_one({
         'email': email,
-        'created_at': {'$gt': datetime.utcnow() - timedelta(minutes=1)}
+        'created_at': {'$gt': datetime.now() - timedelta(minutes=1)}
     })
     
     if recent_code:
@@ -251,8 +251,8 @@ def send_verification_code():
             {'email': email},
             {'$set': {
                 'code': code,
-                'created_at': datetime.utcnow(),
-                'expires_at': datetime.utcnow() + timedelta(seconds=Config.VERIFY_CODE_EXPIRE)
+                'created_at': datetime.now(),
+                'expires_at': datetime.now() + timedelta(seconds=Config.VERIFY_CODE_EXPIRE)
             }},
             upsert=True
         )
@@ -303,7 +303,7 @@ def verify_code():
         verification = mongo.db[VERIFICATION_CODES_COLLECTION].find_one({
             'email': email,
             'code': code,
-            'expires_at': {'$gt': datetime.utcnow()}
+            'expires_at': {'$gt': datetime.now()}
         })
         
         if verification:

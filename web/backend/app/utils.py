@@ -17,7 +17,7 @@ def health_check():
         
         return jsonify({
             'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now().isoformat(),
             'database': 'connected',
             'version': '1.0.0'
         })
@@ -25,7 +25,7 @@ def health_check():
         return jsonify({
             'status': 'unhealthy',
             'error': str(e),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now().isoformat()
         }), 500
 
 @utils_bp.route('/stats', methods=['GET'])
@@ -34,7 +34,7 @@ def get_stats():
     total_assignments = mongo.db[ASSIGNMENTS_COLLECTION].count_documents({})
     total_tests = mongo.db[TESTS_COLLECTION].count_documents({})
     
-    now = datetime.utcnow()
+    now = datetime.now()
     urgent_assignments = mongo.db[ASSIGNMENTS_COLLECTION].count_documents({
         'due_date': {'$lte': now + timedelta(days=2)}
     })

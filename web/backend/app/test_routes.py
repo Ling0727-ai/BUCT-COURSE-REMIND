@@ -68,8 +68,8 @@ def send_test_email():
             {'email': email},
             {'$set': {
                 'code': test_code,
-                'created_at': datetime.utcnow(),
-                'expires_at': datetime.utcnow() + timedelta(minutes=3)
+                'created_at': datetime.now(),
+                'expires_at': datetime.now() + timedelta(minutes=3)
             }},
             upsert=True
         )
@@ -106,7 +106,7 @@ def verify_test_code():
         verification = mongo.db.verification_codes.find_one({
             'email': email,
             'code': code,
-            'expires_at': {'$gt': datetime.utcnow()}
+            'expires_at': {'$gt': datetime.now()}
         })
         
         if verification:
