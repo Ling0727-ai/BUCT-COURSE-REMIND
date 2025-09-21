@@ -44,13 +44,27 @@ def get_todos():
             todo['_id'] = str(todo['_id'])
             todo['user_id'] = str(todo['user_id'])
             if todo.get('due_date'):
-                todo['due_date'] = todo['due_date'].isoformat()
+                # 确保返回带时区信息的时间字符串
+                if todo['due_date'].tzinfo is None:
+                    # 如果没有时区信息，假设是北京时间
+                    todo['due_date'] = todo['due_date'].replace(tzinfo=BEIJING_TZ).isoformat()
+                else:
+                    todo['due_date'] = todo['due_date'].isoformat()
             if todo.get('completed_at'):
-                todo['completed_at'] = todo['completed_at'].isoformat()
+                if todo['completed_at'].tzinfo is None:
+                    todo['completed_at'] = todo['completed_at'].replace(tzinfo=BEIJING_TZ).isoformat()
+                else:
+                    todo['completed_at'] = todo['completed_at'].isoformat()
             if todo.get('created_at'):
-                todo['created_at'] = todo['created_at'].isoformat()
+                if todo['created_at'].tzinfo is None:
+                    todo['created_at'] = todo['created_at'].replace(tzinfo=BEIJING_TZ).isoformat()
+                else:
+                    todo['created_at'] = todo['created_at'].isoformat()
             if todo.get('updated_at'):
-                todo['updated_at'] = todo['updated_at'].isoformat()
+                if todo['updated_at'].tzinfo is None:
+                    todo['updated_at'] = todo['updated_at'].replace(tzinfo=BEIJING_TZ).isoformat()
+                else:
+                    todo['updated_at'] = todo['updated_at'].isoformat()
             # 确保 estimated_hours 字段存在
             if 'estimated_hours' not in todo:
                 todo['estimated_hours'] = None

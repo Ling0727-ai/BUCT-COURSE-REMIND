@@ -373,13 +373,18 @@ export default {
     })
 
     // 计算剩余天数
+    // 获取北京时间的统一函数
+    const getBeijingTime = () => {
+      return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
+    }
+
     const getDaysUntilDue = (dueDate) => {
       try {
         if (!dueDate) {
           return Infinity
         }
         
-        const now = new Date()
+        const now = getBeijingTime()
         const due = new Date(dueDate)
         
         // 检查日期是否有效
@@ -424,7 +429,8 @@ export default {
       if (!dateString) return ''
       
       const date = new Date(dateString)
-      const now = new Date()
+      // 确保使用北京时间进行计算
+      const now = getBeijingTime()
       const diffMs = date.getTime() - now.getTime()
       
       // 如果是待办事项，显示预计时间和剩余时间
