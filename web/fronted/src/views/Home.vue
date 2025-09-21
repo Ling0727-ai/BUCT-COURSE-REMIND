@@ -801,8 +801,22 @@ export default {
 
     // 显示提示消息
     const showToast = (type, title, message) => {
+      console.log('显示 Toast:', type, title, message)
+      
       const toast = document.createElement('div')
       toast.className = `toast toast-${type}`
+      
+      // 强制设置样式确保位置正确
+      toast.style.cssText = `
+        position: fixed !important;
+        top: 20px !important;
+        left: 50% !important;
+        transform: translateX(-50%) translateY(-100%) !important;
+        z-index: 999999 !important;
+        opacity: 0 !important;
+        pointer-events: auto !important;
+      `
+      
       toast.innerHTML = `
         <div class="toast-icon">
           <i class="fas ${getToastIcon(type)}"></i>
@@ -818,19 +832,27 @@ export default {
       
       // 点击整个 Toast 关闭
       toast.addEventListener('click', () => {
-        toast.classList.remove('show')
+        console.log('Toast 被点击，准备关闭')
+        toast.style.transform = 'translateX(-50%) translateY(-100%)'
+        toast.style.opacity = '0'
         setTimeout(() => {
           if (document.body.contains(toast)) {
             document.body.removeChild(toast)
+            console.log('Toast 已移除')
           }
         }, 300)
       })
       
       document.body.appendChild(toast)
+      console.log('Toast 已添加到 body')
       
       // 显示动画
       setTimeout(() => {
+        toast.style.transform = 'translateX(-50%) translateY(0)'
+        toast.style.opacity = '1'
         toast.classList.add('show')
+        console.log('Toast 显示动画已启动')
+        
         // 启动进度条动画
         const progressBar = toast.querySelector('.toast-progress-bar')
         if (progressBar) {
@@ -840,11 +862,14 @@ export default {
       
       // 自动移除
       setTimeout(() => {
-        if (toast.classList.contains('show')) {
-          toast.classList.remove('show')
+        if (document.body.contains(toast)) {
+          console.log('Toast 自动关闭')
+          toast.style.transform = 'translateX(-50%) translateY(-100%)'
+          toast.style.opacity = '0'
           setTimeout(() => {
             if (document.body.contains(toast)) {
               document.body.removeChild(toast)
+              console.log('Toast 自动移除完成')
             }
           }, 300)
         }
@@ -2229,19 +2254,19 @@ export default {
 
 /* Toast 通知样式 */
 .toast {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-100%);
+  position: fixed !important;
+  top: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(-100%) !important;
   max-width: 400px;
   min-width: 320px;
-  background: white;
+  background: white !important;
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(20px);
   overflow: hidden;
-  z-index: 10000;
+  z-index: 999999 !important;
   opacity: 0;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
@@ -2249,6 +2274,7 @@ export default {
   padding: 16px 20px;
   gap: 12px;
   cursor: pointer;
+  pointer-events: auto !important;
 }
 
 .toast:hover {
@@ -2261,8 +2287,8 @@ export default {
 }
 
 .toast.show {
-  transform: translateX(-50%) translateY(0);
-  opacity: 1;
+  transform: translateX(-50%) translateY(0) !important;
+  opacity: 1 !important;
 }
 
 .toast-success {
