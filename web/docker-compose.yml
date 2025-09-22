@@ -49,7 +49,6 @@ services:
       - TEST_MODE=${TEST_MODE:-false}
     volumes:
       - ./backend/logs:/app/logs
-      - ./backend/scraper.py:/app/scraper.py  # 挂载你的抓取脚本
     depends_on:
       - mongodb
     restart: unless-stopped

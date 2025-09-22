@@ -100,7 +100,7 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label>学号 <span class="optional">(可选)</span></label>
+              <label>学号 <span class="optional"></span></label>
               <div class="input-wrapper">
                 <i class="fas fa-id-card input-icon"></i>
                 <input 
@@ -116,7 +116,7 @@
             </div>
 
             <div class="form-group">
-              <label>外部系统密码 <span class="optional">(可选)</span></label>
+              <label>外部系统密码 <span class="optional"></span></label>
               <div class="input-wrapper">
                 <i class="fas fa-key input-icon"></i>
                 <input 

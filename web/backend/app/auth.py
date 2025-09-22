@@ -32,7 +32,6 @@ def send_test_verification_email(email, code):
     print(f"📧 [测试模式] 目标邮箱: {email}")
     return True
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
 
 USERS_COLLECTION = 'users'
@@ -79,6 +78,18 @@ def login():
 @login_required
 def logout():
     username = session.get('username')
+    
+    # 调用scraper的logout方法，退出外站登录状态
+    try:
+        from .scraper import get_scraper
+        scraper = get_scraper()
+        if scraper:
+            scraper.logout()
+            current_app.logger.info(f"用户 {username} 的外站登录状态已清理")
+    except Exception as e:
+        current_app.logger.warning(f"清理外站登录状态时发生错误: {e}")
+    
+    # 清理本地session
     session.clear()
     current_app.logger.info(f"用户 {username} 已登出")
     return jsonify({'message': '登出成功'})

@@ -110,19 +110,27 @@
             v-if="assignment.type === '待办' && assignment.priority" 
             :class="['priority-indicator', assignment.priority]"
           ></div>
+          <!-- 预览按钮 -->
+          <button 
+            class="preview-btn" 
+            @click.stop="showPreview(assignment)"
+            title="预览详情"
+          >
+            <i class="fas fa-eye"></i>
+          </button>
           <div class="card-header">
             <span class="subject-tag">{{ assignment.subject }}</span>
             <small>{{ assignment.type }}</small>
           </div>
-          <h3 class="card-title">{{ assignment.title }}</h3>
-          <p class="card-content">{{ assignment.content }}</p>
+          <h3 class="card-title">{{ truncateText(assignment.title, 50) }}</h3>
+          <p class="card-content">{{ truncateText(assignment.content, 80) }}</p>
           <div class="card-footer">
-            <div v-if="assignment.dueDate && assignment.type !== '作业'" :class="['due-date', assignmentStatus(assignment)]">
+            <div v-if="assignment.dueDate" :class="['due-date', assignmentStatus(assignment)]">
               <i :class="statusIcon(assignment)"></i>
               <span v-html="formatDate(assignment.dueDate, assignment.type, assignment.estimatedHours)"></span>
             </div>
             <div v-else class="due-date-placeholder">
-              <!-- 作业类型不显示时间或无截止日期 -->
+              <!-- 无截止日期 -->
             </div>
             <div class="actions" @click.stop>
               <button 
@@ -263,6 +271,89 @@
         </div>
       </div>
     </div>
+
+    <!-- 预览详情弹窗 -->
+    <div v-if="showPreviewModal" class="modal-overlay" @click="closePreviewModal">
+      <div class="modal-content preview-modal" @click.stop>
+        <div class="modal-header">
+          <h3><i class="fas fa-eye"></i> 详情预览</h3>
+          <button class="close-btn" @click="closePreviewModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body" v-if="previewItem">
+          <div class="preview-field">
+            <label>类型</label>
+            <div class="preview-value">
+              <span :class="['type-badge', previewItem.type]">{{ previewItem.type }}</span>
+            </div>
+          </div>
+          <div class="preview-field">
+            <label>科目</label>
+            <div class="preview-value">{{ previewItem.subject }}</div>
+          </div>
+          <div class="preview-field">
+            <label>标题</label>
+            <div class="preview-value preview-title">{{ previewItem.title }}</div>
+          </div>
+          <div class="preview-field">
+            <label>内容</label>
+            <div class="preview-value preview-content">
+              <div v-if="previewItem.details && previewItem.details.trim()">
+                {{ previewItem.details }}
+              </div>
+              <div v-else>
+                {{ previewItem.content }}
+              </div>
+            </div>
+          </div>
+          <div v-if="previewItem.dueDate" class="preview-field">
+            <label>截止时间</label>
+            <div class="preview-value preview-date">
+              <i :class="statusIcon(previewItem)"></i>
+              <span v-html="formatDate(previewItem.dueDate, previewItem.type, previewItem.estimatedHours)"></span>
+            </div>
+          </div>
+          <div v-if="previewItem.priority && previewItem.type === '待办'" class="preview-field">
+            <label>优先级</label>
+            <div class="preview-value">
+              <span :class="['priority-badge', previewItem.priority]">
+                <i class="fas fa-flag"></i>
+                {{ getPriorityText(previewItem.priority) }}
+              </span>
+            </div>
+          </div>
+          <div v-if="previewItem.url" class="preview-field">
+            <label>链接</label>
+            <div class="preview-value">
+              <a :href="previewItem.url" target="_blank" class="preview-link">
+                <i class="fas fa-external-link-alt"></i>
+                打开链接
+              </a>
+            </div>
+          </div>
+          <div class="preview-field">
+            <label>状态</label>
+            <div class="preview-value">
+              <span :class="['status-badge', assignmentStatus(previewItem)]">
+                <i :class="statusIcon(previewItem)"></i>
+                {{ getStatusText(assignmentStatus(previewItem)) }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closePreviewModal">关闭</button>
+          <button 
+            v-if="previewItem && previewItem.url" 
+            class="btn btn-primary" 
+            @click="openAssignmentUrl(previewItem)"
+          >
+            <i class="fas fa-external-link-alt"></i> 打开链接
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -319,6 +410,10 @@ export default {
       hours: 1,
       priority: 'medium'
     })
+
+    // 预览相关状态
+    const showPreviewModal = ref(false)
+    const previewItem = ref(null)
 
     // 计算统计信息 - 包含作业和待办
     const allItems = computed(() => {
@@ -909,14 +1004,12 @@ export default {
           const result = await assignmentsResponse.json()
           console.log('后端返回的作业数据:', result)
           
-          // 适配后端实际返回的数据结构
+          // 适配新的后端数据结构
           let dataArray = []
-          if (result.tasks && Array.isArray(result.tasks)) {
+          if (result.success && result.tasks && Array.isArray(result.tasks)) {
             dataArray = result.tasks
-          } else if (result.data && Array.isArray(result.data)) {
-            dataArray = result.data
-          } else if (result.success && result.data && Array.isArray(result.data)) {
-            dataArray = result.data
+          } else if (result.tasks && Array.isArray(result.tasks)) {
+            dataArray = result.tasks
           }
           
           if (dataArray.length > 0) {
@@ -940,41 +1033,26 @@ export default {
             }
             
             assignments.value = dataArray.map((item, index) => {
-              // 数据验证和默认值处理
-              const safeItem = {
-                type: item?.type || 'homework',
-                subject: item?.subject || '未知科目',
-                details: {
-                  task: item?.details?.task || '未知任务',
-                  deadline: item?.details?.deadline || null,
-                  url: item?.details?.url || ''
-                }
-              }
+              console.log(`处理第${index}项数据:`, item)
               
-              console.log(`处理第${index}项数据:`, safeItem)
-              
-              // 使用与后端相同的ID生成逻辑 - 简单哈希函数
-              const hashInput = safeItem.subject + safeItem.details.task
-              let hash = 0
-              for (let i = 0; i < hashInput.length; i++) {
-                const char = hashInput.charCodeAt(i)
-                hash = ((hash << 5) - hash) + char
-                hash = hash & hash // 转换为32位整数
-              }
-              const assignmentId = `${safeItem.type}_${Math.abs(hash)}`
+              // 直接使用后端返回的数据结构
+              const assignmentId = item.id
+              const taskTitle = item.details?.task || item.title || '未知任务'
+              const detailsContent = item.details?.details_content || ''
               
               return {
                 id: assignmentId,
-                subject: safeItem.subject,
-                title: safeItem.details.task,
-                content: `${safeItem.subject} - ${safeItem.details.task}`,
-                dueDate: safeItem.details.deadline,
-                type: safeItem.type === 'homework' ? '作业' : '测试',
-                completed: completedIds.has(assignmentId),
-                completedAt: completedIds.has(assignmentId) ? new Date().toISOString() : null,
-                url: safeItem.details.url,
+                subject: item.subject || '未知科目',
+                title: taskTitle,
+                content: detailsContent || `${item.subject} - ${taskTitle}`,
+                dueDate: item.details?.deadline || null,
+                type: item.type === 'homework' ? '作业' : '测试',
+                completed: item.completed || completedIds.has(assignmentId),
+                completedAt: item.completed ? new Date().toISOString() : null,
+                url: item.details?.url || '',
                 completing: false,
-                undoing: false
+                undoing: false,
+                details: detailsContent // 添加详情内容字段
               }
             }).filter(assignment => !assignment.subject.includes('英语'))
             
@@ -1184,6 +1262,45 @@ export default {
       }
     }
 
+    // 预览功能相关方法
+    const showPreview = (assignment) => {
+      previewItem.value = assignment
+      showPreviewModal.value = true
+    }
+
+    const closePreviewModal = () => {
+      showPreviewModal.value = false
+      previewItem.value = null
+    }
+
+    // 文本截断功能
+    const truncateText = (text, maxLength) => {
+      if (!text) return ''
+      if (text.length <= maxLength) return text
+      return text.substring(0, maxLength) + '...'
+    }
+
+    // 获取优先级文本
+    const getPriorityText = (priority) => {
+      const priorityMap = {
+        'high': '高',
+        'medium': '中',
+        'low': '低'
+      }
+      return priorityMap[priority] || priority
+    }
+
+    // 获取状态文本
+    const getStatusText = (status) => {
+      const statusMap = {
+        'urgent': '紧急',
+        'warning': '即将到期',
+        'normal': '正常',
+        'completed': '已完成'
+      }
+      return statusMap[status] || status
+    }
+
     // 登出功能
     const handleLogout = async () => {
       try {
@@ -1281,7 +1398,14 @@ export default {
       fetchTodos,
       completeTodo,
       uncompleteTodo,
-      deleteTodo
+      deleteTodo,
+      showPreviewModal,
+      previewItem,
+      showPreview,
+      closePreviewModal,
+      truncateText,
+      getPriorityText,
+      getStatusText
     }
   }
 }
@@ -1730,6 +1854,35 @@ export default {
 
 .assignment-card.warning {
   border-left-color: #f39c12;
+}
+
+/* 测试类型卡片特殊布局 */
+.assignment-card[data-type="测试"] {
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+}
+
+.assignment-card[data-type="测试"] .card-header {
+  flex-shrink: 0;
+}
+
+.assignment-card[data-type="测试"] .card-title {
+  flex-shrink: 0;
+}
+
+.assignment-card[data-type="测试"] .card-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.assignment-card[data-type="测试"] .card-footer {
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 
@@ -2230,7 +2383,7 @@ export default {
 .priority-indicator {
   position: absolute;
   top: 15px;
-  right: 15px;
+  right: 50px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -2250,6 +2403,39 @@ export default {
 .priority-indicator.low {
   background: #27ae60;
   box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
+}
+
+/* 预览按钮 */
+.preview-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 32px;
+  height: 32px;
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 50%;
+  color: #667eea;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  z-index: 2;
+  backdrop-filter: blur(10px);
+}
+
+.preview-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.4);
+  color: #5a6fd8;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.preview-btn:active {
+  transform: scale(0.95);
 }
 
 /* Toast 通知样式 */
@@ -2442,6 +2628,159 @@ export default {
 .empty-state p {
   opacity: 0.9;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 预览弹窗样式 */
+.preview-modal {
+  max-width: 600px;
+}
+
+.preview-field {
+  margin-bottom: 20px;
+}
+
+.preview-field label {
+  display: block;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.preview-value {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #1f2937;
+  min-height: 20px;
+}
+
+.preview-title {
+  font-weight: 600;
+  font-size: 16px;
+  color: #111827;
+}
+
+.preview-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.preview-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-link {
+  color: #667eea;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.preview-link:hover {
+  color: #5a6fd8;
+  text-decoration: underline;
+}
+
+/* 类型标签 */
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.type-badge.作业 {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.type-badge.测试 {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: white;
+}
+
+.type-badge.待办 {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+  color: white;
+}
+
+/* 优先级标签 */
+.priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.priority-badge.high {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.priority-badge.medium {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.priority-badge.low {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+/* 状态标签 */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-badge.urgent {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.status-badge.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.status-badge.normal {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.status-badge.completed {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 @media (max-width: 768px) {
