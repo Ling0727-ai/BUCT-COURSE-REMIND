@@ -188,12 +188,15 @@ class BUCTScraperEnhanced:
                             logger.info(f"作业 '{hw.get('title', '未知作业')}' 格式化后截止时间: {formatted_deadline}")
                             
                             # 构造标准格式
+                            # 生成作业链接
+                            homework_url = f"https://course.buct.edu.cn/meol/jpk/course/layout/newpage/index.jsp?courseId={lid}"
+                            
                             task_info = {
                                 'subject': course_name,
                                 'title': hw.get('title', '未知作业'),
                                 'deadline': formatted_deadline,
                                 'details': details_text,
-                                'url': hw.get('detail_href', ''),
+                                'url': homework_url,
                                 'type': 'homework'  # 内部标识
                             }
                             formatted_tasks.append(task_info)
@@ -291,10 +294,8 @@ class BUCTScraperEnhanced:
                             if should_show:
                                 # 构造测试URL
                                 test_url = ""
-                                if test.get('test_id'):
-                                    test_url = f"https://course.buct.edu.cn/meol/common/question/test/student/test_start.jsp?testId={test['test_id']}"
-                                elif test.get('start_href'):
-                                    test_url = f"https://course.buct.edu.cn{test['start_href']}"
+                                # 生成测试链接
+                                test_url = f"https://course.buct.edu.cn/meol/common/question/test/student/list.jsp?sortColumn=createTime&status=1&tagbug=client&sortDirection=-1&strStyle=new03&cateId={lid}&pagingPage=1&pagingNumberPer=30"
                                 
                                 # 生成测试标题 - 优先使用测试的具体标题
                                 test_title = test.get('title')
