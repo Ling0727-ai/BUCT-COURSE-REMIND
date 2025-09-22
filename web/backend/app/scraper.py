@@ -228,8 +228,8 @@ class BUCTScraperEnhanced:
                         logger.info(f"从 get_test_list 收到的数据结构: {type(test_list_data)}")
                         logger.info(f"测试列表数据: {test_list_data}")
                         
-                        # 使用课程名称，优先使用test_list_data中的course_name
-                        actual_course_name = test_list_data.get('course_name', course_name)
+                        # 使用原始课程名称，不使用test_list_data中可能不准确的course_name
+                        actual_course_name = course_name
                         test_list = test_list_data.get('test_list', [])
                         
                         logger.info(f"课程 '{actual_course_name}' 原始测试数量: {len(test_list)}")
@@ -296,8 +296,14 @@ class BUCTScraperEnhanced:
                                 elif test.get('start_href'):
                                     test_url = f"https://course.buct.edu.cn{test['start_href']}"
                                 
-                                # 生成测试标题
-                                test_title = test.get('title', f"{actual_course_name}测试{i+1}")
+                                # 生成测试标题 - 优先使用测试的具体标题
+                                test_title = test.get('title')
+                                if test_title:
+                                    # 如果有具体的测试标题，使用原始课程名称 + 测试标题
+                                    test_title = f"{course_name} - {test_title}"
+                                else:
+                                    # 如果没有测试标题，使用原始课程名称 + 默认格式
+                                    test_title = f"{course_name}测试{i+1}"
                                 
                                 # 格式化测试截止时间
                                 formatted_end_time = self._format_test_deadline(end_time_str)
@@ -305,7 +311,7 @@ class BUCTScraperEnhanced:
                                 
                                 # 构造标准格式
                                 task_info = {
-                                    'subject': actual_course_name,
+                                    'subject': course_name,
                                     'title': test_title,
                                     'deadline': formatted_end_time,
                                     'details': "",  # 测试不需要details字段
