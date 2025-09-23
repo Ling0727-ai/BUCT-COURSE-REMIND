@@ -175,6 +175,12 @@ MONGO_URI=mongodb://localhost:27017/buct_course_remind
 
 欢迎提交 Issue 和 Pull Request 来改进这个项目。
 
+## TODO list
+-  [ ] 添加已删除框
+-  [ ] 添加webhook功能
+-  [ ] 完善首页作业/测试排序
+-  [ ] 添加网站标志
+
 ## 许可证
 
 MIT License
