@@ -7,6 +7,7 @@ from bson import ObjectId
 
 # 导入mongo实例，以便查询数据库
 from . import mongo
+from .model import User
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -40,10 +41,18 @@ class BUCTScraperEnhanced:
                 return None, None
             
             student_id = user.get('student_id')
-            s_password = user.get('s_password')
+            encrypted_s_password = user.get('s_password')
 
-            if not student_id or not s_password:
+            if not student_id or not encrypted_s_password:
                 logger.warning(f"用户 {user_id} 未设置学号或密码")
+                return None, None
+            
+            # 创建User模型实例来解密密码
+            user_model = User(mongo.db)
+            s_password = user_model.get_decrypted_s_password(user)
+            
+            if not s_password:
+                logger.error(f"用户 {user_id} 密码解密失败")
                 return None, None
             
             return student_id, s_password

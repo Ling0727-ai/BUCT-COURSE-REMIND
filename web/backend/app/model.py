@@ -9,6 +9,16 @@ from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+import base64
+import os
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 定义北京时区
 BEIJING_TZ = timezone(timedelta(hours=8))
@@ -45,6 +55,30 @@ class User:
     def __init__(self, mongo_db):
         self.db = mongo_db
         self.collection = 'users'
+        
+        # 从环境变量读取自定义密钥（十进制）
+        private_key_value = int(os.getenv('PRIVATE_KEY'))
+        expected_public_key_value = int(os.getenv('PUBLIC_KEY'))
+        
+        try:
+            self.private_key = ec.derive_private_key(private_key_value, ec.SECP256R1())
+            self.public_key = self.private_key.public_key()
+            
+            # 验证公钥是否匹配（可选验证）
+            # 注意：ECC公钥是椭圆曲线上的点，不是单个整数
+            # 这里只是记录您提供的公钥值，实际使用从私钥派生的公钥
+            self.expected_public_value = expected_public_key_value
+            
+            print(f"ECC密钥初始化成功，私钥值: {private_key_value}")
+            print(f"预期公钥值: {expected_public_key_value}")
+            
+        except Exception as e:
+            # 如果自定义密钥无效，使用备用密钥
+            print(f"自定义密钥无效，使用备用密钥: {e}")
+            backup_key = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+            self.private_key = ec.derive_private_key(backup_key, ec.SECP256R1())
+            self.public_key = self.private_key.public_key()
+            self.expected_public_value = None
     
     def create_user(self, username, email, password, student_id=None, s_password=None):
         """创建新用户"""
@@ -53,7 +87,7 @@ class User:
             'email': email,
             'password_hash': generate_password_hash(password),
             'student_id': student_id,
-            's_password': s_password,  # 注意：实际应用中应该加密存储
+            's_password': self._encrypt_password(s_password) if s_password else None,  # 使用ECC加密存储
             'is_admin': False,
             'created_at': get_beijing_time(),
             'updated_at': get_beijing_time()
@@ -86,8 +120,96 @@ class User:
         """更新学号和外部密码"""
         return self.update_user(user_id, {
             'student_id': student_id,
-            's_password': s_password  # 注意：实际应用中应该加密存储
+            's_password': self._encrypt_password(s_password) if s_password else None  # 使用ECC加密存储
         })
+    
+    def get_decrypted_s_password(self, user):
+        """获取解密后的学生密码"""
+        if not user or 's_password' not in user or not user['s_password']:
+            return None
+        return self._decrypt_password(user['s_password'])
+    
+    def _encrypt_password(self, password):
+        """使用ECC加密密码"""
+        if not password:
+            return None
+        
+        # 生成临时密钥对用于ECDH
+        ephemeral_private_key = ec.generate_private_key(ec.SECP256R1())
+        ephemeral_public_key = ephemeral_private_key.public_key()
+        
+        # 执行ECDH密钥交换
+        shared_key = ephemeral_private_key.exchange(ec.ECDH(), self.public_key)
+        
+        # 使用HKDF派生AES密钥
+        derived_key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=None,
+            info=b'password encryption',
+        ).derive(shared_key)
+        
+        # 生成随机IV
+        iv = os.urandom(16)
+        
+        # 使用AES-GCM加密
+        cipher = Cipher(algorithms.AES(derived_key), modes.GCM(iv))
+        encryptor = cipher.encryptor()
+        ciphertext = encryptor.update(password.encode('utf-8')) + encryptor.finalize()
+        
+        # 序列化临时公钥
+        ephemeral_public_bytes = ephemeral_public_key.public_bytes(
+            encoding=serialization.Encoding.X962,
+            format=serialization.PublicFormat.UncompressedPoint
+        )
+        
+        # 组合所有数据：临时公钥 + IV + 认证标签 + 密文
+        encrypted_data = ephemeral_public_bytes + iv + encryptor.tag + ciphertext
+        
+        # Base64编码返回
+        return base64.b64encode(encrypted_data).decode('utf-8')
+    
+    def _decrypt_password(self, encrypted_password):
+        """使用ECC解密密码"""
+        if not encrypted_password:
+            return None
+        
+        try:
+            # Base64解码
+            encrypted_data = base64.b64decode(encrypted_password.encode('utf-8'))
+            
+            # 提取各部分数据
+            ephemeral_public_bytes = encrypted_data[:65]  # 未压缩点格式65字节
+            iv = encrypted_data[65:81]  # 16字节IV
+            tag = encrypted_data[81:97]  # 16字节认证标签
+            ciphertext = encrypted_data[97:]  # 剩余为密文
+            
+            # 重建临时公钥
+            ephemeral_public_key = ec.EllipticCurvePublicKey.from_encoded_point(
+                ec.SECP256R1(), ephemeral_public_bytes
+            )
+            
+            # 执行ECDH密钥交换
+            shared_key = self.private_key.exchange(ec.ECDH(), ephemeral_public_key)
+            
+            # 使用HKDF派生AES密钥
+            derived_key = HKDF(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=None,
+                info=b'password encryption',
+            ).derive(shared_key)
+            
+            # 使用AES-GCM解密
+            cipher = Cipher(algorithms.AES(derived_key), modes.GCM(iv, tag))
+            decryptor = cipher.decryptor()
+            plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+            
+            return plaintext.decode('utf-8')
+            
+        except Exception as e:
+            print(f"解密失败: {e}")
+            return None
     
     def verify_password(self, user, password):
         """验证密码"""
