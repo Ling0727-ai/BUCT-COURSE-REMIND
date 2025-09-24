@@ -180,6 +180,7 @@ MONGO_URI=mongodb://localhost:27017/buct_course_remind
 -  [ ] 添加webhook功能
 -  [ ] 完善首页作业/测试排序
 -  [ ] 添加网站标志
+-  [ ] 完善提醒功能
 
 ## 许可证
 
