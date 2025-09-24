@@ -220,6 +220,8 @@ class Todo:
             'completed': False,
             'completed_at': None,
             'expires_at': None,  # 完成后12小时过期时间
+            'is_deleted': False,  # 是否已删除
+            'delete_time': None,  # 删除时间
             'created_at': get_beijing_time(),
             'updated_at': get_beijing_time()
         }
@@ -228,8 +230,11 @@ class Todo:
         return result.inserted_id
     
     def get_user_todos(self, user_id, include_completed=True):
-        """获取用户的待办事项列表"""
-        query = {'user_id': ObjectId(user_id)}
+        """获取用户的待办事项列表（不包括已删除的）"""
+        query = {
+            'user_id': ObjectId(user_id),
+            'is_deleted': {'$ne': True}  # 排除已删除的项目
+        }
         if not include_completed:
             query['completed'] = False
         
@@ -275,10 +280,41 @@ class Todo:
         })
     
     def delete_todo(self, todo_id, user_id):
-        """删除待办事项"""
+        """软删除待办事项（标记为已删除）"""
+        delete_time = get_beijing_time()
+        return self.update_todo(todo_id, user_id, {
+            'is_deleted': True,
+            'delete_time': delete_time
+        })
+    
+    def restore_todo(self, todo_id, user_id):
+        """恢复已删除的待办事项"""
+        return self.update_todo(todo_id, user_id, {
+            'is_deleted': False,
+            'delete_time': None
+        })
+    
+    def permanent_delete_todo(self, todo_id, user_id):
+        """永久删除待办事项"""
         return self.db[self.collection].delete_one({
             '_id': ObjectId(todo_id),
             'user_id': ObjectId(user_id)
+        })
+    
+    def get_deleted_todos(self, user_id):
+        """获取用户已删除的待办事项列表"""
+        query = {
+            'user_id': ObjectId(user_id),
+            'is_deleted': True
+        }
+        todos = list(self.db[self.collection].find(query).sort('delete_time', -1))
+        return todos
+    
+    def clear_deleted_todos(self, user_id):
+        """清空用户的已删除待办事项"""
+        return self.db[self.collection].delete_many({
+            'user_id': ObjectId(user_id),
+            'is_deleted': True
         })
 
 # ==============================================================================
@@ -295,6 +331,23 @@ class Todo:
     "assignment_subject": "高等数学",      // String, 作业科目
     "completed_at": ISODate("..."),        // DateTime, 完成时间
     "expires_at": ISODate("...")           // DateTime, 过期时间 (完成时间 + 12小时)
+}
+"""
+
+# ==============================================================================
+# 9. deleted_assignments (已删除作业记录)
+# ==============================================================================
+"""
+存储用户删除的作业记录，支持恢复功能。
+
+{
+    "_id": ObjectId("..."),
+    "user_id": ObjectId("..."),            // ObjectId, 用户ID
+    "assignment_id": "homework_math_123",  // String, 作业唯一标识
+    "assignment_title": "数学作业第一章", // String, 作业标题
+    "assignment_subject": "高等数学",      // String, 作业科目
+    "delete_time": ISODate("..."),         // DateTime, 删除时间
+    "created_at": ISODate("...")           // DateTime, 记录创建时间
 }
 """
 
@@ -368,3 +421,78 @@ class CompletedAssignment:
             'expires_at': {'$lt': get_beijing_time()}
         })
         return result.deleted_count
+
+
+class DeletedAssignment:
+    """已删除作业模型类"""
+    
+    def __init__(self, mongo_db):
+        self.db = mongo_db
+        self.collection = 'deleted_assignments'
+    
+    def mark_deleted(self, user_id, assignment_id, assignment_title, assignment_subject):
+        """标记作业为已删除"""
+        delete_time = get_beijing_time()
+        
+        deleted_data = {
+            'user_id': ObjectId(user_id),
+            'assignment_id': assignment_id,
+            'assignment_title': assignment_title,
+            'assignment_subject': assignment_subject,
+            'delete_time': delete_time,
+            'created_at': delete_time
+        }
+        
+        # 使用 upsert 避免重复记录
+        result = self.db[self.collection].update_one(
+            {
+                'user_id': ObjectId(user_id),
+                'assignment_id': assignment_id
+            },
+            {'$set': deleted_data},
+            upsert=True
+        )
+        
+        return result
+    
+    def restore_assignment(self, user_id, assignment_id):
+        """恢复已删除的作业"""
+        result = self.db[self.collection].delete_one({
+            'user_id': ObjectId(user_id),
+            'assignment_id': assignment_id
+        })
+        
+        return result
+    
+    def permanent_delete_assignment(self, user_id, assignment_id):
+        """永久删除作业记录"""
+        result = self.db[self.collection].delete_one({
+            'user_id': ObjectId(user_id),
+            'assignment_id': assignment_id
+        })
+        
+        return result
+    
+    def get_deleted_assignments(self, user_id):
+        """获取用户的已删除作业列表"""
+        deleted_assignments = list(self.db[self.collection].find({
+            'user_id': ObjectId(user_id)
+        }).sort('delete_time', -1))
+        
+        return deleted_assignments
+    
+    def clear_deleted_assignments(self, user_id):
+        """清空用户的已删除作业"""
+        result = self.db[self.collection].delete_many({
+            'user_id': ObjectId(user_id)
+        })
+        
+        return result
+    
+    def is_deleted(self, user_id, assignment_id):
+        """检查作业是否已删除"""
+        result = self.db[self.collection].find_one({
+            'user_id': ObjectId(user_id),
+            'assignment_id': assignment_id
+        })
+        return result is not None

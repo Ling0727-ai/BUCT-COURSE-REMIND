@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import logging
 from . import mongo
 from .auth import login_required
-from .model import CompletedAssignment
+from .model import CompletedAssignment, DeletedAssignment
 
 # 创建蓝图
 assignments_bp = Blueprint('assignments', __name__, url_prefix='/api/assignments')
@@ -309,6 +309,148 @@ def get_completed_assignments():
     except Exception as e:
         logger.error(f"获取已完成作业列表失败: {str(e)}")
         return jsonify({'success': False, 'error': '获取已完成作业列表失败'}), 500
+
+@assignments_bp.route('/<assignment_id>/delete', methods=['POST'])
+@login_required
+def delete_assignment(assignment_id):
+    """软删除作业（移至回收站）"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': '用户未登录'}), 401
+        
+        logger.info(f"用户 {user_id} 删除作业 {assignment_id}")
+        
+        # 从前端请求中获取作业信息
+        data = request.get_json() or {}
+        assignment_title = data.get('title', '未知作业')
+        assignment_subject = data.get('subject', '未知科目')
+        
+        # 标记为已删除
+        deleted_manager = DeletedAssignment(mongo.db)
+        result = deleted_manager.mark_deleted(user_id, assignment_id, assignment_title, assignment_subject)
+        
+        if result.upserted_id or result.matched_count > 0:
+            logger.info(f"作业 {assignment_id} 标记删除成功")
+            return jsonify({'success': True, 'message': '作业已移至回收站'})
+        else:
+            return jsonify({'success': False, 'error': '删除失败'}), 500
+            
+    except Exception as e:
+        logger.error(f"删除作业失败: {str(e)}")
+        return jsonify({'success': False, 'error': '删除作业失败'}), 500
+
+@assignments_bp.route('/<assignment_id>/restore', methods=['POST'])
+@login_required
+def restore_assignment(assignment_id):
+    """恢复已删除的作业"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': '用户未登录'}), 401
+        
+        logger.info(f"用户 {user_id} 恢复作业 {assignment_id}")
+        
+        # 从前端请求中获取作业信息
+        data = request.get_json() or {}
+        assignment_title = data.get('title', '未知作业')
+        assignment_subject = data.get('subject', '未知科目')
+        
+        # 恢复作业
+        deleted_manager = DeletedAssignment(mongo.db)
+        result = deleted_manager.restore_assignment(user_id, assignment_id)
+        
+        if result.deleted_count > 0:
+            logger.info(f"作业 {assignment_id} 恢复成功")
+            return jsonify({'success': True, 'message': '作业已恢复'})
+        else:
+            return jsonify({'success': False, 'error': '恢复失败，作业不存在'}), 404
+            
+    except Exception as e:
+        logger.error(f"恢复作业失败: {str(e)}")
+        return jsonify({'success': False, 'error': '恢复作业失败'}), 500
+
+@assignments_bp.route('/<assignment_id>/permanent-delete', methods=['DELETE'])
+@login_required
+def permanent_delete_assignment(assignment_id):
+    """永久删除作业"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': '用户未登录'}), 401
+        
+        logger.info(f"用户 {user_id} 永久删除作业 {assignment_id}")
+        
+        # 永久删除作业
+        deleted_manager = DeletedAssignment(mongo.db)
+        result = deleted_manager.permanent_delete_assignment(user_id, assignment_id)
+        
+        if result.deleted_count > 0:
+            logger.info(f"作业 {assignment_id} 永久删除成功")
+            return jsonify({'success': True, 'message': '作业已永久删除'})
+        else:
+            return jsonify({'success': False, 'error': '永久删除失败，作业不存在'}), 404
+            
+    except Exception as e:
+        logger.error(f"永久删除作业失败: {str(e)}")
+        return jsonify({'success': False, 'error': '永久删除作业失败'}), 500
+
+@assignments_bp.route('/deleted', methods=['GET'])
+@login_required
+def get_deleted_assignments():
+    """获取已删除的作业列表"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': '用户未登录'}), 401
+        
+        # 获取已删除的作业列表
+        deleted_manager = DeletedAssignment(mongo.db)
+        deleted_assignments = deleted_manager.get_deleted_assignments(user_id)
+        
+        # 转换ObjectId为字符串
+        for assignment in deleted_assignments:
+            assignment['_id'] = str(assignment['_id'])
+            assignment['user_id'] = str(assignment['user_id'])
+            if assignment.get('delete_time'):
+                assignment['delete_time'] = assignment['delete_time'].isoformat()
+            if assignment.get('created_at'):
+                assignment['created_at'] = assignment['created_at'].isoformat()
+        
+        return jsonify({
+            'success': True,
+            'deleted_assignments': deleted_assignments,
+            'count': len(deleted_assignments)
+        })
+        
+    except Exception as e:
+        logger.error(f"获取已删除作业列表失败: {str(e)}")
+        return jsonify({'success': False, 'error': '获取已删除作业列表失败'}), 500
+
+@assignments_bp.route('/clear-deleted', methods=['DELETE'])
+@login_required
+def clear_deleted_assignments():
+    """清空已删除的作业"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'success': False, 'error': '用户未登录'}), 401
+        
+        # 清空已删除的作业
+        deleted_manager = DeletedAssignment(mongo.db)
+        result = deleted_manager.clear_deleted_assignments(user_id)
+        
+        logger.info(f"用户 {user_id} 清空已删除作业，共删除 {result.deleted_count} 条")
+        
+        return jsonify({
+            'success': True,
+            'message': f'已清空 {result.deleted_count} 个已删除的作业',
+            'deleted_count': result.deleted_count
+        })
+        
+    except Exception as e:
+        logger.error(f"清空已删除作业失败: {str(e)}")
+        return jsonify({'success': False, 'error': '清空已删除作业失败'}), 500
 
 @assignments_bp.route('/stats', methods=['GET'])
 @login_required

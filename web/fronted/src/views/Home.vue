@@ -6,6 +6,9 @@
         <p>智能汇总所有科目作业，永不错过截止日期</p>
       </div>
       <div class="header-actions">
+        <button class="recycle-btn" title="回收站" @click="showRecycleBin">
+          <i class="fas fa-trash-alt"></i>
+        </button>
         <div class="current-time">
           <i class="fas fa-clock"></i>
           {{ currentTime }}
@@ -49,27 +52,27 @@
       </div>
       
       <div class="stats">
-        <div class="stat-card urgent">
+        <div class="stat-card urgent" @click="showStatModal('urgent')">
           <i class="fas fa-exclamation-triangle"></i>
           <h3>{{ urgentCount }}</h3>
           <p>紧急作业</p>
         </div>
-        <div class="stat-card soon">
+        <div class="stat-card soon" @click="showStatModal('warning')">
           <i class="fas fa-clock"></i>
           <h3>{{ soonCount }}</h3>
           <p>即将到期</p>
         </div>
-        <div class="stat-card total">
+        <div class="stat-card total" @click="showStatModal('all')">
           <i class="fas fa-tasks"></i>
           <h3>{{ totalCount }}</h3>
           <p>总作业数</p>
         </div>
-        <div class="stat-card completed">
+        <div class="stat-card completed" @click="showStatModal('completed')">
           <i class="fas fa-check-circle"></i>
           <h3>{{ completedCount }}</h3>
           <p>已完成</p>
         </div>
-        <div class="stat-card todos">
+        <div class="stat-card todos" @click="showStatModal('todos')">
           <i class="fas fa-list-check"></i>
           <h3>{{ todoCount }}</h3>
           <p>待办事项</p>
@@ -120,7 +123,7 @@
           </button>
           <div class="card-header">
             <span class="subject-tag">{{ assignment.subject }}</span>
-            <small>{{ assignment.type }}</small>
+            <small class="type-tag">{{ assignment.type }}</small>
           </div>
           <h3 class="card-title">{{ truncateText(assignment.title, 50) }}</h3>
           <p class="card-content">{{ truncateText(assignment.content, 80) }}</p>
@@ -140,6 +143,15 @@
               >
                 <i class="fas fa-bell"></i> 提醒
               </button>
+              <!-- 删除按钮 - 在提醒和完成之间 -->
+              <button 
+                v-if="!assignment.completed"
+                class="btn btn-danger delete-btn"
+                @click="deleteAssignment(assignment)"
+                :title="assignment.type === '待办' ? '删除待办' : '删除作业'"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
               <button 
                 v-if="!assignment.completed"
                 class="btn btn-success complete-btn"
@@ -152,15 +164,6 @@
                 <span v-else class="btn-loading">
                   <i class="fas fa-spinner fa-spin"></i> 处理中...
                 </span>
-              </button>
-              <!-- 待办事项的删除按钮 - 无论是否完成都显示 -->
-              <button 
-                v-if="assignment.type === '待办' && !assignment.completed"
-                class="btn btn-danger delete-btn"
-                @click="deleteTodo(assignment)"
-                title="删除待办"
-              >
-                <i class="fas fa-trash"></i>
               </button>
               <div v-else-if="assignment.completed" class="completed-actions">
                 <button class="btn btn-completed">
@@ -180,10 +183,9 @@
                   </span>
                 </button>
                 <button 
-                  v-if="assignment.type === '待办'"
                   class="btn btn-danger delete-btn"
-                  @click="deleteTodo(assignment)"
-                  title="删除待办"
+                  @click="deleteAssignment(assignment)"
+                  :title="assignment.type === '待办' ? '删除待办' : '删除作业'"
                 >
                   <i class="fas fa-trash"></i>
                 </button>
@@ -273,7 +275,7 @@
     </div>
 
     <!-- 预览详情弹窗 -->
-    <div v-if="showPreviewModal" class="modal-overlay" @click="closePreviewModal">
+    <div v-if="showPreviewModal" class="modal-overlay preview-modal-overlay" @click="closePreviewModal">
       <div class="modal-content preview-modal" @click.stop>
         <div class="modal-header">
           <h3><i class="fas fa-eye"></i> 详情预览</h3>
@@ -354,6 +356,197 @@
         </div>
       </div>
     </div>
+
+    <!-- 自定义确认对话框 -->
+    <div v-if="showConfirmModal" class="modal-overlay" @click="cancelConfirm">
+      <div class="modal-content confirm-modal" @click.stop>
+        <div class="modal-header">
+          <h3><i class="fas fa-exclamation-triangle"></i> 确认操作</h3>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-message">{{ confirmMessage }}</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="cancelConfirm">取消</button>
+          <button class="btn btn-danger" @click="confirmAction">确定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 统计详情弹窗 -->
+    <div v-if="showStatisticsModal" class="modal-overlay" @click="closeStatModal">
+      <div class="modal-content statistics-modal" @click.stop>
+        <div class="modal-header">
+          <h3>
+            <i :class="getStatIcon(currentStatType)"></i> 
+            {{ getStatTitle(currentStatType) }}
+          </h3>
+          <button class="close-btn" @click="closeStatModal">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-if="filteredStatItems.length === 0" class="empty-stat">
+            <i class="fas fa-inbox"></i>
+            <p>暂无{{ getStatTitle(currentStatType) }}</p>
+          </div>
+          <div v-else class="stat-items-grid">
+            <div 
+              v-for="item in filteredStatItems" 
+              :key="item.id"
+              :class="['assignment-card', 'stat-card-item', assignmentStatus(item)]"
+              :data-type="item.type"
+              @click="openAssignmentUrl(item)"
+              style="cursor: pointer;"
+            >
+              <!-- 优先级指示器 (仅待办显示) -->
+              <div 
+                v-if="item.type === '待办' && item.priority" 
+                :class="['priority-indicator', item.priority]"
+              ></div>
+              <!-- 预览按钮 -->
+              <button 
+                class="preview-btn" 
+                @click.stop="showPreview(item)"
+                title="预览详情"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
+              <div class="card-header">
+                <span class="subject-tag">{{ item.subject }}</span>
+                <small class="type-tag">{{ item.type }}</small>
+              </div>
+              <h3 class="card-title">{{ truncateText(item.title, 50) }}</h3>
+              <p class="card-content">{{ truncateText(item.content, 80) }}</p>
+              <div class="card-footer">
+                <div v-if="item.dueDate" :class="['due-date', assignmentStatus(item)]">
+                  <i :class="statusIcon(item)"></i>
+                  <span v-html="formatDate(item.dueDate, item.type, item.estimatedHours)"></span>
+                </div>
+                <div v-else class="due-date-placeholder">
+                  <!-- 无截止日期 -->
+                </div>
+                <div class="actions" @click.stop>
+                  <button 
+                    v-if="!item.completed"
+                    class="btn btn-primary"
+                    @click="setReminder(item)"
+                  >
+                    <i class="fas fa-bell"></i> 提醒
+                  </button>
+                  <!-- 删除按钮 - 在提醒和完成之间 -->
+                  <button 
+                    v-if="!item.completed"
+                    class="btn btn-danger delete-btn"
+                    @click="deleteAssignment(item)"
+                    :title="item.type === '待办' ? '删除待办' : '删除作业'"
+                  >
+                    <i class="fas fa-trash"></i>
+                  </button>
+                  <button 
+                    v-if="!item.completed"
+                    class="btn btn-success complete-btn"
+                    @click="markCompleted(item)"
+                    :disabled="item.completing"
+                  >
+                    <span v-if="!item.completing" class="btn-content">
+                      <i class="fas fa-check"></i> 完成
+                    </span>
+                    <span v-else class="btn-loading">
+                      <i class="fas fa-spinner fa-spin"></i> 处理中...
+                    </span>
+                  </button>
+                  <div v-else-if="item.completed" class="completed-actions">
+                    <button class="btn btn-completed">
+                      <i class="fas fa-check-circle"></i> 已完成
+                    </button>
+                    <button 
+                      class="btn btn-secondary undo-btn"
+                      @click="undoCompleted(item)"
+                      title="撤销完成"
+                    >
+                      <i class="fas fa-undo"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeStatModal">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 回收站弹窗 -->
+    <div v-if="showRecycleBinModal" class="modal-overlay" @click="closeRecycleBin">
+      <div class="modal-content recycle-modal" @click.stop>
+        <div class="modal-header">
+          <h3>
+            <i class="fas fa-trash-alt"></i> 
+            回收站
+          </h3>
+          <button class="close-btn" @click="closeRecycleBin">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-if="deletedItems.length === 0" class="empty-recycle">
+            <i class="fas fa-trash-alt"></i>
+            <p>回收站为空</p>
+            <small>已删除的项目将显示在这里</small>
+          </div>
+          <div v-else class="recycle-items-list">
+            <div 
+              v-for="item in deletedItems" 
+              :key="item.id"
+              class="recycle-item"
+            >
+              <div class="recycle-item-header">
+                <span class="recycle-item-subject">{{ item.subject }}</span>
+                <span :class="['recycle-item-type', item.type]">{{ item.type }}</span>
+                <span class="delete-time">{{ formatDeleteTime(item.deletedAt) }}</span>
+              </div>
+              <h4 class="recycle-item-title">{{ item.title }}</h4>
+              <p class="recycle-item-content">{{ truncateText(item.content, 60) }}</p>
+              <div class="recycle-item-footer">
+                <div v-if="item.dueDate" class="recycle-item-date">
+                  <i class="fas fa-calendar-alt"></i>
+                  <span>截止：{{ formatSimpleDate(item.dueDate) }}</span>
+                </div>
+                <div class="recycle-item-actions">
+                  <button 
+                    class="btn btn-sm btn-success"
+                    @click="restoreItem(item)"
+                    title="恢复"
+                  >
+                    <i class="fas fa-undo"></i> 恢复
+                  </button>
+                  <button 
+                    class="btn btn-sm btn-danger"
+                    @click="permanentDelete(item)"
+                    title="永久删除"
+                  >
+                    <i class="fas fa-trash"></i> 永久删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button 
+            v-if="deletedItems.length > 0"
+            class="btn btn-danger"
+            @click="clearRecycleBin"
+          >
+            <i class="fas fa-trash"></i> 清空回收站
+          </button>
+          <button class="btn btn-secondary" @click="closeRecycleBin">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -374,16 +567,13 @@ export default {
     
     const updateTime = () => {
       const now = new Date()
-      // 确保使用中国时区 (UTC+8)
-      currentTime.value = now.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
+      // 只显示时间部分，精确到秒
+      currentTime.value = now.toLocaleTimeString('zh-CN', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
         hour12: false,
-        timeZone: 'Asia/Beijing'
+        timeZone: 'Asia/Shanghai'
       })
     }
     
@@ -414,6 +604,20 @@ export default {
     // 预览相关状态
     const showPreviewModal = ref(false)
     const previewItem = ref(null)
+
+    // 确认对话框相关状态
+    const showConfirmModal = ref(false)
+    const confirmMessage = ref('')
+    const confirmCallback = ref(null)
+
+    // 统计弹窗相关状态
+    const showStatisticsModal = ref(false)
+    const currentStatType = ref('')
+    const filteredStatItems = ref([])
+
+    // 回收站相关状态
+    const showRecycleBinModal = ref(false)
+    const deletedItems = ref([])
 
     // 计算统计信息 - 包含作业和待办
     const allItems = computed(() => {
@@ -721,34 +925,97 @@ export default {
     const deleteTodo = async (assignment) => {
       if (assignment.type !== '待办') return
       
-      if (!confirm(`确定要删除待办事项"${assignment.title}"吗？`)) {
+      const performDelete = async () => {
+        try {
+          const response = await fetch(`/api/todos/${assignment._todoId}/delete`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: assignment.title,
+              subject: assignment.subject
+            })
+          })
+          
+          if (response.ok) {
+            const result = await response.json()
+            
+            // 重新获取待办列表（已删除的项目会被过滤掉）
+            await fetchTodos()
+            filterAssignments()
+            
+            showToast('success', '移至回收站', `待办事项"${assignment.title}"已移至回收站`)
+            console.log('删除待办成功:', result)
+          } else {
+            const errorData = await response.json()
+            console.error('删除待办失败:', errorData)
+            showToast('error', '删除失败', errorData.error || '删除待办失败，请重试')
+          }
+        } catch (error) {
+          console.error('删除待办错误:', error)
+          showToast('error', '网络错误', '请检查网络连接后重试')
+        }
+      }
+      
+      showCustomConfirm(
+        `确定要删除待办事项"${assignment.title}"吗？\n\n项目将移至回收站，可以恢复。`, 
+        performDelete
+      )
+    }
+
+    // 删除作业或待办的统一方法
+    const deleteAssignment = async (assignment) => {
+      if (assignment.type === '待办') {
+        // 调用原有的删除待办方法
+        await deleteTodo(assignment)
         return
       }
       
-      try {
-        const response = await fetch(`/api/todos/${assignment._todoId}`, {
-          method: 'DELETE',
-          credentials: 'include'
-        })
-        
-        if (response.ok) {
-          const result = await response.json()
+      // 处理作业删除
+      const itemType = assignment.type === '作业' ? '作业' : '测试'
+      const performDelete = async () => {
+        try {
+          const response = await fetch(`/api/assignments/${assignment.id}/delete`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: assignment.title,
+              subject: assignment.subject
+            })
+          })
           
-          // 从待办列表中移除
-          await fetchTodos()
-          filterAssignments()
-          
-          showToast('success', '删除成功', `待办事项"${assignment.title}"已删除`)
-          console.log('删除待办成功:', result)
-        } else {
-          const errorData = await response.json()
-          console.error('删除待办失败:', errorData)
-          showToast('error', '删除失败', errorData.error || '删除待办失败，请重试')
+          if (response.ok) {
+            const result = await response.json()
+            
+            // 从本地列表中移除（已删除的项目不再显示在主列表中）
+            const assignmentIndex = assignments.value.findIndex(a => a.id === assignment.id)
+            if (assignmentIndex !== -1) {
+              assignments.value.splice(assignmentIndex, 1)
+              filterAssignments()
+              showToast('success', '移至回收站', `${itemType}"${assignment.title}"已移至回收站`)
+            }
+            
+            console.log('删除作业成功:', result)
+          } else {
+            const errorData = await response.json()
+            console.error('删除作业失败:', errorData)
+            showToast('error', '删除失败', errorData.error || '删除作业失败，请重试')
+          }
+        } catch (error) {
+          console.error('删除作业错误:', error)
+          showToast('error', '网络错误', '请检查网络连接后重试')
         }
-      } catch (error) {
-        console.error('删除待办错误:', error)
-        showToast('error', '网络错误', '请检查网络连接后重试')
       }
+      
+      showCustomConfirm(
+        `确定要删除${itemType}"${assignment.title}"吗？\n\n项目将移至回收站，可以恢复。`, 
+        performDelete
+      )
     }
 
     // 标记完成
@@ -1013,13 +1280,22 @@ export default {
           }
           
           if (dataArray.length > 0) {
-            // 获取数据库中的已完成状态
+            // 获取数据库中的已完成状态和已删除状态
             let completedIds = new Set()
+            let deletedIds = new Set()
+            
             try {
-              const completedResponse = await fetch('/api/assignments/completed', {
-                method: 'GET',
-                credentials: 'include'
-              })
+              // 并行获取已完成和已删除列表
+              const [completedResponse, deletedResponse] = await Promise.all([
+                fetch('/api/assignments/completed', {
+                  method: 'GET',
+                  credentials: 'include'
+                }),
+                fetch('/api/assignments/deleted', {
+                  method: 'GET',
+                  credentials: 'include'
+                })
+              ])
               
               if (completedResponse.ok) {
                 const completedData = await completedResponse.json()
@@ -1028,8 +1304,16 @@ export default {
               } else {
                 console.warn('获取已完成作业列表失败，使用空列表')
               }
+              
+              if (deletedResponse.ok) {
+                const deletedData = await deletedResponse.json()
+                deletedIds = new Set((deletedData.deleted_assignments || []).map(item => item.assignment_id))
+                console.log('获取已删除作业列表成功:', deletedIds)
+              } else {
+                console.warn('获取已删除作业列表失败，使用空列表')
+              }
             } catch (error) {
-              console.error('获取已完成作业列表错误:', error)
+              console.error('获取作业状态列表错误:', error)
             }
             
             assignments.value = dataArray.map((item, index) => {
@@ -1054,7 +1338,21 @@ export default {
                 undoing: false,
                 details: detailsContent // 添加详情内容字段
               }
-            }).filter(assignment => !assignment.subject.includes('英语'))
+            }).filter(assignment => 
+              // !assignment.subject.includes('') &&    //过滤掉特殊字段
+              !deletedIds.has(assignment.id) // 过滤掉已删除的作业
+            ).sort((a, b) => {
+              // 已完成的任务置底
+              if (a.completed && !b.completed) return 1
+              if (!a.completed && b.completed) return -1
+              // 如果都是已完成或都是未完成，按截止时间排序
+              if (a.dueDate && b.dueDate) {
+                return new Date(a.dueDate) - new Date(b.dueDate)
+              }
+              if (a.dueDate && !b.dueDate) return -1
+              if (!a.dueDate && b.dueDate) return 1
+              return 0
+            })
             
             console.log('转换后的作业数据:', assignments.value)
           } else {
@@ -1301,6 +1599,346 @@ export default {
       return statusMap[status] || status
     }
 
+    // 自定义确认对话框方法
+    const showCustomConfirm = (message, callback) => {
+      confirmMessage.value = message
+      confirmCallback.value = callback
+      showConfirmModal.value = true
+    }
+
+    const confirmAction = () => {
+      if (confirmCallback.value) {
+        confirmCallback.value()
+      }
+      showConfirmModal.value = false
+      confirmCallback.value = null
+    }
+
+    const cancelConfirm = () => {
+      showConfirmModal.value = false
+      confirmCallback.value = null
+    }
+
+    // 统计弹窗相关方法
+    const showStatModal = (type) => {
+      currentStatType.value = type
+      filteredStatItems.value = getStatItems(type)
+      showStatisticsModal.value = true
+    }
+
+    const closeStatModal = () => {
+      showStatisticsModal.value = false
+      currentStatType.value = ''
+      filteredStatItems.value = []
+    }
+
+    const getStatItems = (type) => {
+      const items = allItems.value
+      
+      switch (type) {
+        case 'urgent':
+          return items.filter(item => assignmentStatus(item) === 'urgent')
+        case 'warning':
+          return items.filter(item => assignmentStatus(item) === 'warning')
+        case 'completed':
+          return items.filter(item => item.completed)
+        case 'todos':
+          return items.filter(item => item.type === '待办' && !item.completed)
+        case 'all':
+        default:
+          return items
+      }
+    }
+
+    const getStatTitle = (type) => {
+      const titles = {
+        'urgent': '紧急作业',
+        'warning': '即将到期',
+        'completed': '已完成',
+        'todos': '待办事项',
+        'all': '全部作业'
+      }
+      return titles[type] || '作业列表'
+    }
+
+    const getStatIcon = (type) => {
+      const icons = {
+        'urgent': 'fas fa-exclamation-triangle',
+        'warning': 'fas fa-clock',
+        'completed': 'fas fa-check-circle',
+        'todos': 'fas fa-list-check',
+        'all': 'fas fa-tasks'
+      }
+      return icons[type] || 'fas fa-list'
+    }
+
+    // 回收站相关方法
+    const showRecycleBin = async () => {
+      // 获取已删除的项目
+      await fetchDeletedItems()
+      showRecycleBinModal.value = true
+    }
+
+    const closeRecycleBin = () => {
+      showRecycleBinModal.value = false
+    }
+
+    // 获取已删除的项目
+    const fetchDeletedItems = async () => {
+      try {
+        // 并行获取已删除的作业和待办
+        const [assignmentsResponse, todosResponse] = await Promise.all([
+          fetch('/api/assignments/deleted', {
+            method: 'GET',
+            credentials: 'include'
+          }),
+          fetch('/api/todos/deleted', {
+            method: 'GET',
+            credentials: 'include'
+          })
+        ])
+        
+        const deletedAssignments = []
+        const deletedTodos = []
+        
+        // 处理已删除的作业
+        if (assignmentsResponse.ok) {
+          const result = await assignmentsResponse.json()
+          if (result.success && result.deleted_assignments) {
+            deletedAssignments.push(...result.deleted_assignments.map(item => ({
+              id: item.assignment_id,
+              subject: item.assignment_subject || '未知科目',
+              title: item.assignment_title || '未知作业',
+              content: item.assignment_title || '未知作业',
+              type: '作业',
+              deletedAt: item.delete_time,
+              dueDate: null,
+              url: ''
+            })))
+          }
+        }
+        
+        // 处理已删除的待办
+        if (todosResponse.ok) {
+          const result = await todosResponse.json()
+          if (result.success && result.deleted_todos) {
+            deletedTodos.push(...result.deleted_todos.map(item => ({
+              id: `todo_${item.todo_id}`,
+              _todoId: item.todo_id,
+              subject: '待办事项',
+              title: item.title,
+              content: item.title,
+              type: '待办',
+              deletedAt: item.delete_time,
+              dueDate: null,
+              url: ''
+            })))
+          }
+        }
+        
+        // 合并并按删除时间排序
+        deletedItems.value = [...deletedAssignments, ...deletedTodos].sort((a, b) => 
+          new Date(b.deletedAt) - new Date(a.deletedAt)
+        )
+        
+        console.log('获取已删除项目成功:', deletedItems.value)
+      } catch (error) {
+        console.error('获取已删除项目失败:', error)
+        showToast('error', '获取失败', '无法获取回收站内容')
+        deletedItems.value = []
+      }
+    }
+
+    const restoreItem = async (item) => {
+      try {
+        let response
+        
+        if (item.type === '待办') {
+          // 恢复待办事项
+          response = await fetch(`/api/todos/${item._todoId}/restore`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: item.title
+            })
+          })
+        } else {
+          // 恢复作业/测试
+          response = await fetch(`/api/assignments/${item.id}/restore`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: item.title,
+              subject: item.subject
+            })
+          })
+        }
+        
+        if (response.ok) {
+          const result = await response.json()
+          
+          // 从回收站列表中移除
+          const index = deletedItems.value.findIndex(d => d.id === item.id)
+          if (index !== -1) {
+            deletedItems.value.splice(index, 1)
+          }
+          
+          // 重新获取数据
+          if (item.type === '待办') {
+            await fetchTodos()
+          } else {
+            await fetchAssignments()
+          }
+          filterAssignments()
+          
+          showToast('success', '恢复成功', `${item.type}"${item.title}"已恢复`)
+          console.log('恢复成功:', result)
+        } else {
+          const errorData = await response.json()
+          console.error('恢复失败:', errorData)
+          showToast('error', '恢复失败', errorData.error || '恢复失败，请重试')
+        }
+      } catch (error) {
+        console.error('恢复错误:', error)
+        showToast('error', '网络错误', '请检查网络连接后重试')
+      }
+    }
+
+    const permanentDelete = (item) => {
+      const performDelete = async () => {
+        try {
+          let response
+          
+          if (item.type === '待办') {
+            // 永久删除待办事项
+            response = await fetch(`/api/todos/${item._todoId}/permanent-delete`, {
+              method: 'DELETE',
+              credentials: 'include'
+            })
+          } else {
+            // 永久删除作业/测试
+            response = await fetch(`/api/assignments/${item.id}/permanent-delete`, {
+              method: 'DELETE',
+              credentials: 'include'
+            })
+          }
+          
+          if (response.ok) {
+            const result = await response.json()
+            
+            // 从回收站列表中移除
+            const index = deletedItems.value.findIndex(d => d.id === item.id)
+            if (index !== -1) {
+              deletedItems.value.splice(index, 1)
+            }
+            
+            showToast('success', '永久删除', `"${item.title}"已永久删除`)
+            console.log('永久删除成功:', result)
+          } else {
+            const errorData = await response.json()
+            console.error('永久删除失败:', errorData)
+            showToast('error', '删除失败', errorData.error || '永久删除失败，请重试')
+          }
+        } catch (error) {
+          console.error('永久删除错误:', error)
+          showToast('error', '网络错误', '请检查网络连接后重试')
+        }
+      }
+      
+      showCustomConfirm(
+        `确定要永久删除"${item.title}"吗？\n\n此操作无法撤销！`, 
+        performDelete
+      )
+    }
+
+    const clearRecycleBin = () => {
+      const performClear = async () => {
+        try {
+          // 并行清空作业和待办的回收站
+          const [assignmentsResponse, todosResponse] = await Promise.all([
+            fetch('/api/assignments/clear-deleted', {
+              method: 'DELETE',
+              credentials: 'include'
+            }),
+            fetch('/api/todos/clear-deleted', {
+              method: 'DELETE',
+              credentials: 'include'
+            })
+          ])
+          
+          let success = true
+          const errors = []
+          
+          if (!assignmentsResponse.ok) {
+            const errorData = await assignmentsResponse.json()
+            errors.push(`作业清空失败: ${errorData.error || '未知错误'}`)
+            success = false
+          }
+          
+          if (!todosResponse.ok) {
+            const errorData = await todosResponse.json()
+            errors.push(`待办清空失败: ${errorData.error || '未知错误'}`)
+            success = false
+          }
+          
+          if (success) {
+            deletedItems.value = []
+            showToast('success', '清空完成', '回收站已清空')
+            console.log('清空回收站成功')
+          } else {
+            console.error('清空回收站部分失败:', errors)
+            showToast('error', '清空失败', errors.join('\n'))
+          }
+        } catch (error) {
+          console.error('清空回收站错误:', error)
+          showToast('error', '网络错误', '请检查网络连接后重试')
+        }
+      }
+      
+      showCustomConfirm(
+        '确定要清空回收站吗？\n\n此操作将永久删除所有项目，无法撤销！', 
+        performClear
+      )
+    }
+
+    const formatDeleteTime = (dateString) => {
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffMs = now - date
+      const diffMins = Math.floor(diffMs / (1000 * 60))
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+      if (diffMins < 1) return '刚刚删除'
+      if (diffMins < 60) return `${diffMins}分钟前删除`
+      if (diffHours < 24) return `${diffHours}小时前删除`
+      if (diffDays < 7) return `${diffDays}天前删除`
+      
+      return date.toLocaleDateString('zh-CN', {
+        month: 'short',
+        day: 'numeric'
+      }) + '删除'
+    }
+
+    const formatSimpleDate = (dateString) => {
+      if (!dateString) return ''
+      const date = new Date(dateString)
+      return date.toLocaleDateString('zh-CN', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+
+    // 移除本地存储相关代码，现在使用数据库管理删除状态
+
     // 登出功能
     const handleLogout = async () => {
       try {
@@ -1336,6 +1974,7 @@ export default {
       // 获取作业数据
       await fetchAssignments()
       
+      // 初始化时间显示
       updateTime()
       timeInterval = setInterval(updateTime, 1000)
       
@@ -1399,13 +2038,37 @@ export default {
       completeTodo,
       uncompleteTodo,
       deleteTodo,
+      deleteAssignment,
       showPreviewModal,
       previewItem,
       showPreview,
       closePreviewModal,
       truncateText,
       getPriorityText,
-      getStatusText
+      getStatusText,
+      showConfirmModal,
+      confirmMessage,
+      showCustomConfirm,
+      confirmAction,
+      cancelConfirm,
+      showStatisticsModal,
+      currentStatType,
+      filteredStatItems,
+      showStatModal,
+      closeStatModal,
+      getStatItems,
+      getStatTitle,
+      getStatIcon,
+      showRecycleBinModal,
+      deletedItems,
+      showRecycleBin,
+      closeRecycleBin,
+      fetchDeletedItems,
+      restoreItem,
+      permanentDelete,
+      clearRecycleBin,
+      formatDeleteTime,
+      formatSimpleDate
     }
   }
 }
@@ -1491,6 +2154,36 @@ export default {
   gap: 15px;
   z-index: 2;
   position: relative;
+}
+
+.recycle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  padding: 10px 12px;
+  border-radius: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  color: white;
+  cursor: pointer;
+  min-width: 44px;
+  height: 44px;
+}
+
+.recycle-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+}
+
+.recycle-btn i {
+  font-size: 1em;
+  color: white;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .current-time {
@@ -1810,7 +2503,7 @@ export default {
 
 .assignments-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
   gap: 25px;
 }
 
@@ -1892,6 +2585,18 @@ export default {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 15px;
+  padding-right: 50px; /* 为右上角的眼睛图标留出空间 */
+}
+
+.type-tag {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: 500;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  white-space: nowrap; /* 防止文字换行 */
 }
 
 .subject-tag {
@@ -2633,6 +3338,360 @@ export default {
 /* 预览弹窗样式 */
 .preview-modal {
   max-width: 600px;
+}
+
+/* 预览模态框需要显示在统计模态框之上 */
+.modal-overlay:has(.preview-modal) {
+  z-index: 1100;
+}
+
+/* 如果浏览器不支持:has选择器，使用类名方式 */
+.preview-modal-overlay {
+  z-index: 1100 !important;
+}
+
+/* 确认对话框样式 */
+.confirm-modal {
+  max-width: 450px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+}
+
+.confirm-modal .modal-header {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 20px 20px 0 0;
+}
+
+.confirm-modal .modal-header h3 {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.confirm-modal .modal-header h3 i {
+  color: #f39c12;
+  text-shadow: 0 2px 10px rgba(243, 156, 18, 0.3);
+}
+
+.confirm-message {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #374151;
+  text-align: center;
+  margin: 0;
+  padding: 10px 0;
+  white-space: pre-line;
+}
+
+.confirm-modal .modal-footer {
+  background: rgba(248, 250, 252, 0.8);
+  border-top: 1px solid rgba(226, 232, 240, 0.5);
+  border-radius: 0 0 20px 20px;
+  padding: 20px 30px;
+  gap: 15px;
+}
+
+.confirm-modal .btn {
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  min-width: 100px;
+}
+
+.confirm-modal .btn-secondary {
+  background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+  color: #64748b;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.confirm-modal .btn-secondary:hover {
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+  color: #475569;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(100, 116, 139, 0.2);
+}
+
+.confirm-modal .btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);
+}
+
+.confirm-modal .btn-danger:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+}
+
+/* 统计弹窗样式 */
+.statistics-modal {
+  max-width: 90vw;
+  width: 1200px;
+  max-height: 80vh;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+}
+
+.statistics-modal .modal-header {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 20px 20px 0 0;
+}
+
+.statistics-modal .modal-header h3 {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.statistics-modal .modal-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 20px 30px;
+}
+
+.empty-stat {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.empty-stat i {
+  font-size: 3em;
+  margin-bottom: 15px;
+  opacity: 0.5;
+}
+
+.stat-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+  gap: 25px;
+  padding: 10px 0;
+}
+
+/* 统计模态框中的作业卡片样式 */
+.stat-card-item {
+  position: relative;
+  margin: 0;
+}
+
+
+
+
+
+/* 统计卡片悬停效果增强 */
+.stat-card {
+  cursor: pointer;
+  user-select: none;
+}
+
+.stat-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card:active {
+  transform: translateY(-6px) scale(1.01);
+}
+
+/* 回收站弹窗样式 */
+.recycle-modal {
+  max-width: 700px;
+  max-height: 80vh;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+}
+
+.recycle-modal .modal-header {
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(239, 68, 68, 0.1));
+  border-bottom: 1px solid rgba(220, 53, 69, 0.2);
+  border-radius: 20px 20px 0 0;
+}
+
+.recycle-modal .modal-header h3 {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.recycle-modal .modal-header h3 i {
+  color: #6c757d;
+  text-shadow: 0 2px 10px rgba(108, 117, 125, 0.3);
+}
+
+.empty-recycle {
+  text-align: center;
+  padding: 50px 20px;
+  color: #6b7280;
+}
+
+.empty-recycle i {
+  font-size: 4em;
+  margin-bottom: 20px;
+  opacity: 0.4;
+  color: #9ca3af;
+}
+
+.empty-recycle p {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.empty-recycle small {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.recycle-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.recycle-item {
+  background: linear-gradient(135deg, rgba(248, 249, 250, 0.8), rgba(255, 255, 255, 0.9));
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #6c757d;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.recycle-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(108, 117, 125, 0.02), transparent);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.recycle-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+  border-left-color: #495057;
+}
+
+.recycle-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recycle-item-subject {
+  background: linear-gradient(135deg, #6c757d, #495057);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.recycle-item-type {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(108, 117, 125, 0.1);
+  color: #6c757d;
+}
+
+.delete-time {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+  background: rgba(156, 163, 175, 0.1);
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+.recycle-item-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  text-decoration: line-through;
+  text-decoration-color: rgba(107, 114, 128, 0.5);
+  opacity: 0.8;
+}
+
+.recycle-item-content {
+  color: #9ca3af;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 15px;
+  opacity: 0.8;
+}
+
+.recycle-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.recycle-item-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.recycle-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.recycle-modal .modal-footer {
+  background: rgba(248, 250, 252, 0.8);
+  border-top: 1px solid rgba(226, 232, 240, 0.5);
+  border-radius: 0 0 20px 20px;
+  padding: 20px 30px;
+  gap: 15px;
+  justify-content: space-between;
+}
+
+.recycle-modal .btn-danger {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  color: white;
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  box-shadow: 0 4px 15px rgba(220, 53, 69, 0.2);
+}
+
+.recycle-modal .btn-danger:hover {
+  background: linear-gradient(135deg, #c82333, #a71e2a);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(220, 53, 69, 0.4);
+}
+
+/* 回收站按钮增强悬停效果 */
+.recycle-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+}
+
+.recycle-btn:active {
+  transform: translateY(-1px) scale(1.02);
 }
 
 .preview-field {

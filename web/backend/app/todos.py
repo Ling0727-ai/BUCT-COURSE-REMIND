@@ -325,10 +325,77 @@ def remind_todo(todo_id):
         current_app.logger.error(f"提醒待办事项失败: {str(e)}")
         return jsonify({'error': '提醒待办事项失败', 'details': str(e), 'success': False}), 500
 
-@todos_bp.route('/<todo_id>', methods=['DELETE'])
+@todos_bp.route('/<todo_id>/delete', methods=['POST'])
 @login_required
 def delete_todo(todo_id):
-    """删除待办事项"""
+    """软删除待办事项（移至回收站）"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': '用户未登录', 'success': False}), 401
+        
+        data = request.get_json() or {}
+        title = data.get('title', '未知待办')
+        
+        # 创建待办模型实例
+        todo_model = Todo(mongo.db)
+        
+        # 检查待办是否存在
+        existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
+        if not existing_todo:
+            return jsonify({'error': '待办事项不存在', 'success': False}), 404
+        
+        # 软删除待办事项
+        result = todo_model.delete_todo(todo_id, user_id)
+        
+        if result.matched_count > 0:
+            current_app.logger.info(f"用户 {user_id} 删除待办事项: {title}")
+            return jsonify({
+                'success': True,
+                'message': '待办事项已移至回收站'
+            })
+        else:
+            return jsonify({'error': '删除失败', 'success': False}), 500
+        
+    except Exception as e:
+        current_app.logger.error(f"删除待办事项失败: {str(e)}")
+        return jsonify({'error': '删除待办事项失败', 'details': str(e), 'success': False}), 500
+
+@todos_bp.route('/<todo_id>/restore', methods=['POST'])
+@login_required
+def restore_todo(todo_id):
+    """恢复已删除的待办事项"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': '用户未登录', 'success': False}), 401
+        
+        data = request.get_json() or {}
+        title = data.get('title', '未知待办')
+        
+        # 创建待办模型实例
+        todo_model = Todo(mongo.db)
+        
+        # 恢复待办事项
+        result = todo_model.restore_todo(todo_id, user_id)
+        
+        if result.matched_count > 0:
+            current_app.logger.info(f"用户 {user_id} 恢复待办事项: {title}")
+            return jsonify({
+                'success': True,
+                'message': '待办事项已恢复'
+            })
+        else:
+            return jsonify({'error': '恢复失败，待办事项不存在', 'success': False}), 404
+        
+    except Exception as e:
+        current_app.logger.error(f"恢复待办事项失败: {str(e)}")
+        return jsonify({'error': '恢复待办事项失败', 'details': str(e), 'success': False}), 500
+
+@todos_bp.route('/<todo_id>/permanent-delete', methods=['DELETE'])
+@login_required
+def permanent_delete_todo(todo_id):
+    """永久删除待办事项"""
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -337,21 +404,89 @@ def delete_todo(todo_id):
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
         
-        # 删除待办事项
-        result = todo_model.delete_todo(todo_id, user_id)
+        # 永久删除待办事项
+        result = todo_model.permanent_delete_todo(todo_id, user_id)
         
         if result.deleted_count > 0:
-            current_app.logger.info(f"用户 {user_id} 删除待办事项 {todo_id}")
+            current_app.logger.info(f"用户 {user_id} 永久删除待办事项 {todo_id}")
             return jsonify({
                 'success': True,
-                'message': '待办事项已删除'
+                'message': '待办事项已永久删除'
             })
         else:
-            return jsonify({'error': '待办事项不存在', 'success': False}), 404
+            return jsonify({'error': '永久删除失败，待办事项不存在', 'success': False}), 404
         
     except Exception as e:
-        current_app.logger.error(f"删除待办事项失败: {str(e)}")
-        return jsonify({'error': '删除待办事项失败', 'details': str(e), 'success': False}), 500
+        current_app.logger.error(f"永久删除待办事项失败: {str(e)}")
+        return jsonify({'error': '永久删除待办事项失败', 'details': str(e), 'success': False}), 500
+
+@todos_bp.route('/deleted', methods=['GET'])
+@login_required
+def get_deleted_todos():
+    """获取已删除的待办事项列表"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': '用户未登录', 'success': False}), 401
+        
+        # 创建待办模型实例
+        todo_model = Todo(mongo.db)
+        
+        # 获取已删除的待办列表
+        deleted_todos = todo_model.get_deleted_todos(user_id)
+        
+        # 转换ObjectId为字符串
+        for todo in deleted_todos:
+            todo['_id'] = str(todo['_id'])
+            todo['user_id'] = str(todo['user_id'])
+            todo['todo_id'] = str(todo['_id'])  # 添加todo_id字段供前端使用
+            if todo.get('due_date'):
+                todo['due_date'] = todo['due_date'].isoformat()
+            if todo.get('completed_at'):
+                todo['completed_at'] = todo['completed_at'].isoformat()
+            if todo.get('delete_time'):
+                todo['delete_time'] = todo['delete_time'].isoformat()
+            if todo.get('created_at'):
+                todo['created_at'] = todo['created_at'].isoformat()
+            if todo.get('updated_at'):
+                todo['updated_at'] = todo['updated_at'].isoformat()
+        
+        return jsonify({
+            'success': True,
+            'deleted_todos': deleted_todos,
+            'count': len(deleted_todos)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"获取已删除待办列表失败: {str(e)}")
+        return jsonify({'error': '获取已删除待办列表失败', 'details': str(e), 'success': False}), 500
+
+@todos_bp.route('/clear-deleted', methods=['DELETE'])
+@login_required
+def clear_deleted_todos():
+    """清空已删除的待办事项"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': '用户未登录', 'success': False}), 401
+        
+        # 创建待办模型实例
+        todo_model = Todo(mongo.db)
+        
+        # 清空已删除的待办事项
+        result = todo_model.clear_deleted_todos(user_id)
+        
+        current_app.logger.info(f"用户 {user_id} 清空已删除待办事项，共删除 {result.deleted_count} 条")
+        
+        return jsonify({
+            'success': True,
+            'message': f'已清空 {result.deleted_count} 个已删除的待办事项',
+            'deleted_count': result.deleted_count
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"清空已删除待办事项失败: {str(e)}")
+        return jsonify({'error': '清空已删除待办事项失败', 'details': str(e), 'success': False}), 500
 
 @todos_bp.route('/stats', methods=['GET'])
 @login_required
@@ -362,11 +497,15 @@ def get_todo_stats():
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
         
-        # 统计信息
-        total_todos = mongo.db.todos.count_documents({'user_id': ObjectId(user_id)})
+        # 统计信息（排除已删除的）
+        total_todos = mongo.db.todos.count_documents({
+            'user_id': ObjectId(user_id),
+            'is_deleted': {'$ne': True}
+        })
         completed_todos = mongo.db.todos.count_documents({
             'user_id': ObjectId(user_id),
-            'completed': True
+            'completed': True,
+            'is_deleted': {'$ne': True}
         })
         pending_todos = total_todos - completed_todos
         
@@ -376,7 +515,8 @@ def get_todo_stats():
             count = mongo.db.todos.count_documents({
                 'user_id': ObjectId(user_id),
                 'priority': priority,
-                'completed': False
+                'completed': False,
+                'is_deleted': {'$ne': True}
             })
             priority_stats[priority] = count
         
@@ -388,6 +528,7 @@ def get_todo_stats():
         due_today = mongo.db.todos.count_documents({
             'user_id': ObjectId(user_id),
             'completed': False,
+            'is_deleted': {'$ne': True},
             'due_date': {'$gte': today_start, '$lte': today_end}
         })
         
