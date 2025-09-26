@@ -95,12 +95,16 @@ class CourseData:
             delete_result = self.db[self.collection].delete_many({'user_id': ObjectId(user_id)})
             logger.info(f"删除用户 {user_id} 的旧课程数据 {delete_result.deleted_count} 条")
             
-            # 插入新数据
+            # 插入新数据，包括软删除的项目（软删除项目会在get_user_course_data中被过滤）
             inserted_count = 0
             if documents:
                 insert_result = self.db[self.collection].insert_many(documents)
                 inserted_count = len(insert_result.inserted_ids)
                 logger.info(f"为用户 {user_id} 插入新课程数据 {inserted_count} 条")
+                
+                # 记录软删除项目的保护情况
+                if deleted_to_keep:
+                    logger.info(f"保护了 {len(deleted_to_keep)} 个软删除项目（数据已插入但会在显示时过滤）")
             
             # 处理软删除状态
             if deleted_to_remove:

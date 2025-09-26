@@ -1061,13 +1061,15 @@ export default {
             deletedItems.value.splice(index, 1)
           }
           
-          // 重新获取数据
-          if (item.type === '待办') {
-            await fetchTodos()
-          } else {
-            await fetchAssignments()
-          }
-          filterAssignments()
+          // 重新获取数据 - 添加延迟确保后端状态已更新
+          setTimeout(async () => {
+            if (item.type === '待办') {
+              await fetchTodos()
+            } else {
+              await fetchAssignments()
+            }
+            filterAssignments()
+          }, 300) // 增加延迟到300ms确保后端状态完全同步
           
           showToast('success', '恢复成功', `${item.type}"${item.title}"已恢复`)
           console.log('恢复成功:', result)
