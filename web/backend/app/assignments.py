@@ -1,6 +1,7 @@
 """
 作业管理模块
 提供作业的CRUD操作和状态管理
+使用统一的状态管理系统
 """
 
 from flask import Blueprint, request, jsonify, session
@@ -9,7 +10,6 @@ from datetime import datetime, timedelta
 import logging
 from . import mongo
 from .auth import login_required
-from .model import CompletedAssignment, DeletedAssignment
 
 # 创建蓝图
 assignments_bp = Blueprint('assignments', __name__, url_prefix='/api/assignments')
@@ -33,7 +33,7 @@ def get_scraper_instance():
 @assignments_bp.route('/standard', methods=['GET'])
 @login_required
 def get_standard_assignments():
-    """获取标准作业列表（通过新版scraper实时获取）"""
+    """获取标准作业列表（从数据库获取）"""
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -41,69 +41,69 @@ def get_standard_assignments():
         
         logger.info(f"用户 {user_id} 请求获取作业列表")
         
-        # 获取已完成的作业ID列表
-        completed_manager = CompletedAssignment(mongo.db)
-        completed_ids = completed_manager.get_user_completed(user_id)
+        # 从数据库获取数据
+        from .course_data import get_course_data_manager
+        course_data_mgr = get_course_data_manager()
+        tasks = course_data_mgr.get_user_course_data(user_id)
+        
+        # 获取作业状态信息
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        completed_ids = status_manager.get_completed_assignment_ids(user_id)
+        deleted_ids = status_manager.get_deleted_assignment_ids(user_id)
         completed_set = set(str(aid) for aid in completed_ids)
+        deleted_set = set(str(aid) for aid in deleted_ids)
         
-        # 通过新版scraper获取实时数据
-        scraper = get_scraper_instance()
-        if not scraper:
-            logger.error("scraper实例为None")
-            return jsonify({'success': False, 'error': 'scraper初始化失败'}), 500
+        # 转换数据格式（过滤掉已删除的任务）
+        formatted_tasks = []
+        homework_count = 0
+        test_count = 0
         
-        logger.info(f"scraper实例获取成功: {type(scraper)}")
-        
-        # 获取待办任务
-        result = scraper.get_pending_tasks(user_id)
-        
-        if not result.get('success'):
-            return jsonify({'success': False, 'error': result.get('error', '获取数据失败')}), 500
-        
-        data = result.get('data', {})
-        tasks_list = data.get('tasks', [])
-        
-        # 转换数据格式
-        tasks = []
-        
-        # 处理统一的任务列表
-        for task_data in tasks_list:
-            # 根据任务内容生成唯一ID
-            subject = task_data.get('subject', '未知科目')
-            title = task_data.get('title', '无标题')
-            deadline = task_data.get('deadline', '')
+        for task in tasks:
+            task_id = task.get('task_id')
+            task_type = task.get('type', 'homework')
             
-            # 判断任务类型（根据details字段是否为空）
-            task_type = 'homework' if task_data.get('details', '').strip() else 'test'
+            # 跳过已删除的任务
+            if task_id in deleted_set:
+                continue
             
-            # 生成任务ID
-            task_id = f"{task_type}_{abs(hash(subject + title + deadline))}"
-            
-            task = {
+            formatted_task = {
                 'id': task_id,
-                'subject': subject,
+                'subject': task.get('subject', ''),
                 'type': task_type,
                 'details': {
-                    'task': title,
-                    'deadline': deadline,
-                    'url': task_data.get('url', ''),
+                    'task': task.get('title', ''),
+                    'deadline': task.get('deadline', ''),
+                    'url': task.get('url', ''),
                     'can_submit': True,
                     'is_group': False,
-                    'details_content': task_data.get('details', '')  # 作业详情内容
+                    'details_content': task.get('details', '')
                 },
                 'completed': task_id in completed_set,
                 'has_tasks': True,
                 'tasks_count': 1
             }
-            tasks.append(task)
+            formatted_tasks.append(formatted_task)
+            
+            if task_type == 'homework':
+                homework_count += 1
+            else:
+                test_count += 1
         
-        logger.info(f"返回 {len(tasks)} 个作业/测试项目")
+        stats = {
+            'homework_count': homework_count,
+            'tests_count': test_count,
+            'total_count': len(formatted_tasks)
+        }
+        
+        logger.info(f"从数据库为用户 {user_id} 返回 {len(formatted_tasks)} 个作业/测试项目")
         
         return jsonify({
             'success': True,
-            'tasks': tasks,
-            'total': len(tasks),
-            'stats': data.get('stats', {})
+            'tasks': formatted_tasks,
+            'total': len(formatted_tasks),
+            'stats': stats,
+            'source': 'database'
         })
         
     except Exception as e:
@@ -126,9 +126,10 @@ def mark_assignment_complete(assignment_id):
         assignment_title = data.get('title', '未知作业')
         assignment_subject = data.get('subject', '未知科目')
         
-        # 直接标记为已完成
-        completed_manager = CompletedAssignment(mongo.db)
-        result = completed_manager.mark_completed(user_id, assignment_id, assignment_title, assignment_subject)
+        # 使用统一状态管理标记为已完成
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        result = status_manager.mark_completed(user_id, assignment_id, assignment_title, assignment_subject)
         
         if result:
             logger.info(f"作业 {assignment_id} 标记完成成功")
@@ -151,9 +152,10 @@ def mark_assignment_uncomplete(assignment_id):
         
         logger.info(f"用户 {user_id} 撤销作业 {assignment_id} 的完成状态")
         
-        # 撤销完成状态
-        completed_manager = CompletedAssignment(mongo.db)
-        result = completed_manager.unmark_completed(user_id, assignment_id)
+        # 使用统一状态管理撤销完成状态
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        result = status_manager.restore_assignment(user_id, assignment_id)
         
         if result:
             logger.info(f"作业 {assignment_id} 撤销完成成功")
@@ -216,7 +218,7 @@ def remind_assignment(assignment_id):
 @assignments_bp.route('/enhanced', methods=['GET'])
 @login_required
 def get_enhanced_assignments():
-    """获取增强作业列表"""
+    """获取增强作业列表（从数据库获取）"""
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -224,64 +226,68 @@ def get_enhanced_assignments():
         
         logger.info(f"用户 {user_id} 请求获取增强作业列表")
         
-        # 获取已完成的作业ID列表
-        completed_manager = CompletedAssignment(mongo.db)
-        completed_ids = completed_manager.get_user_completed(user_id)
+        # 从数据库获取数据
+        from .course_data import get_course_data_manager
+        course_data_mgr = get_course_data_manager()
+        tasks = course_data_mgr.get_user_course_data(user_id)
+        
+        # 获取作业状态信息
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        completed_ids = status_manager.get_completed_assignment_ids(user_id)
+        deleted_ids = status_manager.get_deleted_assignment_ids(user_id)
         completed_set = set(str(aid) for aid in completed_ids)
+        deleted_set = set(str(aid) for aid in deleted_ids)
         
-        # 通过新版scraper获取数据
-        scraper = get_scraper_instance()
-        if not scraper:
-            return jsonify({'success': False, 'error': 'scraper初始化失败'}), 500
-        
-        result = scraper.get_pending_tasks(user_id)
-        
-        if not result.get('success'):
-            return jsonify({'success': False, 'error': result.get('error', '获取数据失败')}), 500
-        
-        data = result.get('data', {})
-        tasks_list = data.get('tasks', [])
-        
-        # 处理增强数据
+        # 处理增强数据（过滤掉已删除的任务）
         enhanced_assignments = []
+        homework_count = 0
+        test_count = 0
         
-        # 处理统一的任务列表
-        for task_data in tasks_list:
-            subject = task_data.get('subject', '未知科目')
-            title = task_data.get('title', '无标题')
-            deadline = task_data.get('deadline', '')
-            details = task_data.get('details', '')
+        for task in tasks:
+            task_id = task.get('task_id')
+            task_type = task.get('type', 'homework')
             
-            # 判断任务类型
-            task_type = 'homework' if details.strip() else 'test'
-            
-            # 生成任务ID
-            task_id = f"{task_type}_{abs(hash(subject + title + deadline))}"
+            # 跳过已删除的任务
+            if task_id in deleted_set:
+                continue
             
             enhanced_assignment = {
                 'id': task_id,
-                'subject': subject,
+                'subject': task.get('subject', ''),
                 'type': task_type,
-                'title': title,
-                'deadline': deadline,
-                'url': task_data.get('url', ''),
+                'title': task.get('title', ''),
+                'deadline': task.get('deadline', ''),
+                'url': task.get('url', ''),
                 'can_submit': True,
                 'is_group': False,
-                'details_content': details,  # 作业详情内容
+                'details_content': task.get('details', ''),
                 'completed': task_id in completed_set,
-                'has_detailed_tasks': bool(details.strip()),
+                'has_detailed_tasks': bool(task.get('details', '').strip()),
                 'tasks_count': 1
             }
             enhanced_assignments.append(enhanced_assignment)
+            
+            if task_type == 'homework':
+                homework_count += 1
+            else:
+                test_count += 1
         
-        logger.info(f"返回 {len(enhanced_assignments)} 个增强作业/测试项目")
+        stats = {
+            'homework_count': homework_count,
+            'tests_count': test_count,
+            'total_count': len(enhanced_assignments)
+        }
+        
+        logger.info(f"从数据库返回 {len(enhanced_assignments)} 个增强作业/测试项目")
         
         return jsonify({
             'success': True,
             'assignments': enhanced_assignments,
             'total': len(enhanced_assignments),
-            'statistics': data.get('stats', {}),
-            'query_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'statistics': stats,
+            'query_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'source': 'database'
         })
         
     except Exception as e:
@@ -298,8 +304,9 @@ def get_completed_assignments():
             return jsonify({'success': False, 'error': '用户未登录'}), 401
         
         # 获取已完成的作业ID列表
-        completed_manager = CompletedAssignment(mongo.db)
-        completed_ids = completed_manager.get_user_completed(user_id)
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        completed_ids = status_manager.get_completed_assignment_ids(user_id)
         
         return jsonify({
             'success': True,
@@ -325,10 +332,12 @@ def delete_assignment(assignment_id):
         data = request.get_json() or {}
         assignment_title = data.get('title', '未知作业')
         assignment_subject = data.get('subject', '未知科目')
+        assignment_type = data.get('type', 'homework')  # 获取作业类型
         
-        # 标记为已删除
-        deleted_manager = DeletedAssignment(mongo.db)
-        result = deleted_manager.mark_deleted(user_id, assignment_id, assignment_title, assignment_subject)
+        # 使用统一状态管理标记为已删除
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        result = status_manager.mark_deleted(user_id, assignment_id, assignment_title, assignment_subject, assignment_type)
         
         if result.upserted_id or result.matched_count > 0:
             logger.info(f"作业 {assignment_id} 标记删除成功")
@@ -351,14 +360,10 @@ def restore_assignment(assignment_id):
         
         logger.info(f"用户 {user_id} 恢复作业 {assignment_id}")
         
-        # 从前端请求中获取作业信息
-        data = request.get_json() or {}
-        assignment_title = data.get('title', '未知作业')
-        assignment_subject = data.get('subject', '未知科目')
-        
-        # 恢复作业
-        deleted_manager = DeletedAssignment(mongo.db)
-        result = deleted_manager.restore_assignment(user_id, assignment_id)
+        # 使用统一状态管理恢复作业
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        result = status_manager.restore_assignment(user_id, assignment_id)
         
         if result.deleted_count > 0:
             logger.info(f"作业 {assignment_id} 恢复成功")
@@ -381,15 +386,13 @@ def permanent_delete_assignment(assignment_id):
         
         logger.info(f"用户 {user_id} 永久删除作业 {assignment_id}")
         
-        # 永久删除作业
-        deleted_manager = DeletedAssignment(mongo.db)
-        result = deleted_manager.permanent_delete_assignment(user_id, assignment_id)
+        # 永久删除作业状态记录
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        result = status_manager.restore_assignment(user_id, assignment_id)  # 删除状态记录
         
-        if result.deleted_count > 0:
-            logger.info(f"作业 {assignment_id} 永久删除成功")
-            return jsonify({'success': True, 'message': '作业已永久删除'})
-        else:
-            return jsonify({'success': False, 'error': '永久删除失败，作业不存在'}), 404
+        logger.info(f"作业 {assignment_id} 永久删除成功")
+        return jsonify({'success': True, 'message': '作业已永久删除'})
             
     except Exception as e:
         logger.error(f"永久删除作业失败: {str(e)}")
@@ -405,17 +408,18 @@ def get_deleted_assignments():
             return jsonify({'success': False, 'error': '用户未登录'}), 401
         
         # 获取已删除的作业列表
-        deleted_manager = DeletedAssignment(mongo.db)
-        deleted_assignments = deleted_manager.get_deleted_assignments(user_id)
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        deleted_assignments = status_manager.get_user_assignment_status(user_id, 'deleted')
         
         # 转换ObjectId为字符串
         for assignment in deleted_assignments:
             assignment['_id'] = str(assignment['_id'])
             assignment['user_id'] = str(assignment['user_id'])
-            if assignment.get('delete_time'):
-                assignment['delete_time'] = assignment['delete_time'].isoformat()
-            if assignment.get('created_at'):
-                assignment['created_at'] = assignment['created_at'].isoformat()
+            if assignment.get('status_time'):
+                assignment['delete_time'] = assignment['status_time'].isoformat()
+            if assignment.get('updated_at'):
+                assignment['updated_at'] = assignment['updated_at'].isoformat()
         
         return jsonify({
             'success': True,
@@ -437,15 +441,16 @@ def clear_deleted_assignments():
             return jsonify({'success': False, 'error': '用户未登录'}), 401
         
         # 清空已删除的作业
-        deleted_manager = DeletedAssignment(mongo.db)
-        result = deleted_manager.clear_deleted_assignments(user_id)
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        deleted_count = status_manager.clear_user_status(user_id, 'deleted')
         
-        logger.info(f"用户 {user_id} 清空已删除作业，共删除 {result.deleted_count} 条")
+        logger.info(f"用户 {user_id} 清空已删除作业，共删除 {deleted_count} 条")
         
         return jsonify({
             'success': True,
-            'message': f'已清空 {result.deleted_count} 个已删除的作业',
-            'deleted_count': result.deleted_count
+            'message': f'已清空 {deleted_count} 个已删除的作业',
+            'deleted_count': deleted_count
         })
         
     except Exception as e:
@@ -455,49 +460,37 @@ def clear_deleted_assignments():
 @assignments_bp.route('/stats', methods=['GET'])
 @login_required
 def get_assignments_stats():
-    """获取作业统计信息"""
+    """获取作业统计信息（从数据库获取）"""
     try:
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'success': False, 'error': '用户未登录'}), 401
         
-        # 获取已完成的作业ID列表
-        completed_manager = CompletedAssignment(mongo.db)
-        completed_ids = completed_manager.get_user_completed(user_id)
+        # 从数据库获取数据
+        from .course_data import get_course_data_manager
+        course_data_mgr = get_course_data_manager()
+        tasks = course_data_mgr.get_user_course_data(user_id)
+        
+        # 获取作业状态信息
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+        completed_ids = status_manager.get_completed_assignment_ids(user_id)
+        deleted_ids = status_manager.get_deleted_assignment_ids(user_id)
         completed_set = set(str(aid) for aid in completed_ids)
+        deleted_set = set(str(aid) for aid in deleted_ids)
         
-        # 通过新版scraper获取实时数据
-        scraper = get_scraper_instance()
-        if not scraper:
-            return jsonify({'success': False, 'error': 'scraper初始化失败'}), 500
-        
-        result = scraper.get_pending_tasks(user_id)
-        
-        if not result.get('success'):
-            return jsonify({'success': False, 'error': result.get('error', '获取数据失败')}), 500
-        
-        data = result.get('data', {})
-        tasks_list = data.get('tasks', [])
-        
-        # 统计各种状态
+        # 统计各种状态（排除已删除的任务）
         now = datetime.now()
-        total = len(tasks_list)
+        active_tasks = [task for task in tasks if task.get('task_id') not in deleted_set]
+        total = len(active_tasks)
         completed = 0
         urgent = 0
         soon = 0
         
-        # 统计所有任务
-        for task_data in tasks_list:
-            subject = task_data.get('subject', '未知科目')
-            title = task_data.get('title', '无标题')
-            deadline = task_data.get('deadline', '')
-            details = task_data.get('details', '')
-            
-            # 判断任务类型
-            task_type = 'homework' if details.strip() else 'test'
-            
-            # 生成任务ID
-            task_id = f"{task_type}_{abs(hash(subject + title + deadline))}"
+        # 统计所有活跃任务
+        for task in active_tasks:
+            task_id = task.get('task_id')
+            deadline = task.get('deadline', '')
             
             if task_id in completed_set:
                 completed += 1
@@ -534,7 +527,8 @@ def get_assignments_stats():
                 'urgent': urgent,
                 'soon': soon,
                 'remaining': total - completed
-            }
+            },
+            'source': 'database'
         })
         
     except Exception as e:

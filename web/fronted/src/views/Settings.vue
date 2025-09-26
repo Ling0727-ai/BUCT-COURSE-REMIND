@@ -63,10 +63,11 @@
                 <i :class="webhookTypes[webhook.type].icon"></i>
                 {{ webhookTypes[webhook.type].name }} #{{ webhook.id }}
               </div>
-              <div :class="['webhook-status', { 'active': webhook.enabled, 'inactive': !webhook.enabled }]">
-                {{ webhook.enabled ? '启用' : '禁用' }}
-              </div>
               <div class="webhook-actions">
+                <div :class="['webhook-status', { 'active': webhook.enabled, 'inactive': !webhook.enabled }]">
+                  <i :class="'fas fa-' + (webhook.enabled ? 'check-circle' : 'times-circle')"></i>
+                  {{ webhook.enabled ? '启用' : '禁用' }}
+                </div>
                 <button 
                   :class="['btn', 'btn-small', webhook.enabled ? 'btn-danger' : 'btn-success']" 
                   @click="toggleWebhook(webhook.id)"
@@ -131,17 +132,48 @@
         </button>
       </div>
 
-      <!-- 保存设置 -->
-      <div class="save-section">
-        <button class="btn btn-success" @click="testConnection" style="margin-right: 15px;">
-          <i class="fas fa-plug"></i>
-          测试连接
-        </button>
-        <button class="btn btn-primary" @click="saveSettings">
-          <i class="fas fa-save"></i>
-          保存设置
-        </button>
+      <!-- 数据管理设置 -->
+      <div class="section">
+        <h2 class="section-title">
+          <i class="fas fa-database"></i>
+          数据管理
+        </h2>
+        <div class="data-status-card">
+          <div class="status-info">
+            <div class="status-item">
+              <span class="status-label">数据状态:</span>
+              <span :class="['status-value', dataStatus.hasData ? 'status-active' : 'status-inactive']">
+                {{ dataStatus.hasData ? '已同步' : '未同步' }}
+              </span>
+            </div>
+            <div class="status-item" v-if="dataStatus.lastUpdate">
+              <span class="status-label">最后更新:</span>
+              <span class="status-value">{{ formatDateTime(dataStatus.lastUpdate) }}</span>
+            </div>
+            <div class="status-item" v-if="dataStatus.hoursUntilRefresh !== null">
+              <span class="status-label">下次自动刷新:</span>
+              <span class="status-value">{{ formatNextRefresh(dataStatus.hoursUntilRefresh) }}</span>
+            </div>
+          </div>
+          <div class="refresh-actions">
+            <button 
+              class="btn btn-refresh" 
+              @click="refreshCourseData" 
+              :disabled="refreshing"
+              :class="{ 'refreshing': refreshing }"
+            >
+              <i :class="['fas', refreshing ? 'fa-spinner fa-spin' : 'fa-sync-alt']"></i>
+              {{ refreshing ? '刷新中...' : '手动刷新数据' }}
+            </button>
+            <div class="refresh-tip">
+              <i class="fas fa-info-circle"></i>
+              数据每12小时自动刷新一次，也可手动刷新
+            </div>
+          </div>
+        </div>
       </div>
+
+
     </div>
 
     <!-- Webhook类型选择对话框 -->
@@ -246,6 +278,15 @@ export default {
     const nextWebhookId = ref(1)
     const showWebhookDialog = ref(false)
     const toast = reactive({ show: false, message: '', type: 'success' })
+    
+    // 数据状态相关
+    const dataStatus = reactive({
+      hasData: false,
+      lastUpdate: null,
+      nextAutoRefresh: null,
+      hoursUntilRefresh: null
+    })
+    const refreshing = ref(false)
 
     const toastIcon = computed(() => {
       const icons = {
@@ -424,6 +465,94 @@ export default {
       }, 3000)
     }
 
+    // 格式化日期时间
+    const formatDateTime = (dateString) => {
+      if (!dateString) return '未知'
+      try {
+        const date = new Date(dateString)
+        return date.toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZone: 'Asia/Shanghai'
+        })
+      } catch (error) {
+        return '格式错误'
+      }
+    }
+
+    // 格式化下次刷新时间
+    const formatNextRefresh = (hours) => {
+      if (hours === null || hours === undefined) return '未知'
+      if (hours <= 0) return '即将刷新'
+      if (hours < 1) {
+        const minutes = Math.round(hours * 60)
+        return `${minutes}分钟后`
+      }
+      return `${Math.round(hours * 10) / 10}小时后`
+    }
+
+    // 获取数据状态
+    const loadDataStatus = async () => {
+      try {
+        const response = await fetch('/api/course-data/status', {
+          method: 'GET',
+          credentials: 'include'
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            dataStatus.hasData = data.has_data
+            dataStatus.lastUpdate = data.last_update
+            dataStatus.nextAutoRefresh = data.next_auto_refresh
+            dataStatus.hoursUntilRefresh = data.hours_until_refresh
+          }
+        } else {
+          console.warn('获取数据状态失败')
+        }
+      } catch (error) {
+        console.error('获取数据状态错误:', error)
+      }
+    }
+
+    // 手动刷新课程数据
+    const refreshCourseData = async () => {
+      if (refreshing.value) return
+      
+      refreshing.value = true
+      showToast('正在刷新课程数据...', 'info')
+      
+      try {
+        const response = await fetch('/api/course-data/refresh', {
+          method: 'POST',
+          credentials: 'include'
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            showToast(`数据刷新成功！共更新 ${data.count} 条记录`, 'success')
+            // 重新加载数据状态
+            await loadDataStatus()
+          } else {
+            showToast(data.error || '刷新失败', 'error')
+          }
+        } else {
+          const errorData = await response.json()
+          showToast(errorData.error || '刷新失败，请重试', 'error')
+        }
+      } catch (error) {
+        console.error('刷新数据错误:', error)
+        showToast('网络错误，请检查连接后重试', 'error')
+      } finally {
+        refreshing.value = false
+      }
+    }
+
     // 加载用户信息
     const loadUserInfo = async () => {
       try {
@@ -467,6 +596,7 @@ export default {
     // 初始化
     loadSettings()
     loadUserInfo()
+    loadDataStatus()
 
     return {
       settings,
@@ -487,7 +617,13 @@ export default {
       testConnection,
       saveSettings,
       saveStudentInfo,
-      showToast
+      showToast,
+      dataStatus,
+      refreshing,
+      formatDateTime,
+      formatNextRefresh,
+      loadDataStatus,
+      refreshCourseData
     }
   }
 }
@@ -730,8 +866,10 @@ export default {
 .webhook-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
 }
 
 .webhook-title {
@@ -748,12 +886,16 @@ export default {
 }
 
 .webhook-status {
-  padding: 8px 16px;
-  border-radius: 25px;
-  font-size: 0.85em;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8em;
   font-weight: 600;
   backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .webhook-status.active {
@@ -768,12 +910,17 @@ export default {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+.webhook-status i {
+  font-size: 0.9em;
+}
+
 .webhook-actions {
-  position: absolute;
-  top: 20px;
-  right: 20px;
   display: flex;
   gap: 8px;
+  margin-top: 15px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .btn {
@@ -878,35 +1025,44 @@ export default {
 
 .webhook-type {
   padding: 20px 15px;
-  border: 2px solid rgba(221, 221, 221, 0.6);
+  border: 2px solid rgba(102, 126, 234, 0.3);
   border-radius: 15px;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.9);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.9));
   backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.1);
+  color: #1e293b;
+  font-weight: 600;
 }
 
 .webhook-type:hover {
-  border-color: rgba(102, 126, 234, 0.6);
-  background: rgba(102, 126, 234, 0.1);
+  border-color: rgba(102, 126, 234, 0.7);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1));
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.25);
+  color: #667eea;
 }
 
 .webhook-type.selected {
-  border-color: rgba(102, 126, 234, 0.8);
+  border-color: rgba(102, 126, 234, 0.9);
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
 }
 
 .webhook-type i {
-  font-size: 1.8em;
-  margin-bottom: 10px;
+  font-size: 2.2em;
+  margin-bottom: 12px;
   display: block;
+  opacity: 0.8;
+}
+
+.webhook-type:hover i,
+.webhook-type.selected i {
+  opacity: 1;
 }
 
 .info-tip {
@@ -930,29 +1086,7 @@ export default {
   flex-shrink: 0;
 }
 
-.save-section {
-  text-align: center;
-  padding: 35px 30px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  margin-top: 30px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-  position: relative;
-  overflow: hidden;
-}
 
-.save-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, transparent, rgba(102, 126, 234, 0.05));
-  pointer-events: none;
-}
 
 /* 对话框样式 */
 .webhook-dialog-overlay {
@@ -966,7 +1100,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1100;
   animation: fadeIn 0.3s ease;
 }
 
@@ -1049,6 +1183,127 @@ export default {
   }
 }
 
+/* 数据状态卡片样式 */
+.data-status-card {
+  background: rgba(248, 250, 252, 0.9);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(226, 232, 240, 0.8);
+  border-radius: 18px;
+  padding: 25px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 30px;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.data-status-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, transparent, rgba(102, 126, 234, 0.03));
+  pointer-events: none;
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-label {
+  font-weight: 600;
+  color: #475569;
+  min-width: 100px;
+}
+
+.status-value {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.status-active {
+  color: #059669 !important;
+  font-weight: 600;
+}
+
+.status-inactive {
+  color: #dc2626 !important;
+  font-weight: 600;
+}
+
+.refresh-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.btn-refresh {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: white;
+  padding: 14px 24px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 160px;
+  justify-content: center;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.4);
+}
+
+.btn-refresh:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-refresh.refreshing {
+  background: linear-gradient(135deg, #6b7280, #9ca3af);
+}
+
+.refresh-tip {
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 200px;
+}
+
+.refresh-tip i {
+  color: #0ea5e9;
+  font-size: 11px;
+}
+
 @media (max-width: 768px) {
   .container::before,
   .container::after {
@@ -1111,6 +1366,24 @@ export default {
   .btn-small {
     padding: 6px 10px;
     font-size: 11px;
+  }
+
+  .data-status-card {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    text-align: center;
+  }
+
+  .status-info {
+    align-items: center;
+  }
+
+  .status-item {
+    justify-content: center;
+  }
+
+  .refresh-actions {
+    align-items: center;
   }
 }
 

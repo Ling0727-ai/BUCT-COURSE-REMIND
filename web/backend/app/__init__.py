@@ -34,7 +34,7 @@ def create_app():
 
     with app.app_context():
         # Import and register blueprints
-        from . import auth, assignments, webhooks, settings, utils, test_routes, health, admin, todos, crypto_routes
+        from . import auth, assignments, webhooks, settings, utils, test_routes, health, admin, todos, crypto_routes, course_data
         
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(assignments.assignments_bp)
@@ -46,10 +46,16 @@ def create_app():
         app.register_blueprint(admin.admin_bp)
         app.register_blueprint(todos.todos_bp)
         app.register_blueprint(crypto_routes.crypto_bp)
+        app.register_blueprint(course_data.course_data_bp)
         
         # Initialize cleanup tasks
         from .cleanup_tasks import init_cleanup_tasks
         init_cleanup_tasks(app)
         app.logger.info("清理任务已初始化")
+        
+        # Initialize scheduler
+        from .scheduler import init_scheduler
+        init_scheduler()
+        app.logger.info("课程数据定时刷新调度器已初始化")
 
     return app

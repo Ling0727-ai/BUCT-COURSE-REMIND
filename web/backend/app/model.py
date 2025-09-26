@@ -457,10 +457,56 @@ class Todo:
         })
 
 # ==============================================================================
-# 8. completed_assignments (已完成作业记录)
+# 8. assignment_status (作业状态统一管理) - 新版本
 # ==============================================================================
 """
-存储用户标记为已完成的作业记录，12小时后自动清除。
+统一管理作业的各种状态（完成、删除等），替代原来的 completed_assignments 和 deleted_assignments。
+
+{
+    "_id": ObjectId("..."),
+    "user_id": ObjectId("..."),            // ObjectId, 用户ID
+    "assignment_id": "homework_math_123",  // String, 作业唯一标识
+    "assignment_title": "数学作业第一章", // String, 作业标题
+    "assignment_subject": "高等数学",      // String, 作业科目
+    "status": "completed",                 // String, 状态 ("completed", "deleted", "active")
+    "status_time": ISODate("..."),         // DateTime, 状态变更时间
+    "expires_at": ISODate("..."),          // DateTime, 过期时间 (仅completed状态有效，12小时后过期)
+    "updated_at": ISODate("...")           // DateTime, 记录更新时间
+}
+
+# 状态说明：
+# - "completed": 已完成，12小时后自动过期删除
+# - "deleted": 已删除（软删除），不自动过期
+# - "active": 活跃状态（实际上不存储此状态，删除记录表示恢复到活跃状态）
+"""
+
+# ==============================================================================
+# 9. course_data (课程数据缓存) - 新版本
+# ==============================================================================
+"""
+存储从爬虫获取的课程数据，每12小时刷新一次。
+
+{
+    "_id": ObjectId("..."),
+    "user_id": ObjectId("..."),            // ObjectId, 用户ID
+    "task_id": "homework_math_123",        // String, 任务唯一标识
+    "subject": "高等数学",                 // String, 科目名称
+    "title": "第一章作业",                 // String, 任务标题
+    "deadline": "2025年9月30日 23:59:00", // String, 截止时间
+    "details": "完成课本习题1-10",         // String, 任务详情
+    "url": "http://...",                   // String, 任务链接
+    "type": "homework",                    // String, 类型 ("homework", "test")
+    "created_at": ISODate("..."),          // DateTime, 记录创建时间
+    "updated_at": ISODate("...")           // DateTime, 记录更新时间
+}
+"""
+
+# ==============================================================================
+# 10. completed_assignments (已完成作业记录) - 兼容性保留
+# ==============================================================================
+"""
+【已弃用】存储用户标记为已完成的作业记录，12小时后自动清除。
+新版本请使用 assignment_status 集合。
 
 {
     "_id": ObjectId("..."),
@@ -474,10 +520,11 @@ class Todo:
 """
 
 # ==============================================================================
-# 9. deleted_assignments (已删除作业记录)
+# 11. deleted_assignments (已删除作业记录) - 兼容性保留
 # ==============================================================================
 """
-存储用户删除的作业记录，支持恢复功能。
+【已弃用】存储用户删除的作业记录，支持恢复功能。
+新版本请使用 assignment_status 集合。
 
 {
     "_id": ObjectId("..."),
