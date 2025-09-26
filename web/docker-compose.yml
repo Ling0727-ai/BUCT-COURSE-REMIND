@@ -16,8 +16,7 @@ services:
       - mongodb_data:/data/db
       # 配置文件持久化
       - mongodb_config:/data/configdb
-      # 初始化脚本
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
       # 备份目录（可选）
       - ./mongodb_backup:/backup
     restart: unless-stopped
@@ -47,6 +46,11 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD:-your_password}
       - VERIFY_CODE_EXPIRE=${VERIFY_CODE_EXPIRE:-180}
       - TEST_MODE=${TEST_MODE:-false}
+      - ECC_PRIVATE_KEY=${ECC_PRIVATE_KEY:-REDACTED_ECC_PRIVATE_KEY}
+      - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:-10000000667}
+      - RSA_KEY_SIZE=${RSA_KEY_SIZE:-2048}
+      - RSA_KEY_EXPIRE_MINUTES=${RSA_KEY_EXPIRE_MINUTES:-30}
+      - RSA_ENABLE=${RSA_ENABLE:-true}
     volumes:
       - ./backend/logs:/app/logs
     depends_on:

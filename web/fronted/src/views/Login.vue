@@ -33,6 +33,9 @@
               <p>请登录您的账号继续使用</p>
             </div>
             
+            <!-- 安全指示器 -->
+            <SecurityIndicator />
+            
             <div class="form-body">
               <div class="form-group">
                 <label class="form-label">用户名</label>
@@ -201,9 +204,14 @@
 <script>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import rsaCrypto from '@/utils/rsa-crypto'
+import SecurityIndicator from '@/components/SecurityIndicator.vue'
 
 export default {
   name: 'Login',
+  components: {
+    SecurityIndicator
+  },
   setup() {
     const router = useRouter()
     const username = ref('')
@@ -224,6 +232,12 @@ export default {
       errorMessage.value = ''
 
       try {
+        // 创建加密的请求数据
+        const requestData = await rsaCrypto.createEncryptedRequest({
+          username: username.value,
+          password: password.value
+        })
+
         // 调用真实的登录API - 使用相对路径，通过Nginx代理
         const response = await fetch('/api/auth/login', {
           method: 'POST',
@@ -231,10 +245,7 @@ export default {
             'Content-Type': 'application/json'
           },
           credentials: 'include', // 重要：包含cookies以支持session
-          body: JSON.stringify({
-            username: username.value,
-            password: password.value
-          })
+          body: JSON.stringify(requestData)
         })
 
         const data = await response.json()

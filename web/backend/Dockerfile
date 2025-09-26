@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple buct-
 COPY . .
 
 # 设置环境变量
-ENV FLASK_APP=run.py
+ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app
 ENV MONGO_URI=mongodb://REDACTED_MONGO_USER:REDACTED_MONGO_PASSWORD@mongodb:27017/buct-course?authSource=admin
@@ -40,4 +40,4 @@ COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["python", "run.py"]
+CMD ["python", "app.py"]

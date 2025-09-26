@@ -10,3 +10,4 @@ beautifulsoup4>=4.9.0
 lxml
 buct-course==1.0.1
 cryptography
+pycryptodome==3.19.0

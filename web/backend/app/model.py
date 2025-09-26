@@ -56,9 +56,26 @@ class User:
         self.db = mongo_db
         self.collection = 'users'
         
-        # 从环境变量读取自定义密钥（十进制）
-        private_key_value = int(os.getenv('PRIVATE_KEY'))
-        expected_public_key_value = int(os.getenv('PUBLIC_KEY'))
+        # 从环境变量读取自定义ECC密钥（十进制）
+        private_key_env = os.getenv('ECC_PRIVATE_KEY')
+        public_key_env = os.getenv('ECC_PUBLIC_KEY')
+        
+        print(f"调试信息：ECC_PRIVATE_KEY={private_key_env}, ECC_PUBLIC_KEY={public_key_env}")
+        
+        if not private_key_env or not public_key_env:
+            print("警告：ECC_PRIVATE_KEY 或 ECC_PUBLIC_KEY 环境变量未设置，使用默认密钥")
+            # 使用默认密钥
+            private_key_value = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+            expected_public_key_value = None
+        else:
+            try:
+                private_key_value = int(private_key_env)
+                expected_public_key_value = int(public_key_env)
+                print(f"成功加载自定义密钥：private_key_value={private_key_value}")
+            except ValueError as e:
+                print(f"警告：密钥格式错误，使用默认密钥: {e}")
+                private_key_value = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+                expected_public_key_value = None
         
         try:
             self.private_key = ec.derive_private_key(private_key_value, ec.SECP256R1())

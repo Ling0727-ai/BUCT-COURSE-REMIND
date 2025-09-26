@@ -24,6 +24,9 @@
             <p>填写信息，创建您的专属账号</p>
           </div>
 
+          <!-- 安全指示器 -->
+          <SecurityIndicator />
+
           <div class="form-row">
             <div class="form-group">
               <label>用户名</label>
@@ -312,9 +315,14 @@
 <script>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import rsaCrypto from '@/utils/rsa-crypto'
+import SecurityIndicator from '@/components/SecurityIndicator.vue'
 
 export default {
   name: 'RegisterOptimized',
+  components: {
+    SecurityIndicator
+  },
   setup() {
     const router = useRouter()
     const formData = reactive({
@@ -486,18 +494,21 @@ export default {
           return
         }
 
+        // 创建加密的请求数据
+        const requestData = await rsaCrypto.createEncryptedRequest({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          student_id: formData.studentId || '',
+          s_password: formData.sPassword || ''
+        })
+
         const response = await fetch('/api/auth/register', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            username: formData.username,
-            email: formData.email,
-            password: formData.password,
-            student_id: formData.studentId || '',
-            s_password: formData.sPassword || ''
-          })
+          body: JSON.stringify(requestData)
         })
 
         const data = await response.json()

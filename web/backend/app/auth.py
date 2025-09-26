@@ -13,6 +13,7 @@ import os
 
 from . import mongo
 from .model import User
+from .rsa_crypto import get_rsa_crypto
 # 直接在这里实现测试模式，避免导入问题
 def is_test_mode():
     """检查是否为测试模式"""
@@ -54,8 +55,23 @@ def login_required(f):
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    
+    # 检查是否为加密数据
+    encrypted_data = data.get('encrypted_data')
+    if encrypted_data:
+        # 解密数据
+        rsa_crypto = get_rsa_crypto()
+        decrypted_data = rsa_crypto.decrypt_data(encrypted_data)
+        
+        if not decrypted_data:
+            return jsonify({'error': '数据解密失败'}), 400
+        
+        username = decrypted_data.get('username')
+        password = decrypted_data.get('password')
+    else:
+        # 兼容未加密的请求（开发阶段）
+        username = data.get('username')
+        password = data.get('password')
     
     if not username or not password:
         return jsonify({'error': '用户名和密码不能为空'}), 400
@@ -333,11 +349,29 @@ def verify_code():
 def register():
     """用户注册"""
     data = request.get_json()
-    username = data.get('username')
-    email = data.get('email')
-    password = data.get('password')
-    student_id = data.get('student_id')
-    s_password = data.get('s_password')
+    
+    # 检查是否为加密数据
+    encrypted_data = data.get('encrypted_data')
+    if encrypted_data:
+        # 解密数据
+        rsa_crypto = get_rsa_crypto()
+        decrypted_data = rsa_crypto.decrypt_data(encrypted_data)
+        
+        if not decrypted_data:
+            return jsonify({'error': '数据解密失败'}), 400
+        
+        username = decrypted_data.get('username')
+        email = decrypted_data.get('email')
+        password = decrypted_data.get('password')
+        student_id = decrypted_data.get('student_id')
+        s_password = decrypted_data.get('s_password')
+    else:
+        # 兼容未加密的请求（开发阶段）
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
+        student_id = data.get('student_id')
+        s_password = data.get('s_password')
     
     if not username or not email or not password:
         return jsonify({'error': '用户名、邮箱和密码不能为空'}), 400
