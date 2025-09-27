@@ -407,19 +407,52 @@ def get_deleted_assignments():
         if not user_id:
             return jsonify({'success': False, 'error': '用户未登录'}), 401
         
-        # 获取已删除的作业列表
+        # 获取已删除的作业ID列表
         from .assignment_status import get_assignment_status_manager
         status_manager = get_assignment_status_manager()
-        deleted_assignments = status_manager.get_user_assignment_status(user_id, 'deleted')
+        deleted_status_records = status_manager.get_user_assignment_status(user_id, 'deleted')
+        deleted_ids = set(record['assignment_id'] for record in deleted_status_records)
         
-        # 转换ObjectId为字符串
-        for assignment in deleted_assignments:
-            assignment['_id'] = str(assignment['_id'])
-            assignment['user_id'] = str(assignment['user_id'])
-            if assignment.get('status_time'):
-                assignment['delete_time'] = assignment['status_time'].isoformat()
-            if assignment.get('updated_at'):
-                assignment['updated_at'] = assignment['updated_at'].isoformat()
+        if not deleted_ids:
+            return jsonify({
+                'success': True,
+                'deleted_assignments': [],
+                'count': 0
+            })
+        
+        # 从课程数据中获取完整的任务信息
+        from .course_data import get_course_data_manager
+        course_data_mgr = get_course_data_manager()
+        
+        # 直接从数据库查询所有用户数据（包括软删除的）
+        from bson import ObjectId
+        cursor = course_data_mgr.db[course_data_mgr.collection].find(
+            {'user_id': ObjectId(user_id)}
+        ).sort('updated_at', -1)
+        
+        # 筛选出已删除的任务并合并状态信息
+        deleted_assignments = []
+        status_dict = {record['assignment_id']: record for record in deleted_status_records}
+        
+        for doc in cursor:
+            task_id = doc.get('task_id')
+            if task_id in deleted_ids:
+                status_record = status_dict.get(task_id, {})
+                
+                assignment = {
+                    'task_id': task_id,
+                    'subject': doc.get('subject', ''),
+                    'title': doc.get('title', ''),
+                    'deadline': doc.get('deadline', ''),
+                    'details': doc.get('details', ''),
+                    'url': doc.get('url', ''),
+                    'type': doc.get('type', 'homework'),
+                    'updated_at': doc.get('updated_at').isoformat() if doc.get('updated_at') else None,
+                    'delete_time': status_record.get('status_time').isoformat() if status_record.get('status_time') else None,
+                    '_id': str(doc.get('_id', '')),
+                    'user_id': str(doc.get('user_id', ''))
+                }
+                deleted_assignments.append(assignment)
         
         return jsonify({
             'success': True,

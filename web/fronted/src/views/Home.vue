@@ -694,7 +694,7 @@ export default {
               
               if (deletedResponse.ok) {
                 const deletedData = await deletedResponse.json()
-                deletedIds = new Set((deletedData.deleted_assignments || []).map(item => item.assignment_id))
+                deletedIds = new Set((deletedData.deleted_assignments || []).map(item => item.task_id))
                 console.log('获取已删除作业列表成功:', deletedIds)
               } else {
                 console.warn('获取已删除作业列表失败，使用空列表')
@@ -978,14 +978,14 @@ export default {
           const result = await assignmentsResponse.json()
           if (result.success && result.deleted_assignments) {
             deletedAssignments.push(...result.deleted_assignments.map(item => ({
-              id: item.assignment_id,
-              subject: item.assignment_subject || '未知科目',
-              title: item.assignment_title || '未知作业',
-              content: item.assignment_title || '未知作业',
-              type: '作业',
+              id: item.task_id,
+              subject: item.subject || '未知科目',
+              title: item.title || '未知作业',
+              content: item.details || item.title || '未知作业',
+              type: item.type === 'homework' ? '作业' : '测试',
               deletedAt: item.delete_time,
-              dueDate: null,
-              url: ''
+              dueDate: item.deadline,
+              url: item.url || ''
             })))
           }
         }
