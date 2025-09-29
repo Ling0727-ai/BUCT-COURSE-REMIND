@@ -52,6 +52,51 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def auto_refresh_assignments_on_login(user_id):
+    """
+    登录成功后自动刷新用户的作业数据（异步执行）
+    
+    Args:
+        user_id: 用户ID
+        
+    Returns:
+        dict: 刷新结果 {'success': bool, 'message': str}
+    """
+    try:
+        current_app.logger.info(f"准备为用户 {user_id} 启动后台数据刷新")
+        
+        # 检查用户是否有学号和密码
+        user = mongo.db[USERS_COLLECTION].find_one({'_id': ObjectId(user_id)})
+        if not user:
+            return {'success': False, 'error': '用户不存在'}
+        
+        student_id = user.get('student_id')
+        s_password = user.get('s_password')
+        
+        if not student_id or not s_password:
+            current_app.logger.info(f"用户 {user_id} 未设置学号或密码，跳过自动刷新")
+            return {'success': False, 'error': '未设置学号或密码，请先完善学生信息'}
+        
+        # 启动后台任务刷新数据
+        from .background_tasks import start_background_refresh
+        task_started = start_background_refresh(user_id)
+        
+        if task_started:
+            return {
+                'success': True,
+                'message': '作业数据正在后台更新中...'
+            }
+        else:
+            return {
+                'success': False,
+                'error': '无法启动数据刷新任务'
+            }
+        
+    except Exception as e:
+        error_msg = f"启动自动刷新失败: {str(e)}"
+        current_app.logger.error(f"用户 {user_id} {error_msg}")
+        return {'success': False, 'error': '数据刷新启动失败，但不影响登录'}
+
 @auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -82,10 +127,30 @@ def login():
         session['user_id'] = str(user['_id'])
         session['username'] = user['username']
         current_app.logger.info(f"用户 {username} 登录成功")
-        return jsonify({
+        
+        # 登录成功后自动刷新作业数据
+        user_id = str(user['_id'])
+        refresh_success = auto_refresh_assignments_on_login(user_id)
+        
+        response_data = {
             'message': '登录成功',
             'user': { 'id': str(user['_id']), 'username': user['username'], 'is_admin': user.get('is_admin', False) }
-        })
+        }
+        
+        # 如果数据刷新成功，添加刷新信息到响应中
+        if refresh_success.get('success'):
+            response_data['data_refresh'] = {
+                'success': True,
+                'message': refresh_success.get('message', '作业数据已更新'),
+                'count': refresh_success.get('count', 0)
+            }
+        else:
+            response_data['data_refresh'] = {
+                'success': False,
+                'message': refresh_success.get('error', '数据刷新失败，但不影响登录')
+            }
+        
+        return jsonify(response_data)
     else:
         current_app.logger.warning(f"用户 {username} 登录失败")
         return jsonify({'error': '用户名或密码错误'}), 401

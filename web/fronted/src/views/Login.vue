@@ -182,7 +182,21 @@
         </div>
         <div class="toast-content">
           <div class="toast-title">登录成功！</div>
-          <div class="toast-message">正在跳转到主页...</div>
+          <div class="toast-message">
+            {{ dataRefreshMessage || '正在跳转到主页...' }}
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <transition name="toast-slide">
+      <div v-if="showDataRefresh" class="toast info">
+        <div class="toast-icon">
+          <i class="fas fa-sync-alt" :class="{ 'fa-spin': dataRefreshLoading }"></i>
+        </div>
+        <div class="toast-content">
+          <div class="toast-title">数据更新</div>
+          <div class="toast-message">{{ dataRefreshMessage }}</div>
         </div>
       </div>
     </transition>
@@ -219,6 +233,9 @@ export default {
     const rememberMe = ref(false)
     const loading = ref(false)
     const showSuccess = ref(false)
+    const showDataRefresh = ref(false)
+    const dataRefreshLoading = ref(false)
+    const dataRefreshMessage = ref('')
     const errorMessage = ref('')
 
     const handleLogin = async () => {
@@ -252,6 +269,29 @@ export default {
 
         if (response.ok) {
           showSuccess.value = true
+          
+          // 处理数据刷新状态
+          if (data.data_refresh) {
+            if (data.data_refresh.success) {
+              dataRefreshMessage.value = data.data_refresh.message
+              showDataRefresh.value = true
+              dataRefreshLoading.value = false
+              
+              // 3秒后隐藏数据刷新提示
+              setTimeout(() => {
+                showDataRefresh.value = false
+              }, 3000)
+            } else {
+              // 数据刷新失败，显示警告但不影响登录
+              dataRefreshMessage.value = data.data_refresh.message
+              showDataRefresh.value = true
+              dataRefreshLoading.value = false
+              
+              setTimeout(() => {
+                showDataRefresh.value = false
+              }, 4000)
+            }
+          }
           
           // 保存登录状态到localStorage
           const userInfo = {
@@ -308,6 +348,9 @@ export default {
       rememberMe,
       loading,
       showSuccess,
+      showDataRefresh,
+      dataRefreshLoading,
+      dataRefreshMessage,
       errorMessage,
       handleLogin
     }
@@ -932,6 +975,10 @@ export default {
   border-left-color: #10b981;
 }
 
+.toast.info {
+  border-left-color: #3b82f6;
+}
+
 .toast.error {
   border-left-color: #ef4444;
 }
@@ -950,6 +997,11 @@ export default {
 .toast.success .toast-icon {
   background: rgba(16, 185, 129, 0.1);
   color: #10b981;
+}
+
+.toast.info .toast-icon {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
 }
 
 .toast.error .toast-icon {
