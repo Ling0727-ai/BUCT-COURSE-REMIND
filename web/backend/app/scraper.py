@@ -116,37 +116,25 @@ class BUCTScraperEnhanced:
     def auto_login(self, user_id):
         """
         使用数据库中的凭证为指定用户自动登录。
-        会验证登录状态的有效性，如果会话过期会重新登录。
+        采用 login->check->logout 的完整会话周期。
         """
         client = self._get_client(user_id)
-        
-        # 检查登录状态并验证会话有效性
-        if client.auth.is_logged_in():
-            logger.info(f"用户 {user_id} 显示已登录，验证会话有效性...")
-            try:
-                # 通过尝试获取课程列表来验证会话是否有效
-                test_courses = client.test_utils.get_pending_tests()
-                if test_courses is not None:
-                    logger.info(f"用户 {user_id} 会话有效，跳过自动登录")
-                    return True, "已登录且会话有效"
-                else:
-                    logger.warning(f"用户 {user_id} 会话可能已过期，尝试重新登录")
-            except Exception as e:
-                logger.warning(f"用户 {user_id} 会话验证失败: {e}，尝试重新登录")
         
         # 获取用户凭证
         student_id, s_password = self._get_user_credentials(user_id)
         if not student_id or not s_password:
             return False, "未找到用户凭证"
 
-        logger.info(f"尝试为用户 {user_id} (学号: {student_id}) 登录...")
+        logger.info(f"开始为用户 {user_id} (学号: {student_id}) 执行完整登录流程...")
         try:
-            # 先登出再登录，确保清理旧会话
+            # 1. 先确保登出，清理任何旧会话
             try:
                 client.logout()
+                logger.info(f"用户 {user_id} 已清理旧会话")
             except:
                 pass  # 忽略登出错误
             
+            # 2. 执行登录
             login_success = client.login(student_id, s_password)
             if login_success:
                 logger.info(f"用户 {user_id} 登录成功")
@@ -161,6 +149,7 @@ class BUCTScraperEnhanced:
     def get_pending_tasks(self, user_id):
         """
         获取指定用户的待办作业和测试列表。
+        采用 login->check->logout 的完整流程。
         返回格式：
         {
           subject: '',  # 科目
@@ -170,8 +159,9 @@ class BUCTScraperEnhanced:
           url: ""       # 链接
         }
         """
-        logger.info(f"开始为用户 {user_id} 获取待办任务...")
+        logger.info(f"开始为用户 {user_id} 获取待办任务 (login->check->logout 流程)...")
         
+        # 1. LOGIN - 登录阶段
         login_ok, message = self.auto_login(user_id)
         if not login_ok:
             return {'success': False, 'error': message}
@@ -180,40 +170,18 @@ class BUCTScraperEnhanced:
         if not client.course_utils or not client.test_utils:
              raise RuntimeError("客户端未完全初始化，缺少 course_utils 或 test_utils。")
 
-        # 额外的会话验证：尝试一个简单的请求来确保会话真正有效
         try:
-            logger.info(f"验证用户 {user_id} 的会话有效性...")
-            # 使用一个轻量级的请求来验证会话
-            test_validation = client.test_utils.get_pending_tests()
-            if test_validation is None:
-                logger.warning(f"用户 {user_id} 会话验证失败，强制重新登录...")
-                # 强制重新登录
-                client.logout()
-                login_ok, message = self.auto_login(user_id)
-                if not login_ok:
-                    return {'success': False, 'error': f'重新登录失败: {message}'}
-        except Exception as e:
-            logger.warning(f"用户 {user_id} 会话验证异常: {e}，强制重新登录...")
-            try:
-                client.logout()
-                login_ok, message = self.auto_login(user_id)
-                if not login_ok:
-                    return {'success': False, 'error': f'重新登录失败: {message}'}
-            except Exception as re_login_error:
-                logger.error(f"用户 {user_id} 重新登录异常: {re_login_error}")
-                return {'success': False, 'error': f'登录异常: {re_login_error}'}
-
-        try:
+            # 2. CHECK - 数据检查和获取阶段
+            logger.info(f"用户 {user_id} 开始 CHECK 阶段：获取作业和测试数据...")
+            formatted_tasks = []
+            
+            # 2.1 获取详细作业
             logger.info(f"正在为用户 {user_id} 获取详细作业...")
-            # 1. 获取详细作业
             homework_courses = client.course_utils.get_pending_homework()
             
-            # 如果作业数据获取失败，可能是会话问题
             if homework_courses is None:
-                logger.warning(f"用户 {user_id} 获取作业数据失败，可能会话已过期")
+                logger.warning(f"用户 {user_id} 获取作业数据失败")
                 homework_courses = []
-            
-            formatted_tasks = []
             
             for course in homework_courses:
                 lid = course.get('lid')
@@ -237,13 +205,8 @@ class BUCTScraperEnhanced:
                             
                             # 获取并处理截止时间
                             deadline = hw.get('deadline', '')
-                            logger.info(f"作业 '{hw.get('title', '未知作业')}' 原始截止时间: {deadline}")
-                            
-                            # 转换时间格式：从 '2025年9月23日 23:59:00' 转换为标准格式
                             formatted_deadline = self._format_deadline(deadline)
-                            logger.info(f"作业 '{hw.get('title', '未知作业')}' 格式化后截止时间: {formatted_deadline}")
                             
-                            # 构造标准格式
                             # 生成作业链接
                             homework_url = f"https://course.buct.edu.cn/meol/jpk/course/layout/newpage/index.jsp?courseId={lid}"
                             
@@ -261,83 +224,43 @@ class BUCTScraperEnhanced:
                 except Exception as e:
                     logger.error(f"获取课程 {course_name} 作业详情失败: {e}")
 
+            # 2.2 获取详细测试
             logger.info(f"正在为用户 {user_id} 获取详细测试...")
-            # 2. 获取详细测试
             test_courses_raw = client.test_utils.get_pending_tests()
             logger.info(f"从库获取的原始测试课程数量: {len(test_courses_raw) if test_courses_raw else 0}")
-            logger.info(f"原始测试课程详情: {test_courses_raw}")
-            
-            # 如果测试数据为空且之前跳过了登录，可能是会话过期，尝试重新登录
-            if (test_courses_raw is None or len(test_courses_raw) == 0):
-                logger.warning(f"用户 {user_id} 获取测试数据为空，可能会话已过期，尝试重新登录...")
-                # 强制重新登录
-                try:
-                    client.logout()
-                except:
-                    pass
-                
-                login_ok, message = self.auto_login(user_id)
-                if login_ok:
-                    logger.info(f"用户 {user_id} 重新登录成功，再次尝试获取测试数据...")
-                    try:
-                        test_courses_raw = client.test_utils.get_pending_tests()
-                        logger.info(f"重新登录后获取的测试课程数量: {len(test_courses_raw) if test_courses_raw else 0}")
-                    except Exception as e:
-                        logger.error(f"重新登录后仍无法获取测试数据: {e}")
-                        test_courses_raw = []
-                else:
-                    logger.error(f"用户 {user_id} 重新登录失败: {message}")
-                    test_courses_raw = []
             
             if test_courses_raw:
                 test_courses = client.test_utils.filter_tests(test_courses_raw)
                 logger.info(f"过滤后的测试课程数量: {len(test_courses) if test_courses else 0}")
-                logger.info(f"过滤后的测试课程: {test_courses}")
                 
                 for course in test_courses:
                     lid = course.get('lid')
                     course_name = course.get('course_name', '未知课程')
-                    logger.info(f"处理测试课程: {course_name} (LID: {lid})")
                     
                     if not lid: 
                         logger.warning(f"课程 {course_name} 没有LID，跳过")
                         continue
                     
                     try:
-                        logger.info(f"正在获取课程 '{course_name}' (LID: {lid}) 的测试列表...")
                         test_list_data = client.test_utils.get_test_list(lid)
-                        logger.info(f"从 get_test_list 收到的数据结构: {type(test_list_data)}")
-                        logger.info(f"测试列表数据: {test_list_data}")
-                        
-                        # 使用原始课程名称，不使用test_list_data中可能不准确的course_name
-                        actual_course_name = course_name
                         test_list = test_list_data.get('test_list', [])
-                        
-                        logger.info(f"课程 '{actual_course_name}' 原始测试数量: {len(test_list)}")
                         
                         # 处理所有测试，根据时间和状态判断是否显示
                         from datetime import datetime
                         current_time = datetime.now()
                         
                         for i, test in enumerate(test_list):
-                            logger.info(f"处理测试 {i+1}: {test}")
-                            
                             # 检查测试状态和时间
                             can_start = test.get('can_start', False)
                             status = test.get('status', '未知')
                             start_time_str = test.get('start_time', '')
                             end_time_str = test.get('end_time', '')
                             
-                            logger.info(f"测试状态: can_start={can_start}, status={status}")
-                            logger.info(f"测试时间: start={start_time_str}, end={end_time_str}")
-                            
                             # 判断测试是否应该显示
                             should_show = False
                             
-                            # 如果可以开始，直接显示
                             if can_start:
                                 should_show = True
-                                logger.info("✅ 测试可以开始")
                             else:
                                 # 检查是否在有效时间范围内且未完成
                                 try:
@@ -353,42 +276,28 @@ class BUCTScraperEnhanced:
                                         else:
                                             end_time = datetime.strptime(end_time_str, '%Y-%m-%d %H:%M:%S')
                                         
-                                        # 检查是否在时间范围内
+                                        # 检查是否在时间范围内且未完成
                                         if start_time <= current_time <= end_time:
-                                            # 检查是否未完成 (status != '已完成' 且 score 为空)
                                             score = test.get('score', '').strip()
                                             if not score and status != '已完成':
                                                 should_show = True
-                                                logger.info("✅ 测试在有效时间内且未完成")
-                                            else:
-                                                logger.info(f"❌ 测试已完成 (score={score}, status={status})")
-                                        else:
-                                            logger.info(f"❌ 测试不在有效时间内 (当前: {current_time})")
-                                    else:
-                                        logger.info("❌ 测试缺少时间信息")
                                 except Exception as e:
                                     logger.warning(f"解析测试时间失败: {e}")
                             
                             if should_show:
-                                # 构造测试URL
-                                test_url = ""
                                 # 生成测试链接
                                 test_url = f"https://course.buct.edu.cn/meol/common/question/test/student/list.jsp?sortColumn=createTime&status=1&tagbug=client&sortDirection=-1&strStyle=new03&cateId={lid}&pagingPage=1&pagingNumberPer=30"
                                 
-                                # 生成测试标题 - 优先使用测试的具体标题
+                                # 生成测试标题
                                 test_title = test.get('title')
                                 if test_title:
-                                    # 如果有具体的测试标题，使用原始课程名称 + 测试标题
                                     test_title = f"{course_name} - {test_title}"
                                 else:
-                                    # 如果没有测试标题，使用原始课程名称 + 默认格式
                                     test_title = f"{course_name}测试{i+1}"
                                 
                                 # 格式化测试截止时间
                                 formatted_end_time = self._format_test_deadline(end_time_str)
-                                logger.info(f"测试 '{test_title}' 格式化后截止时间: {formatted_end_time}")
                                 
-                                # 构造标准格式
                                 task_info = {
                                     'subject': course_name,
                                     'title': test_title,
@@ -399,15 +308,21 @@ class BUCTScraperEnhanced:
                                 }
                                 formatted_tasks.append(task_info)
                                 logger.info(f"✅ 添加测试: {task_info['subject']} - {task_info['title']} (截止: {task_info['deadline']})")
-                            else:
-                                logger.info(f"❌ 跳过测试: {test.get('title', '未知测试')}")
                                 
                     except Exception as e:
                         logger.error(f"获取课程 {course_name} 测试列表失败: {e}", exc_info=True)
             else:
                 logger.warning("没有获取到任何测试课程")
 
-            # 3. 构造返回数据
+            # 3. LOGOUT - 登出阶段
+            logger.info(f"用户 {user_id} 开始 LOGOUT 阶段：清理会话...")
+            try:
+                client.logout()
+                logger.info(f"用户 {user_id} 已成功登出")
+            except Exception as logout_error:
+                logger.warning(f"用户 {user_id} 登出时发生异常: {logout_error}")
+
+            # 4. 构造返回数据
             homework_tasks = [task for task in formatted_tasks if task['type'] == 'homework']
             test_tasks = [task for task in formatted_tasks if task['type'] == 'test']
             
@@ -424,12 +339,17 @@ class BUCTScraperEnhanced:
                 }
             }
             
-            logger.info(f"成功获取用户 {user_id} 的数据: {response_data['stats']}")
+            logger.info(f"用户 {user_id} 完整流程结束，成功获取数据: {response_data['stats']}")
             return {'success': True, 'data': response_data}
 
         except Exception as e:
             logger.error(f"为用户 {user_id} 获取待办任务时发生异常: {e}", exc_info=True)
-            self.logout(user_id)
+            # 确保在异常情况下也要登出
+            try:
+                client.logout()
+                logger.info(f"异常处理：用户 {user_id} 已登出")
+            except:
+                pass
             return {'success': False, 'error': f"获取数据时发生异常: {e}"}
 
     def logout(self, user_id):
