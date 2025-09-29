@@ -116,19 +116,37 @@ class BUCTScraperEnhanced:
     def auto_login(self, user_id):
         """
         使用数据库中的凭证为指定用户自动登录。
-        如果已经登录，则跳过。
+        会验证登录状态的有效性，如果会话过期会重新登录。
         """
         client = self._get_client(user_id)
+        
+        # 检查登录状态并验证会话有效性
         if client.auth.is_logged_in():
-            logger.info(f"用户 {user_id} 已登录，跳过自动登录")
-            return True, "已登录"
-
+            logger.info(f"用户 {user_id} 显示已登录，验证会话有效性...")
+            try:
+                # 通过尝试获取课程列表来验证会话是否有效
+                test_courses = client.test_utils.get_pending_tests()
+                if test_courses is not None:
+                    logger.info(f"用户 {user_id} 会话有效，跳过自动登录")
+                    return True, "已登录且会话有效"
+                else:
+                    logger.warning(f"用户 {user_id} 会话可能已过期，尝试重新登录")
+            except Exception as e:
+                logger.warning(f"用户 {user_id} 会话验证失败: {e}，尝试重新登录")
+        
+        # 获取用户凭证
         student_id, s_password = self._get_user_credentials(user_id)
         if not student_id or not s_password:
             return False, "未找到用户凭证"
 
         logger.info(f"尝试为用户 {user_id} (学号: {student_id}) 登录...")
         try:
+            # 先登出再登录，确保清理旧会话
+            try:
+                client.logout()
+            except:
+                pass  # 忽略登出错误
+            
             login_success = client.login(student_id, s_password)
             if login_success:
                 logger.info(f"用户 {user_id} 登录成功")
@@ -162,10 +180,39 @@ class BUCTScraperEnhanced:
         if not client.course_utils or not client.test_utils:
              raise RuntimeError("客户端未完全初始化，缺少 course_utils 或 test_utils。")
 
+        # 额外的会话验证：尝试一个简单的请求来确保会话真正有效
+        try:
+            logger.info(f"验证用户 {user_id} 的会话有效性...")
+            # 使用一个轻量级的请求来验证会话
+            test_validation = client.test_utils.get_pending_tests()
+            if test_validation is None:
+                logger.warning(f"用户 {user_id} 会话验证失败，强制重新登录...")
+                # 强制重新登录
+                client.logout()
+                login_ok, message = self.auto_login(user_id)
+                if not login_ok:
+                    return {'success': False, 'error': f'重新登录失败: {message}'}
+        except Exception as e:
+            logger.warning(f"用户 {user_id} 会话验证异常: {e}，强制重新登录...")
+            try:
+                client.logout()
+                login_ok, message = self.auto_login(user_id)
+                if not login_ok:
+                    return {'success': False, 'error': f'重新登录失败: {message}'}
+            except Exception as re_login_error:
+                logger.error(f"用户 {user_id} 重新登录异常: {re_login_error}")
+                return {'success': False, 'error': f'登录异常: {re_login_error}'}
+
         try:
             logger.info(f"正在为用户 {user_id} 获取详细作业...")
             # 1. 获取详细作业
             homework_courses = client.course_utils.get_pending_homework()
+            
+            # 如果作业数据获取失败，可能是会话问题
+            if homework_courses is None:
+                logger.warning(f"用户 {user_id} 获取作业数据失败，可能会话已过期")
+                homework_courses = []
+            
             formatted_tasks = []
             
             for course in homework_courses:
@@ -219,6 +266,28 @@ class BUCTScraperEnhanced:
             test_courses_raw = client.test_utils.get_pending_tests()
             logger.info(f"从库获取的原始测试课程数量: {len(test_courses_raw) if test_courses_raw else 0}")
             logger.info(f"原始测试课程详情: {test_courses_raw}")
+            
+            # 如果测试数据为空且之前跳过了登录，可能是会话过期，尝试重新登录
+            if (test_courses_raw is None or len(test_courses_raw) == 0):
+                logger.warning(f"用户 {user_id} 获取测试数据为空，可能会话已过期，尝试重新登录...")
+                # 强制重新登录
+                try:
+                    client.logout()
+                except:
+                    pass
+                
+                login_ok, message = self.auto_login(user_id)
+                if login_ok:
+                    logger.info(f"用户 {user_id} 重新登录成功，再次尝试获取测试数据...")
+                    try:
+                        test_courses_raw = client.test_utils.get_pending_tests()
+                        logger.info(f"重新登录后获取的测试课程数量: {len(test_courses_raw) if test_courses_raw else 0}")
+                    except Exception as e:
+                        logger.error(f"重新登录后仍无法获取测试数据: {e}")
+                        test_courses_raw = []
+                else:
+                    logger.error(f"用户 {user_id} 重新登录失败: {message}")
+                    test_courses_raw = []
             
             if test_courses_raw:
                 test_courses = client.test_utils.filter_tests(test_courses_raw)
