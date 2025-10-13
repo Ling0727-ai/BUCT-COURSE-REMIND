@@ -33,7 +33,7 @@ class AssignmentStatus:
             assignment_id: 作业唯一标识
             assignment_title: 作业标题
             assignment_subject: 作业科目
-            status: 状态 ('completed', 'deleted', 'active')
+            status: 状态 ('completed', 'deleted', 'active', 'permanent_deleted')
             auto_expire_hours: 自动过期小时数，None表示不过期
             assignment_type: 作业类型 ('todo', 'homework', 'test')
         """
@@ -69,6 +69,7 @@ class AssignmentStatus:
                 'status_time': current_time,
                 'expires_at': expires_at,
                 'assignment_type': assignment_type,
+                'forever': 1 if status != 'permanent_deleted' else 0,  # 永久删除标记
                 'updated_at': current_time
             }
             
@@ -112,18 +113,29 @@ class AssignmentStatus:
             user_id, assignment_id, '', '', 'active'
         )
     
-    def get_user_assignment_status(self, user_id, status=None):
+    def permanent_delete_assignment(self, user_id, assignment_id, assignment_title='', assignment_subject=''):
+        """永久删除作业（设置forever=0）"""
+        return self.update_assignment_status(
+            user_id, assignment_id, assignment_title, assignment_subject, 'permanent_deleted'
+        )
+    
+    def get_user_assignment_status(self, user_id, status=None, include_permanent_deleted=False):
         """
         获取用户的作业状态列表
         
         Args:
             user_id: 用户ID
             status: 状态过滤 ('completed', 'deleted', None表示所有)
+            include_permanent_deleted: 是否包含永久删除的项目
         """
         try:
             query = {'user_id': ObjectId(user_id)}
             if status:
                 query['status'] = status
+            
+            # 默认排除永久删除的项目
+            if not include_permanent_deleted:
+                query['forever'] = {'$ne': 0}
             
             cursor = self.db[self.collection].find(query).sort('status_time', -1)
             return list(cursor)
@@ -154,12 +166,13 @@ class AssignmentStatus:
             return 'active'
     
     def get_completed_assignment_ids(self, user_id):
-        """获取用户已完成的作业ID列表"""
+        """获取用户已完成的作业ID列表（排除永久删除的）"""
         try:
             cursor = self.db[self.collection].find(
                 {
                     'user_id': ObjectId(user_id),
-                    'status': 'completed'
+                    'status': 'completed',
+                    'forever': {'$ne': 0}
                 },
                 {'assignment_id': 1}
             )
@@ -171,12 +184,13 @@ class AssignmentStatus:
             return []
     
     def get_deleted_assignment_ids(self, user_id):
-        """获取用户已删除的作业ID列表"""
+        """获取用户已删除的作业ID列表（排除永久删除的）"""
         try:
             cursor = self.db[self.collection].find(
                 {
                     'user_id': ObjectId(user_id),
-                    'status': 'deleted'
+                    'status': 'deleted',
+                    'forever': {'$ne': 0}
                 },
                 {'assignment_id': 1}
             )
@@ -197,20 +211,33 @@ class AssignmentStatus:
     
     def clear_user_status(self, user_id, status=None):
         """
-        清空用户的状态记录
+        清空用户的状态记录（设置为永久删除而不是物理删除）
         
         Args:
             user_id: 用户ID
             status: 要清空的状态，None表示清空所有
         """
         try:
-            query = {'user_id': ObjectId(user_id)}
+            query = {
+                'user_id': ObjectId(user_id),
+                'forever': {'$ne': 0}  # 只处理未永久删除的项目
+            }
             if status:
                 query['status'] = status
             
-            result = self.db[self.collection].delete_many(query)
-            logger.info(f"清空用户 {user_id} 的状态记录 {result.deleted_count} 条")
-            return result.deleted_count
+            # 设置为永久删除而不是物理删除
+            result = self.db[self.collection].update_many(
+                query,
+                {
+                    '$set': {
+                        'forever': 0,
+                        'status': 'permanent_deleted',
+                        'updated_at': get_beijing_time()
+                    }
+                }
+            )
+            logger.info(f"永久删除用户 {user_id} 的状态记录 {result.modified_count} 条")
+            return result.modified_count
             
         except Exception as e:
             logger.error(f"清空用户状态记录失败: {e}")

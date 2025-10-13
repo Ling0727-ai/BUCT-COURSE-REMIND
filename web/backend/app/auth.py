@@ -507,3 +507,88 @@ def get_user_info():
         })
     else:
         return jsonify({'error': '用户不存在'}), 404
+
+@auth_bp.route('/check-email', methods=['POST'])
+def check_email():
+    """检查邮箱是否已注册"""
+    data = request.get_json()
+    email = data.get('email')
+    
+    if not email:
+        return jsonify({'error': '邮箱地址不能为空'}), 400
+    
+    # 验证邮箱格式
+    email_pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_pattern, email):
+        return jsonify({'error': '邮箱格式不正确'}), 400
+    
+    try:
+        user = mongo.db[USERS_COLLECTION].find_one({'email': email})
+        exists = user is not None
+        
+        current_app.logger.info(f"邮箱检查: {email} - {'存在' if exists else '不存在'}")
+        return jsonify({'exists': exists})
+        
+    except Exception as e:
+        current_app.logger.error(f"检查邮箱异常: {str(e)}")
+        return jsonify({'error': '检查失败，请重试'}), 500
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """重置密码"""
+    data = request.get_json()
+    
+    # 检查是否为加密数据
+    encrypted_data = data.get('encrypted_data')
+    if encrypted_data:
+        # 解密数据
+        rsa_crypto = get_rsa_crypto()
+        decrypted_data = rsa_crypto.decrypt_data(encrypted_data)
+        
+        if not decrypted_data:
+            return jsonify({'error': '数据解密失败'}), 400
+        
+        email = decrypted_data.get('email')
+        new_password = decrypted_data.get('new_password')
+    else:
+        # 兼容未加密的请求（开发阶段）
+        email = data.get('email')
+        new_password = data.get('new_password')
+    
+    if not email or not new_password:
+        return jsonify({'error': '邮箱和新密码不能为空'}), 400
+    
+    # 验证邮箱格式
+    email_pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_pattern, email):
+        return jsonify({'error': '邮箱格式不正确'}), 400
+    
+    # 验证密码长度
+    if len(new_password) < 6:
+        return jsonify({'error': '密码长度至少6位'}), 400
+    
+    try:
+        # 查找用户
+        user = mongo.db[USERS_COLLECTION].find_one({'email': email})
+        if not user:
+            return jsonify({'error': '该邮箱未注册'}), 404
+        
+        # 更新密码
+        new_password_hash = generate_password_hash(new_password)
+        result = mongo.db[USERS_COLLECTION].update_one(
+            {'email': email},
+            {'$set': {
+                'password_hash': new_password_hash,
+                'updated_at': datetime.now()
+            }}
+        )
+        
+        if result.modified_count > 0:
+            current_app.logger.info(f"用户 {user['username']} 密码重置成功")
+            return jsonify({'message': '密码重置成功'})
+        else:
+            return jsonify({'error': '密码重置失败'}), 400
+            
+    except Exception as e:
+        current_app.logger.error(f"重置密码异常: {str(e)}")
+        return jsonify({'error': '重置失败，请重试'}), 500

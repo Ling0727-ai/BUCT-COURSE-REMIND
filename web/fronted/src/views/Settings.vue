@@ -46,89 +46,28 @@
         </button>
       </div>
 
-      <!-- Webhook设置 -->
+      <!-- 邮箱提醒设置 -->
       <div class="section">
         <h2 class="section-title">
-          <i class="fas fa-bell"></i>
-          通知设置
+          <i class="fas fa-envelope"></i>
+          邮箱提醒设置
         </h2>
-        <div id="webhookList">
-          <div 
-            v-for="webhook in webhooks" 
-            :key="webhook.id"
-            :class="['webhook-item', { 'active': webhook.enabled }]"
+        <div class="form-group">
+          <label class="form-label">收件邮箱</label>
+          <input 
+            type="email" 
+            class="form-input" 
+            v-model="emailSettings.toEmail" 
+            placeholder="请输入接收提醒的邮箱地址"
           >
-            <div class="webhook-header">
-              <div class="webhook-title">
-                <i :class="webhookTypes[webhook.type].icon"></i>
-                {{ webhookTypes[webhook.type].name }} #{{ webhook.id }}
-              </div>
-              <div class="webhook-actions">
-                <div :class="['webhook-status', { 'active': webhook.enabled, 'inactive': !webhook.enabled }]">
-                  <i :class="'fas fa-' + (webhook.enabled ? 'check-circle' : 'times-circle')"></i>
-                  {{ webhook.enabled ? '启用' : '禁用' }}
-                </div>
-                <button 
-                  :class="['btn', 'btn-small', webhook.enabled ? 'btn-danger' : 'btn-success']" 
-                  @click="toggleWebhook(webhook.id)"
-                >
-                  <i :class="'fas fa-' + (webhook.enabled ? 'pause' : 'play')"></i>
-                  {{ webhook.enabled ? '禁用' : '启用' }}
-                </button>
-                <button class="btn btn-small btn-outline" @click="testWebhook(webhook.id)">
-                  <i class="fas fa-vial"></i>
-                  测试
-                </button>
-                <button class="btn btn-small btn-danger" @click="deleteWebhook(webhook.id)">
-                  <i class="fas fa-trash"></i>
-                  删除
-                </button>
-              </div>
-            </div>
-            <div v-for="field in webhookTypes[webhook.type].fields" :key="field.name">
-              <div class="form-group">
-                <label class="form-label">{{ field.label }}</label>
-                <template v-if="field.type === 'select'">
-                  <select 
-                    class="form-input" 
-                    :value="getWebhookConfigValue(webhook, field.name)"
-                    @change="updateWebhookConfig(webhook.id, field.name, $event.target.value)"
-                  >
-                    <option 
-                      v-for="option in field.options" 
-                      :key="option" 
-                      :value="option"
-                      :selected="getWebhookConfigValue(webhook, field.name) === option"
-                    >
-                      {{ option }}
-                    </option>
-                  </select>
-                </template>
-                <template v-else-if="field.type === 'textarea'">
-                  <textarea 
-                    class="form-input" 
-                    rows="3" 
-                    :value="getWebhookConfigValue(webhook, field.name)"
-                    @input="updateWebhookConfig(webhook.id, field.name, $event.target.value)"
-                    :placeholder="field.placeholder"
-                  ></textarea>
-                </template>
-                <template v-else>
-                  <input 
-                    :type="field.type" 
-                    class="form-input" 
-                    :value="getWebhookConfigValue(webhook, field.name)"
-                    @input="updateWebhookConfig(webhook.id, field.name, $event.target.value)"
-                    :placeholder="field.placeholder"
-                  >
-                </template>
-              </div>
-            </div>
-          </div>
         </div>
-        <button class="add-webhook-btn" @click="showAddWebhookDialog">
-          <i class="fas fa-plus"></i>
-          添加新的通知方式
+        <div class="info-tip">
+          <i class="fas fa-info-circle"></i>
+          系统将使用发送验证码的邮箱配置来发送作业提醒邮件
+        </div>
+        <button class="btn btn-primary" @click="saveEmailSettings" style="margin-top: 15px;">
+          <i class="fas fa-save"></i>
+          保存邮箱设置
         </button>
       </div>
 
@@ -176,26 +115,7 @@
 
     </div>
 
-    <!-- Webhook类型选择对话框 -->
-    <div v-if="showWebhookDialog" class="webhook-dialog-overlay">
-      <div class="webhook-dialog">
-        <h3>选择通知类型</h3>
-        <div class="webhook-type-select">
-          <div 
-            v-for="(config, type) in webhookTypes" 
-            :key="type"
-            class="webhook-type"
-            @click="addWebhook(type)"
-          >
-            <i :class="config.icon"></i>
-            {{ config.name }}
-          </div>
-        </div>
-        <div class="dialog-actions">
-          <button class="btn btn-outline" @click="showWebhookDialog = false">取消</button>
-        </div>
-      </div>
-    </div>
+
 
     <!-- Toast消息 -->
     <div v-if="toast.show" :class="['toast', toast.type]">
@@ -227,56 +147,10 @@ export default {
       sPassword: ''
     })
 
-    // Webhook类型配置
-    const webhookTypes = {
-      email: {
-        name: '邮件',
-        icon: 'fas fa-envelope',
-        fields: [
-          { name: 'smtp_server', label: 'SMTP服务器', type: 'text', placeholder: 'smtp.gmail.com' },
-          { name: 'smtp_port', label: 'SMTP端口', type: 'number', placeholder: '587' },
-          { name: 'email', label: '发件邮箱', type: 'email', placeholder: 'your@gmail.com' },
-          { name: 'password', label: '邮箱密码/授权码', type: 'password', placeholder: '邮箱密码或应用密码' },
-          { name: 'to_email', label: '收件邮箱', type: 'email', placeholder: 'recipient@gmail.com' }
-        ]
-      },
-      telegram: {
-        name: 'Telegram',
-        icon: 'fab fa-telegram-plane',
-        fields: [
-          { name: 'bot_token', label: 'Bot Token', type: 'text', placeholder: 'your_bot_token' },
-          { name: 'chat_id', label: 'Chat ID', type: 'text', placeholder: 'your_chat_id' }
-        ]
-      },
-      discord: {
-        name: 'Discord',
-        icon: 'fab fa-discord',
-        fields: [
-          { name: 'webhook_url', label: 'Webhook URL', type: 'url', placeholder: 'https://discord.com/api/webhooks/...' }
-        ]
-      },
-      slack: {
-        name: 'Slack',
-        icon: 'fab fa-slack',
-        fields: [
-          { name: 'webhook_url', label: 'Webhook URL', type: 'url', placeholder: 'https://hooks.slack.com/services/...' }
-        ]
-      },
-      webhook: {
-        name: '自定义Webhook',
-        icon: 'fas fa-code',
-        fields: [
-          { name: 'url', label: 'Webhook URL', type: 'url', placeholder: 'https://your-webhook-url.com' },
-          { name: 'method', label: 'HTTP方法', type: 'select', options: ['POST', 'GET', 'PUT'], default: 'POST' },
-          { name: 'headers', label: '请求头 (JSON格式)', type: 'textarea', placeholder: '{"Content-Type": "application/json"}' },
-          { name: 'template', label: '消息模板', type: 'textarea', placeholder: '{"text": "{{message}}"}' }
-        ]
-      }
-    }
-
-    const webhooks = ref([])
-    const nextWebhookId = ref(1)
-    const showWebhookDialog = ref(false)
+    // 邮箱设置
+    const emailSettings = reactive({
+      toEmail: ''
+    })
     const toast = reactive({ show: false, message: '', type: 'success' })
     
     // 数据状态相关
@@ -302,88 +176,36 @@ export default {
       router.back()
     }
 
-    // 获取Webhook配置值
-    const getWebhookConfigValue = (webhook, fieldName) => {
-      return webhook.config[fieldName] || webhookTypes[webhook.type].fields
-        .find(f => f.name === fieldName)?.default || ''
-    }
-
-    // 显示添加Webhook对话框
-    const showAddWebhookDialog = () => {
-      showWebhookDialog.value = true
-    }
-
-    // 添加Webhook
-    const addWebhook = (type) => {
-      const newWebhook = {
-        id: nextWebhookId.value++,
-        type: type,
-        enabled: true,
-        config: {}
-      }
-      webhooks.value.push(newWebhook)
-      showWebhookDialog.value = false
-    }
-
-    // 更新Webhook配置
-    const updateWebhookConfig = (id, field, value) => {
-      const webhook = webhooks.value.find(w => w.id === id)
-      if (webhook) {
-        webhook.config[field] = value
-      }
-    }
-
-    // 切换Webhook启用状态
-    const toggleWebhook = (id) => {
-      const webhook = webhooks.value.find(w => w.id === id)
-      if (webhook) {
-        webhook.enabled = !webhook.enabled
-      }
-    }
-
-    // 删除Webhook
-    const deleteWebhook = (id) => {
-      if (confirm('确认删除这个通知配置吗？')) {
-        webhooks.value = webhooks.value.filter(w => w.id !== id)
-      }
-    }
-
-    // 测试Webhook
-    const testWebhook = (id) => {
-      showToast('正在测试通知...', 'info')
-      
-      // 模拟测试请求
-      setTimeout(() => {
-        const success = Math.random() > 0.3 // 70%成功率
-        if (success) {
-          showToast('测试消息发送成功！', 'success')
-        } else {
-          showToast('测试失败，请检查配置', 'error')
-        }
-      }, 2000)
-    }
-
-    // 测试连接
-    const testConnection = () => {
-      if (!settings.serverUrl) {
-        showToast('请先填写服务器地址', 'error')
+    // 保存邮箱设置
+    const saveEmailSettings = async () => {
+      if (!emailSettings.toEmail) {
+        showToast('请填写收件邮箱', 'error')
         return
       }
 
-      showToast('正在测试连接...', 'info')
-      
-      // 模拟连接测试
-      fetch(settings.serverUrl + '/api/health')
-        .then(response => {
-          if (response.ok) {
-            showToast('连接测试成功！', 'success')
-          } else {
-            showToast('服务器响应异常', 'error')
-          }
+      showToast('正在保存邮箱设置...', 'info')
+
+      try {
+        const response = await fetch('/api/settings/email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            to_email: emailSettings.toEmail
+          })
         })
-        .catch(error => {
-          showToast('连接失败：' + error.message, 'error')
-        })
+
+        const data = await response.json()
+
+        if (response.ok) {
+          showToast('邮箱设置保存成功！', 'success')
+        } else {
+          showToast(data.error || '保存失败', 'error')
+        }
+      } catch (error) {
+        showToast('网络错误：' + error.message, 'error')
+      }
     }
 
     // 保存学生信息
@@ -419,39 +241,7 @@ export default {
       }
     }
 
-    // 保存设置
-    const saveSettings = () => {
-      const settingsData = {
-        serverUrl: settings.serverUrl,
-        webhooks: webhooks.value
-      }
 
-      // 验证必填项
-      if (!settingsData.serverUrl) {
-        showToast('请填写服务器地址', 'error')
-        return
-      }
-
-      showToast('正在保存设置...', 'info')
-
-      // 发送到后端
-      fetch('/api/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(settingsData)
-      })
-      .then(response => response.json())
-      .then(data => {
-        showToast('设置保存成功！', 'success')
-        console.log('设置已保存:', data)
-      })
-      .catch(error => {
-        showToast('保存失败：' + error.message, 'error')
-        console.error('保存设置失败:', error)
-      })
-    }
 
     // 显示提示消息
     const showToast = (message, type = 'success') => {
@@ -570,52 +360,32 @@ export default {
       }
     }
 
-    // 加载保存的设置
-    const loadSettings = async () => {
+    // 加载邮箱设置
+    const loadEmailSettings = async () => {
       try {
-        const response = await fetch('/api/settings')
+        const response = await fetch('/api/settings/email')
         if (response.ok) {
           const data = await response.json()
-          Object.assign(settings, data)
-          webhooks.value = data.webhooks || []
-          nextWebhookId.value = Math.max(...webhooks.value.map(w => w.id), 0) + 1
+          emailSettings.toEmail = data.to_email || ''
         }
       } catch (error) {
-        console.error('加载设置失败:', error)
-        // 从localStorage加载备用设置
-        const savedSettings = localStorage.getItem('assignment-settings')
-        if (savedSettings) {
-          const data = JSON.parse(savedSettings)
-          Object.assign(settings, data.settings || {})
-          webhooks.value = data.webhooks || []
-          nextWebhookId.value = Math.max(...webhooks.value.map(w => w.id), 0) + 1
-        }
+        console.error('加载邮箱设置失败:', error)
       }
     }
 
     // 初始化
-    loadSettings()
+    loadEmailSettings()
     loadUserInfo()
     loadDataStatus()
 
     return {
       settings,
       studentInfo,
-      webhooks,
-      webhookTypes,
-      showWebhookDialog,
+      emailSettings,
       toast,
       toastIcon,
       goBack,
-      getWebhookConfigValue,
-      showAddWebhookDialog,
-      addWebhook,
-      updateWebhookConfig,
-      toggleWebhook,
-      deleteWebhook,
-      testWebhook,
-      testConnection,
-      saveSettings,
+      saveEmailSettings,
       saveStudentInfo,
       showToast,
       dataStatus,

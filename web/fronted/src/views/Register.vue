@@ -520,6 +520,46 @@ export default {
           })
           agreeTerms.value = false
           
+          // 显示注册后的数据刷新提示（若后端返回）
+          try {
+            if (data && data.data_refresh) {
+              const tip = document.createElement('div')
+              const success = !!data.data_refresh.success
+              const count = data.data_refresh.count || 0
+              const message = data.data_refresh.message || (success ? `已刷新 ${count} 条记录` : '数据刷新失败')
+              tip.className = `toast ${success ? 'success' : 'error'}`
+              tip.innerHTML = `
+                <i class="fas ${success ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+                <span>${message}</span>
+              `
+              tip.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                left: 20px;
+                max-width: 420px;
+                margin: 0 auto;
+                padding: 14px 16px;
+                background: ${success ? '#10b981' : '#ef4444'};
+                color: white;
+                border-radius: 10px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 1000;
+                text-align: center;
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                justify-content: center;
+              `
+              document.body.appendChild(tip)
+              setTimeout(() => {
+                if (document.body.contains(tip)) document.body.removeChild(tip)
+              }, 3000)
+            }
+          } catch (e) {
+            console.warn('显示注册后数据刷新提示失败:', e)
+          }
+
           setTimeout(() => {
             router.push('/login')
           }, 2000)

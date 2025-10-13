@@ -361,6 +361,7 @@ class Todo:
             'expires_at': None,  # 完成后12小时过期时间
             'is_deleted': False,  # 是否已删除
             'delete_time': None,  # 删除时间
+            'forever': 1,  # 永久删除标记：1=存在，0=永久删除
             'created_at': get_beijing_time(),
             'updated_at': get_beijing_time()
         }
@@ -369,10 +370,11 @@ class Todo:
         return result.inserted_id
     
     def get_user_todos(self, user_id, include_completed=True):
-        """获取用户的待办事项列表（不包括已删除的）"""
+        """获取用户的待办事项列表（不包括已删除和永久删除的）"""
         query = {
             'user_id': ObjectId(user_id),
-            'is_deleted': {'$ne': True}  # 排除已删除的项目
+            'is_deleted': {'$ne': True},  # 排除已删除的项目
+            'forever': {'$ne': 0}  # 排除永久删除的项目
         }
         if not include_completed:
             query['completed'] = False
@@ -434,27 +436,38 @@ class Todo:
         })
     
     def permanent_delete_todo(self, todo_id, user_id):
-        """永久删除待办事项"""
-        return self.db[self.collection].delete_one({
-            '_id': ObjectId(todo_id),
-            'user_id': ObjectId(user_id)
+        """永久删除待办事项（设置forever=0）"""
+        return self.update_todo(todo_id, user_id, {
+            'forever': 0,
+            'is_deleted': True,  # 确保也标记为已删除
+            'delete_time': get_beijing_time()
         })
     
     def get_deleted_todos(self, user_id):
-        """获取用户已删除的待办事项列表"""
+        """获取用户已删除的待办事项列表（不包括永久删除的）"""
         query = {
             'user_id': ObjectId(user_id),
-            'is_deleted': True
+            'is_deleted': True,
+            'forever': {'$ne': 0}  # 排除永久删除的项目
         }
         todos = list(self.db[self.collection].find(query).sort('delete_time', -1))
         return todos
     
     def clear_deleted_todos(self, user_id):
-        """清空用户的已删除待办事项"""
-        return self.db[self.collection].delete_many({
-            'user_id': ObjectId(user_id),
-            'is_deleted': True
-        })
+        """清空用户的已删除待办事项（设置forever=0）"""
+        return self.db[self.collection].update_many(
+            {
+                'user_id': ObjectId(user_id),
+                'is_deleted': True,
+                'forever': {'$ne': 0}  # 只处理未永久删除的项目
+            },
+            {
+                '$set': {
+                    'forever': 0,
+                    'updated_at': get_beijing_time()
+                }
+            }
+        )
 
 # ==============================================================================
 # 8. assignment_status (作业状态统一管理) - 新版本

@@ -386,13 +386,16 @@ def permanent_delete_assignment(assignment_id):
         
         logger.info(f"用户 {user_id} 永久删除作业 {assignment_id}")
         
-        # 永久删除作业状态记录
+        # 使用新的永久删除方法
         from .assignment_status import get_assignment_status_manager
         status_manager = get_assignment_status_manager()
-        result = status_manager.restore_assignment(user_id, assignment_id)  # 删除状态记录
+        result = status_manager.permanent_delete_assignment(user_id, assignment_id, '作业', '未知科目')
         
-        logger.info(f"作业 {assignment_id} 永久删除成功")
-        return jsonify({'success': True, 'message': '作业已永久删除'})
+        if result.upserted_id or result.matched_count > 0:
+            logger.info(f"作业 {assignment_id} 永久删除成功")
+            return jsonify({'success': True, 'message': '作业已永久删除'})
+        else:
+            return jsonify({'success': False, 'error': '永久删除失败'}), 500
             
     except Exception as e:
         logger.error(f"永久删除作业失败: {str(e)}")

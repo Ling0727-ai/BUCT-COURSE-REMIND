@@ -81,7 +81,7 @@
                   </span>
                   <span class="checkbox-text">记住账号</span>
                 </label>
-                <a href="#" class="forgot-password">忘记密码？</a>
+                <a href="#" class="forgot-password" @click.prevent="showForgotPassword">忘记密码？</a>
               </div>
 
               <button 
@@ -212,6 +212,13 @@
         </div>
       </div>
     </transition>
+
+    <!-- 忘记密码弹窗 -->
+    <ForgotPasswordModal 
+      :visible="showForgotPasswordModal"
+      @close="closeForgotPassword"
+      @success="handleForgotPasswordSuccess"
+    />
   </div>
 </template>
 
@@ -220,11 +227,13 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import rsaCrypto from '@/utils/rsa-crypto'
 import SecurityIndicator from '@/components/SecurityIndicator.vue'
+import ForgotPasswordModal from '@/components/ForgotPasswordModal.vue'
 
 export default {
   name: 'Login',
   components: {
-    SecurityIndicator
+    SecurityIndicator,
+    ForgotPasswordModal
   },
   setup() {
     const router = useRouter()
@@ -237,6 +246,7 @@ export default {
     const dataRefreshLoading = ref(false)
     const dataRefreshMessage = ref('')
     const errorMessage = ref('')
+    const showForgotPasswordModal = ref(false)
 
     const handleLogin = async () => {
       if (!username.value.trim() || !password.value.trim()) {
@@ -342,6 +352,24 @@ export default {
     // 初始化检查
     checkRememberedLogin()
 
+    const showForgotPassword = () => {
+      showForgotPasswordModal.value = true
+    }
+
+    const closeForgotPassword = () => {
+      showForgotPasswordModal.value = false
+    }
+
+    const handleForgotPasswordSuccess = () => {
+      showForgotPasswordModal.value = false
+      // 可以显示成功提示
+      showSuccess.value = true
+      dataRefreshMessage.value = '密码重置成功，请使用新密码登录'
+      setTimeout(() => {
+        showSuccess.value = false
+      }, 3000)
+    }
+
     return {
       username,
       password,
@@ -352,7 +380,11 @@ export default {
       dataRefreshLoading,
       dataRefreshMessage,
       errorMessage,
-      handleLogin
+      showForgotPasswordModal,
+      handleLogin,
+      showForgotPassword,
+      closeForgotPassword,
+      handleForgotPasswordSuccess
     }
   }
 }

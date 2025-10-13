@@ -16,3 +16,4 @@
 .vscode/
 .windsurf/
 rules/
+__pycache__/

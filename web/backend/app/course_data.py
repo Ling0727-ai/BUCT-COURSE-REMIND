@@ -136,17 +136,31 @@ class CourseData:
                 {'user_id': ObjectId(user_id)}
             ).sort('updated_at', -1)
             
-            # 获取软删除的任务ID列表
+            # 获取软删除和永久删除的任务ID列表
             from .assignment_status import get_assignment_status_manager
             status_manager = get_assignment_status_manager()
             deleted_ids = set(status_manager.get_deleted_assignment_ids(user_id))
+            
+            # 获取永久删除的任务ID列表
+            forever_deleted_ids = set()
+            try:
+                forever_cursor = status_manager.db[status_manager.collection].find(
+                    {
+                        'user_id': ObjectId(user_id),
+                        'forever': 0
+                    },
+                    {'assignment_id': 1}
+                )
+                forever_deleted_ids = set(doc['assignment_id'] for doc in forever_cursor)
+            except Exception as e:
+                logger.warning(f"获取永久删除任务ID列表失败: {e}")
             
             tasks = []
             for doc in cursor:
                 task_id = doc.get('task_id')
                 
-                # 跳过软删除的任务
-                if task_id in deleted_ids:
+                # 跳过软删除和永久删除的任务
+                if task_id in deleted_ids or task_id in forever_deleted_ids:
                     continue
                 
                 task = {
@@ -287,7 +301,21 @@ def get_course_data_list():
         completed_set = set(str(aid) for aid in completed_ids)
         deleted_set = set(str(aid) for aid in deleted_ids)
         
-        # 转换数据格式以兼容前端（过滤掉已删除的任务）
+        # 获取永久删除的任务ID列表
+        forever_deleted_set = set()
+        try:
+            forever_cursor = status_manager.db[status_manager.collection].find(
+                {
+                    'user_id': ObjectId(user_id),
+                    'forever': 0
+                },
+                {'assignment_id': 1}
+            )
+            forever_deleted_set = set(str(doc['assignment_id']) for doc in forever_cursor)
+        except Exception as e:
+            logger.warning(f"获取永久删除任务ID列表失败: {e}")
+        
+        # 转换数据格式以兼容前端（过滤掉已删除和永久删除的任务）
         formatted_tasks = []
         homework_count = 0
         test_count = 0
@@ -296,7 +324,9 @@ def get_course_data_list():
             task_id = task.get('task_id')
             task_type = task.get('type', 'homework')
             
-            # 跳过已删除的任务
+            # 跳过已删除和永久删除的任务
+            if task_id in deleted_set or task_id in forever_deleted_set:
+                continue
             if task_id in deleted_set:
                 continue
             

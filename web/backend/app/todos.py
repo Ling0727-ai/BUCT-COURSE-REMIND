@@ -407,7 +407,7 @@ def permanent_delete_todo(todo_id):
         # 永久删除待办事项
         result = todo_model.permanent_delete_todo(todo_id, user_id)
         
-        if result.deleted_count > 0:
+        if result.matched_count > 0:
             current_app.logger.info(f"用户 {user_id} 永久删除待办事项 {todo_id}")
             return jsonify({
                 'success': True,
@@ -476,12 +476,12 @@ def clear_deleted_todos():
         # 清空已删除的待办事项
         result = todo_model.clear_deleted_todos(user_id)
         
-        current_app.logger.info(f"用户 {user_id} 清空已删除待办事项，共删除 {result.deleted_count} 条")
+        current_app.logger.info(f"用户 {user_id} 清空已删除待办事项，共删除 {result.modified_count} 条")
         
         return jsonify({
             'success': True,
-            'message': f'已清空 {result.deleted_count} 个已删除的待办事项',
-            'deleted_count': result.deleted_count
+            'message': f'已清空 {result.modified_count} 个已删除的待办事项',
+            'deleted_count': result.modified_count
         })
         
     except Exception as e:
@@ -497,15 +497,17 @@ def get_todo_stats():
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
         
-        # 统计信息（排除已删除的）
+        # 统计信息（排除已删除和永久删除的）
         total_todos = mongo.db.todos.count_documents({
             'user_id': ObjectId(user_id),
-            'is_deleted': {'$ne': True}
+            'is_deleted': {'$ne': True},
+            'forever': {'$ne': 0}
         })
         completed_todos = mongo.db.todos.count_documents({
             'user_id': ObjectId(user_id),
             'completed': True,
-            'is_deleted': {'$ne': True}
+            'is_deleted': {'$ne': True},
+            'forever': {'$ne': 0}
         })
         pending_todos = total_todos - completed_todos
         
@@ -516,7 +518,8 @@ def get_todo_stats():
                 'user_id': ObjectId(user_id),
                 'priority': priority,
                 'completed': False,
-                'is_deleted': {'$ne': True}
+                'is_deleted': {'$ne': True},
+                'forever': {'$ne': 0}
             })
             priority_stats[priority] = count
         
@@ -529,6 +532,7 @@ def get_todo_stats():
             'user_id': ObjectId(user_id),
             'completed': False,
             'is_deleted': {'$ne': True},
+            'forever': {'$ne': 0},
             'due_date': {'$gte': today_start, '$lte': today_end}
         })
         

@@ -23,6 +23,8 @@ export const API_ENDPOINTS = {
   LOGIN: '/api/auth/login',
   LOGOUT: '/api/auth/logout',
   AUTH_STATUS: '/api/auth/status',
+  CHECK_EMAIL: '/api/auth/check-email',
+  RESET_PASSWORD: '/api/auth/reset-password',
   
   // 作业相关
   ASSIGNMENTS: '/api/assignments/',
