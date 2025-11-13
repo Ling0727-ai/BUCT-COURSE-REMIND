@@ -274,6 +274,7 @@ export default {
   justify-content: center;
   z-index: 1000;
   animation: fadeIn 0.3s ease;
+  padding: 20px;
 }
 
 .preview-modal-overlay {
@@ -290,10 +291,12 @@ export default {
   border-radius: 20px;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
   max-width: 600px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
+  width: 100%;
+  max-height: 85vh;
   animation: slideUp 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .preview-modal {
@@ -317,6 +320,9 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
+  background: white;
+  border-radius: 20px 20px 0 0;
 }
 
 .modal-header h3 {
@@ -345,8 +351,10 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .close-btn:hover {
@@ -356,7 +364,12 @@ export default {
 }
 
 .modal-body {
-  padding: 25px 30px;
+  padding: 20px 30px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 200px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .preview-field {
@@ -513,6 +526,9 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-shrink: 0;
+  background: white;
+  border-radius: 0 0 20px 20px;
 }
 
 .btn {
@@ -529,6 +545,7 @@ export default {
   text-align: center;
   font-weight: 500;
   min-width: 100px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-secondary {
@@ -557,5 +574,209 @@ export default {
   transform: translateY(-3px);
   box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
   background: linear-gradient(135deg, #5a6fd8, #6a42a0);
+}
+
+/* 中小屏幕优化 (≤768px) */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 16px;
+  }
+
+  .modal-content {
+    max-height: 80vh;
+    border-radius: 16px;
+    width: 100%;
+  }
+
+  .modal-header {
+    padding: 16px 20px 12px;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .modal-header h3 {
+    font-size: 1.2em;
+  }
+
+  .close-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1.1em;
+  }
+
+  .modal-body {
+    padding: 16px 20px;
+    min-height: 250px;
+  }
+
+  .preview-field {
+    margin-bottom: 16px;
+  }
+
+  .preview-field label {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  .preview-value {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .modal-footer {
+    padding: 12px 20px 16px;
+    gap: 10px;
+    border-radius: 0 0 16px 16px;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    font-size: 13px;
+    min-width: 80px;
+  }
+}
+
+/* 小屏幕移动端优化 (≤480px) */
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal-content {
+    max-height: 85vh;
+    border-radius: 12px;
+    width: 100%;
+  }
+
+  .modal-header {
+    padding: 14px 16px 10px;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .modal-header h3 {
+    font-size: 1.1em;
+    gap: 8px;
+  }
+
+  .close-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1em;
+  }
+
+  .modal-body {
+    padding: 12px 16px;
+    min-height: 300px;
+  }
+
+  .preview-field {
+    margin-bottom: 14px;
+  }
+
+  .preview-field label {
+    font-size: 11px;
+    margin-bottom: 5px;
+  }
+
+  .preview-value {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .preview-title {
+    font-size: 14px;
+  }
+
+  .preview-content {
+    font-size: 13px;
+  }
+
+  .modal-footer {
+    padding: 10px 16px 14px;
+    gap: 8px;
+    border-radius: 0 0 12px 12px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 9px 16px;
+    font-size: 12px;
+    min-width: 70px;
+    flex: 1;
+  }
+
+  .btn i {
+    font-size: 12px;
+  }
+}
+
+/* 超小屏幕优化 (≤340px) */
+@media (max-width: 340px) {
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-content {
+    max-height: 85vh;
+    border-radius: 10px;
+  }
+
+  .modal-header {
+    padding: 12px 14px 8px;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .modal-header h3 {
+    font-size: 1em;
+    gap: 6px;
+  }
+
+  .close-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 0.95em;
+  }
+
+  .modal-body {
+    padding: 10px 14px;
+    min-height: 280px;
+  }
+
+  .preview-field {
+    margin-bottom: 12px;
+  }
+
+  .preview-field label {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+
+  .preview-value {
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+
+  .preview-title {
+    font-size: 13px;
+  }
+
+  .preview-content {
+    font-size: 12px;
+  }
+
+  .modal-footer {
+    padding: 8px 14px 12px;
+    gap: 6px;
+    border-radius: 0 0 10px 10px;
+  }
+
+  .btn {
+    padding: 8px 12px;
+    font-size: 11px;
+    min-width: 60px;
+  }
+
+  .btn i {
+    font-size: 11px;
+  }
 }
 </style>
