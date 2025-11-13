@@ -170,50 +170,140 @@ def mark_assignment_uncomplete(assignment_id):
 @assignments_bp.route('/<assignment_id>/remind', methods=['POST'])
 @login_required
 def remind_assignment(assignment_id):
-    """提醒作业/测试"""
+    """提醒作业/测试 - 支持自定义提醒时间（几小时后/具体时间/立即）"""
     try:
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'success': False, 'error': '用户未登录'}), 401
-        
+
         logger.info(f"用户 {user_id} 提醒作业: {assignment_id}")
-        
+
         # 从前端请求中获取作业信息
         data = request.get_json() or {}
         subject = data.get('subject', '作业')
         task = data.get('title', '任务')
-        deadline = data.get('deadline', '')
+        deadline = data.get('deadline', '')  # 前端传的ISO字符串
+        reminder_config = data.get('reminderConfig', {}) or {}
         assignment_type = '作业' if 'homework' in assignment_id else '测试'
-        
-        # 格式化截止时间显示
-        deadline_display = deadline
-        if deadline and deadline != '':
+
+        # 解析截止时间（字符串 -> datetime），默认使用北京时间
+        due_dt = None
+        deadline_display = ''
+        try:
+            if deadline:
+                if 'T' in deadline and ('Z' in deadline or '+' in deadline):
+                    due_dt = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+                elif 'T' in deadline:
+                    # 无时区信息，按北京时间处理
+                    due_dt = datetime.fromisoformat(deadline)
+                else:
+                    # 非ISO（兼容），尝试直接解析
+                    due_dt = datetime.fromisoformat(deadline)
+                deadline_display = due_dt.strftime('%Y年%m月%d日 %H:%M:%S') if due_dt else ''
+        except Exception:
+            # 保持原样显示
+            deadline_display = deadline
+
+        # 读取用户邮箱
+        from .model import get_beijing_time
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        if not user or not user.get('email'):
+            return jsonify({'success': False, 'error': '未找到用户邮箱，请在设置中配置邮箱'}), 400
+        to_email = user['email']
+
+        # 生成提醒消息
+        base_message = f"⚠️ {assignment_type}提醒\n\n科目: {subject}\n标题: {task}\n截止时间: {deadline_display if deadline_display else '未知'}"
+
+        # 计算计划发送时间 scheduled_time（北京时间的naive datetime）
+        now = get_beijing_time()
+        scheduled_time = now
+        schedule_desc = '立即'
+
+        rtype = reminder_config.get('type', 'instant')
+        if rtype == 'instant':
+            scheduled_time = now
+            schedule_desc = '立即'
+        elif rtype in ['1h', '3h', '6h', '12h', '1d'] or ('hours' in reminder_config):
+            # 小时数：默认表示发生在"截止时间前N小时"；若无截止时间，则"从现在起N小时后"
+            hours = reminder_config.get('hours')
+            if hours is None:
+                preset = {'1h': 1, '3h': 3, '6h': 6, '12h': 12, '1d': 24}
+                hours = preset.get(rtype, 1)
             try:
-                from datetime import datetime
-                if 'T' in deadline:
-                    # ISO格式转换为中文格式
-                    dt = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
-                    deadline_display = dt.strftime('%Y年%m月%d日 %H:%M:%S')
-            except ValueError:
-                pass  # 保持原格式
-        
-        # 记录提醒日志
-        logger.info(f"提醒{assignment_type}: {subject} - {task}, 截止时间: {deadline_display}")
-        
+                hours = float(hours)
+            except Exception:
+                hours = 1.0
+            if due_dt:
+                scheduled_time = due_dt - timedelta(hours=hours)
+                schedule_desc = f"截止前{int(hours) if hours.is_integer() else hours}小时"
+            else:
+                scheduled_time = now + timedelta(hours=hours)
+                schedule_desc = f"{int(hours) if hours.is_integer() else hours}小时后"
+        elif rtype == 'custom-datetime' and reminder_config.get('datetime'):
+            custom_str = reminder_config.get('datetime')  # 形如 YYYY-MM-DDTHH:mm
+            try:
+                # 前端输入为本地时间（视为北京时间）
+                scheduled_time = datetime.fromisoformat(custom_str)
+                schedule_desc = scheduled_time.strftime('%Y-%m-%d %H:%M')
+            except Exception:
+                scheduled_time = now
+                schedule_desc = '立即'
+        else:
+            scheduled_time = now
+            schedule_desc = '立即'
+
+        # 若计算出的时间早于当前，则改为立即发送
+        if scheduled_time <= now:
+            from .notification_services import send_webhook_notification
+            email_config = {'type': 'email', 'enabled': True, 'config': {'to_email': to_email}}
+            message = f"{base_message}\n提醒时间: 立即"
+            success = send_webhook_notification(email_config, message)
+            if success:
+                logger.info(f"立即发送提醒到: {to_email}")
+                return jsonify({
+                    'success': True,
+                    'message': f"提醒已立即发送：{subject} - {task}",
+                    'detail': {'schedule': 'now', 'email': to_email}
+                })
+            else:
+                logger.error(f"发送提醒邮件失败: {to_email}")
+                return jsonify({
+                    'success': False,
+                    'error': '邮件发送失败，请检查邮箱配置'
+                }), 500
+
+        # 插入定时提醒（由scheduler处理）
+        reminder_doc = {
+            'user_id': ObjectId(user_id),
+            'type': 'assignment',
+            'target_id': assignment_id,
+            'email': to_email,
+            'message': f"{base_message}\n提醒时间: {schedule_desc}",
+            'scheduled_time': scheduled_time,
+            'status': 'scheduled',
+            'created_at': now,
+            'updated_at': now
+        }
+        mongo.db.scheduled_reminders.insert_one(reminder_doc)
+        logger.info(f"已创建定时提醒，计划 {schedule_desc} 发送到: {to_email}")
+
         return jsonify({
             'success': True,
-            'message': f"已设置{assignment_type}提醒: {subject} - {task}" + (f"，截止时间: {deadline_display}" if deadline_display else ""),
+            'message': f"已设置{assignment_type}提醒（{schedule_desc}）：{subject} - {task}",
             'assignment': {
                 'subject': subject,
                 'task': task,
                 'deadline': deadline_display,
-                'type': assignment_type
+                'type': assignment_type,
+                'reminder_time': schedule_desc
             }
         })
-        
+
     except Exception as e:
         logger.error(f"提醒作业失败: {str(e)}")
-        return jsonify({'success': False, 'error': '提醒失败'}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'提醒失败: {str(e)}'}), 500
 
 @assignments_bp.route('/enhanced', methods=['GET'])
 @login_required

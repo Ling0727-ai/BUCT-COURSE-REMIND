@@ -87,6 +87,14 @@
       @permanent-delete="permanentDelete"
       @clear-recycle-bin="clearRecycleBin"
     />
+
+    <!-- 提醒设置弹窗 -->
+    <ReminderModal
+      :show="showReminderModal"
+      :assignment="reminderAssignment"
+      @close="closeReminderModal"
+      @confirm="confirmReminder"
+    />
   </div>
 </template>
 
@@ -107,6 +115,7 @@ import PreviewModal from './home/modals/PreviewModal.vue'
 import ConfirmModal from './home/modals/ConfirmModal.vue'
 import StatisticsModal from './home/modals/StatisticsModal.vue'
 import RecycleBinModal from './home/modals/RecycleBinModal.vue'
+import ReminderModal from './home/modals/ReminderModal.vue'
 
 export default {
   name: 'Home',
@@ -119,6 +128,7 @@ export default {
     PreviewModal,
     ConfirmModal,
     StatisticsModal,
+    ReminderModal,
     RecycleBinModal
   },
   setup() {
@@ -184,6 +194,10 @@ export default {
     // 回收站相关状态
     const showRecycleBinModal = ref(false)
     const deletedItems = ref([])
+
+    // 提醒弹窗相关状态
+    const showReminderModal = ref(false)
+    const reminderAssignment = ref(null)
 
     // 计算统计信息 - 包含作业和待办
     const allItems = computed(() => {
@@ -340,19 +354,46 @@ export default {
       }
     }
 
-    // 设置提醒
-    const setReminder = async (assignment) => {
+    // 设置提醒 - 打开提醒弹窗
+    const setReminder = (assignment) => {
+      console.log('打开提醒设置弹窗 - assignment:', assignment)
+      reminderAssignment.value = assignment
+      showReminderModal.value = true
+    }
+
+    // 关闭提醒弹窗
+    const closeReminderModal = () => {
+      showReminderModal.value = false
+      reminderAssignment.value = null
+    }
+
+    // 确认提醒设置
+    const confirmReminder = async (reminderConfig) => {
       try {
-        console.log('设置提醒 - assignment:', assignment)
+        const assignment = reminderAssignment.value
+        if (!assignment) return
+
+        console.log('确认提醒设置 - assignment:', assignment, 'config:', reminderConfig)
+
         let response
-        
+        const requestBody = {
+          title: assignment.title,
+          subject: assignment.subject,
+          deadline: assignment.dueDate,
+          reminderConfig: reminderConfig
+        }
+
         if (assignment.type === '待办') {
           // 待办提醒API
           const url = `/api/todos/${assignment._todoId}/remind`
           console.log('调用待办提醒API:', url)
           response = await fetch(url, {
             method: 'POST',
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
           })
         } else {
           // 作业/测试提醒API
@@ -364,11 +405,7 @@ export default {
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-              title: assignment.title,
-              subject: assignment.subject,
-              deadline: assignment.dueDate
-            })
+            body: JSON.stringify(requestBody)
           })
         }
         
@@ -1309,7 +1346,11 @@ export default {
       fetchDeletedItems,
       restoreItem,
       permanentDelete,
-      clearRecycleBin
+      clearRecycleBin,
+      showReminderModal,
+      reminderAssignment,
+      closeReminderModal,
+      confirmReminder
     }
   }
 }

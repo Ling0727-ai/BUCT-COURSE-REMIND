@@ -181,22 +181,38 @@ __all__ = ['check_and_send_notifications', 'send_webhook_notification',
 def send_email_notification(config, message):
     """Sends an email notification."""
     try:
-        # This requires mail configuration in config.py
-        import sys
+        # 从环境变量获取邮件配置
         import os
-        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        from .config import Config
+        smtp_server = os.getenv('MAIL_SMTP_SERVER', 'smtp.163.com')
+        smtp_port = int(os.getenv('MAIL_SMTP_PORT', 465))
+        sender_email = os.getenv('MAIL_SENDER', 'buct_course_remind@163.com')
+        sender_password = os.getenv('MAIL_PASSWORD', '')
+
+        if not sender_password or sender_password == 'dummy_password_for_dev':
+            current_app.logger.error("邮箱密码未配置，无法发送邮件")
+            return False
+
+        to_email = config.get('to_email')
+        if not to_email:
+            current_app.logger.error("未指定收件人邮箱")
+            return False
+
+        # 构建邮件
         msg = MIMEMultipart()
-        msg['From'] = Config.MAIL_SENDER
-        msg['To'] = config.get('to_email') # The recipient is from webhook settings
+        msg['From'] = sender_email
+        msg['To'] = to_email
         msg['Subject'] = "作业提醒通知"
         msg.attach(MIMEText(message, 'plain', 'utf-8'))
         
-        server = smtplib.SMTP_SSL(Config.MAIL_SMTP_SERVER, Config.MAIL_SMTP_PORT)
-        server.login(Config.MAIL_SENDER, Config.MAIL_PASSWORD or "")
+        # 发送邮件
+        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+        server.login(sender_email, sender_password)
         server.send_message(msg)
         server.quit()
+
+        current_app.logger.info(f"邮件发送成功: {to_email}")
         return True
     except Exception as e:
         current_app.logger.error(f"邮件发送失败: {str(e)}")
+        return False
         return False

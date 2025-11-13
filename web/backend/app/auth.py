@@ -488,6 +488,45 @@ def update_student_info():
         current_app.logger.error(f"更新学生信息失败: {str(e)}")
         return jsonify({'error': '更新失败，请重试'}), 500
 
+@auth_bp.route('/update-email', methods=['POST'])
+@login_required
+def update_email():
+    """更新用户邮箱（同时更新账号恢复邮箱和提醒邮箱）"""
+    data = request.get_json()
+    new_email = data.get('email')
+
+    if not new_email:
+        return jsonify({'error': '邮箱地址不能为空'}), 400
+
+    # 验证邮箱格式
+    email_pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_pattern, new_email):
+        return jsonify({'error': '邮箱格式不正确'}), 400
+
+    user_id = session.get('user_id')
+    user_model = get_user_model()
+
+    try:
+        # 检查新邮箱是否已被其他用户使用
+        existing_user = user_model.find_by_email(new_email)
+        if existing_user and str(existing_user['_id']) != user_id:
+            return jsonify({'error': '该邮箱已被其他用户使用'}), 400
+
+        # 更新用户邮箱
+        result = mongo.db[USERS_COLLECTION].update_one(
+            {'_id': ObjectId(user_id)},
+            {'$set': {'email': new_email, 'updated_at': datetime.now()}}
+        )
+
+        if result.modified_count > 0:
+            current_app.logger.info(f"用户 {session.get('username')} 邮箱更新成功: {new_email}")
+            return jsonify({'message': '邮箱修改成功'})
+        else:
+            return jsonify({'message': '邮箱未改变'}), 200
+    except Exception as e:
+        current_app.logger.error(f"更新邮箱失败: {str(e)}")
+        return jsonify({'error': '更新失败，请重试'}), 500
+
 @auth_bp.route('/user-info', methods=['GET'])
 @login_required
 def get_user_info():

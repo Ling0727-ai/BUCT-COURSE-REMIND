@@ -292,7 +292,7 @@ def uncomplete_todo(todo_id):
 @todos_bp.route('/<todo_id>/remind', methods=['POST'])
 @login_required
 def remind_todo(todo_id):
-    """提醒待办事项"""
+    """提醒待办事项 - 支持自定义提醒时间"""
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -306,18 +306,100 @@ def remind_todo(todo_id):
         if not existing_todo:
             return jsonify({'error': '待办事项不存在', 'success': False}), 404
         
-        # 这里可以添加提醒逻辑，比如发送通知、邮件等
-        # 目前只是记录日志和返回提醒信息
-        current_app.logger.info(f"用户 {user_id} 提醒待办事项: {existing_todo.get('title')}")
-        
+        # 从前端请求中获取提醒配置
+        data = request.get_json() or {}
+        reminder_config = data.get('reminderConfig', {})
+
+        title = existing_todo.get('title', '待办事项')
+        description = existing_todo.get('description', '')
+        priority = existing_todo.get('priority', 'medium')
+        due_date = existing_todo.get('due_date')
+
+        # 格式化截止时间显示
+        due_date_display = ''
+        if due_date:
+            try:
+                from datetime import datetime
+                if isinstance(due_date, str):
+                    dt = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                else:
+                    dt = due_date
+                due_date_display = dt.strftime('%Y年%m月%d日 %H:%M:%S')
+            except (ValueError, AttributeError):
+                due_date_display = str(due_date)
+
+        # 处理提醒配置
+        reminder_time_text = ""
+        if reminder_config:
+            reminder_type = reminder_config.get('type', 'instant')
+            if reminder_type == 'instant':
+                reminder_time_text = "立即"
+            elif reminder_type in ['1h', '3h', '6h', '12h', '1d'] or 'hours' in reminder_config:
+                hours = reminder_config.get('hours', 0)
+                if hours >= 24:
+                    days = hours // 24
+                    remaining_hours = hours % 24
+                    if remaining_hours > 0:
+                        reminder_time_text = f"提前{days}天{remaining_hours}小时"
+                    else:
+                        reminder_time_text = f"提前{days}天"
+                else:
+                    reminder_time_text = f"提前{hours}小时"
+            elif reminder_type == 'custom-datetime' and 'datetime' in reminder_config:
+                custom_time = reminder_config.get('datetime', '')
+                reminder_time_text = f"在{custom_time}时"
+
+        # 发送实际提醒（立即发送）
+        try:
+            # 获取用户邮箱
+            user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+            if not user or not user.get('email'):
+                return jsonify({'error': '未找到用户邮箱，请在设置中配置邮箱', 'success': False}), 400
+
+            to_email = user['email']
+
+            # 构建提醒消息
+            priority_text = {'high': '高', 'medium': '中', 'low': '低'}.get(priority, '中')
+            message = f"""📝 待办提醒
+
+标题: {title}
+优先级: {priority_text}
+{f"描述: {description}" if description else ""}
+{f"截止时间: {due_date_display}" if due_date_display else ""}
+提醒时间: {reminder_time_text if reminder_time_text else '立即'}"""
+
+            # 发送邮件提醒
+            from .notification_services import send_webhook_notification
+            email_config = {
+                'type': 'email',
+                'enabled': True,
+                'config': {
+                    'to_email': to_email
+                }
+            }
+            success = send_webhook_notification(email_config, message)
+            if success:
+                current_app.logger.info(f"已发送待办提醒邮件到: {to_email}")
+            else:
+                current_app.logger.error(f"发送待办提醒邮件失败: {to_email}")
+                return jsonify({'error': '邮件发送失败，请检查邮箱配置', 'success': False}), 500
+        except Exception as e:
+            current_app.logger.error(f"发送提醒邮件失败: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': f'发送提醒失败: {str(e)}', 'success': False}), 500
+
+        current_app.logger.info(f"用户 {user_id} 提醒待办事项: {title}, 提醒方式: {reminder_time_text}")
+
         return jsonify({
             'success': True,
-            'message': f"已提醒待办事项: {existing_todo.get('title')}",
+            'message': f"{reminder_time_text}提醒已发送: {title}",
             'todo': {
-                'title': existing_todo.get('title'),
-                'description': existing_todo.get('description'),
-                'priority': existing_todo.get('priority'),
-                'due_date': existing_todo.get('due_date').isoformat() if existing_todo.get('due_date') else None
+                'title': title,
+                'description': description,
+                'priority': priority,
+                'due_date': due_date.isoformat() if due_date else None,
+                'reminder_time': reminder_time_text
             }
         })
         

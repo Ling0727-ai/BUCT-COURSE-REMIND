@@ -1,6 +1,6 @@
 """
 定时任务调度器
-负责定时刷新用户的课程数据
+负责定时刷新用户的课程数据，并处理定时提醒
 """
 
 import threading
@@ -11,6 +11,9 @@ from .model import get_beijing_time
 
 logger = logging.getLogger(__name__)
 
+# 新增：定时提醒集合名
+REMINDERS_COLLECTION = 'scheduled_reminders'
+
 class CourseDataScheduler:
     """课程数据定时刷新调度器"""
     
@@ -18,7 +21,10 @@ class CourseDataScheduler:
         self.running = False
         self.thread = None
         self.refresh_interval = 12 * 60 * 60  # 12小时，单位：秒
-        
+        # 处理提醒的检查间隔（秒）
+        self.reminder_check_interval = 5
+        self._last_reminder_check = 0
+
     def start(self):
         """启动调度器"""
         if self.running:
@@ -58,18 +64,28 @@ class CourseDataScheduler:
                         except Exception as e:
                             logger.error(f"刷新用户 {user_id} 数据失败: {e}")
                 
-                # 每小时检查一次
-                for _ in range(3600):  # 3600秒 = 1小时
+                # 每秒循环一次，并周期性处理到期提醒
+                for i in range(3600):  # 3600秒 = 1小时
                     if not self.running:
                         break
+
+                    # 每 self.reminder_check_interval 秒检查一次到期提醒
+                    try:
+                        if i % self.reminder_check_interval == 0:
+                            self._process_due_reminders()
+                    except Exception as e:
+                        logger.error(f"处理到期提醒时异常: {e}")
+
                     time.sleep(1)
                     
             except Exception as e:
                 logger.error(f"调度器运行异常: {e}")
-                time.sleep(60)  # 出错后等待1分钟再继续
-    
+                time.sleep(60)  # 出错后等候1分钟再继续
+
     def _get_users_need_refresh(self):
-        """获取需要刷新数据的用户列表"""
+        """
+        获取需要刷新数据的用户列表
+        """
         try:
             # 延迟导入避免循环导入
             from . import mongo
@@ -110,7 +126,9 @@ class CourseDataScheduler:
             return []
     
     def _refresh_user_data(self, user_id):
-        """刷新指定用户的数据"""
+        """
+        刷新指定用户的数据
+        """
         try:
             logger.info(f"开始自动刷新用户 {user_id} 的课程数据")
             
@@ -140,12 +158,60 @@ class CourseDataScheduler:
             logger.error(f"自动刷新用户 {user_id} 数据失败: {e}")
             return False
 
+    def _process_due_reminders(self):
+        """处理到期的定时提醒（发送邮件等）"""
+        try:
+            from . import mongo
+            from .notification_services import send_webhook_notification
+            now = get_beijing_time()
+
+            # 查询到期未发送的提醒
+            due_cursor = mongo.db[REMINDERS_COLLECTION].find({
+                'status': 'scheduled',
+                'scheduled_time': {'$lte': now}
+            }).limit(50)
+
+            for reminder in due_cursor:
+                try:
+                    email = reminder.get('email')
+                    message = reminder.get('message', '')
+                    if not email or not message:
+                        # 不完整，标记失败
+                        mongo.db[REMINDERS_COLLECTION].update_one(
+                            {'_id': reminder['_id']},
+                            {'$set': {'status': 'failed', 'updated_at': now, 'error': 'missing email or message'}}
+                        )
+                        continue
+
+                    email_config = {
+                        'type': 'email',
+                        'enabled': True,
+                        'config': {'to_email': email}
+                    }
+                    sent = send_webhook_notification(email_config, message)
+                    new_status = 'sent' if sent else 'failed'
+                    mongo.db[REMINDERS_COLLECTION].update_one(
+                        {'_id': reminder['_id']},
+                        {'$set': {'status': new_status, 'updated_at': now, 'sent_at': now if sent else None}}
+                    )
+                    logger.info(f"定时提醒{'已发送' if sent else '发送失败'} 到 {email}")
+                except Exception as e:
+                    logger.error(f"处理单条提醒失败: {e}")
+                    mongo.db[REMINDERS_COLLECTION].update_one(
+                        {'_id': reminder.get('_id')},
+                        {'$set': {'status': 'failed', 'updated_at': now, 'error': str(e)}}
+                    )
+        except Exception as e:
+            logger.error(f"查询或发送定时提醒失败: {e}")
+
 # 全局调度器实例
 _scheduler_instance = None
 _scheduler_lock = threading.Lock()
 
 def get_scheduler():
-    """获取调度器单例"""
+    """
+    获取调度器单例
+    """
     global _scheduler_instance
     with _scheduler_lock:
         if _scheduler_instance is None:
@@ -153,13 +219,17 @@ def get_scheduler():
         return _scheduler_instance
 
 def init_scheduler():
-    """初始化并启动调度器"""
+    """
+    初始化并启动调度器
+    """
     scheduler = get_scheduler()
     scheduler.start()
     return scheduler
 
 def stop_scheduler():
-    """停止调度器"""
+    """
+    停止调度器
+    """
     global _scheduler_instance
     if _scheduler_instance:
         _scheduler_instance.stop()

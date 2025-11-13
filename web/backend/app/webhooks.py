@@ -4,7 +4,8 @@ from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from enum import Enum
 import logging
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request, current_app, session
+from bson import ObjectId
 from .auth import login_required
 from . import mongo
 from .notification_services import check_and_send_notifications, send_webhook_notification
@@ -379,17 +380,24 @@ def manual_reminder():
 作业: {title}
 截止时间: {due_date_str}"""
         
-        # 检查邮箱配置 - 简化配置，只要求收件邮箱
-        email_setting = mongo.db.settings.find_one({'key': 'notification_email'})
-        if not email_setting or not email_setting.get('value'):
+        # 获取当前用户的注册邮箱
+        user_id = session.get('user_id')
+        if not user_id:
             return jsonify({
                 'success': False,
-                'error': '未配置收件邮箱，请在设置中配置通知邮箱后重试'
+                'error': '用户未登录'
+            }), 401
+
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        if not user or not user.get('email'):
+            return jsonify({
+                'success': False,
+                'error': '未找到用户邮箱，请在设置中配置邮箱'
             }), 400
         
-        to_email = email_setting['value']
-        logger.info(f"使用配置的收件邮箱: {to_email}")
-        
+        to_email = user['email']
+        logger.info(f"使用用户注册邮箱发送提醒: {to_email}")
+
         # 发送邮箱通知
         try:
             # 创建简化的webhook配置对象
@@ -455,19 +463,24 @@ def test_webhook():
         # 发送测试消息
         test_message = f"🔔 Test Reminder\n\nThis is a test message to verify email webhook configuration.\nSent at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
-
-        
-        # 检查邮箱配置 - 简化配置，只要求收件邮箱
-        email_setting = mongo.db.settings.find_one({'key': 'notification_email'})
-        if not email_setting or not email_setting.get('value'):
+        # 获取当前用户的注册邮箱
+        user_id = session.get('user_id')
+        if not user_id:
             return jsonify({
                 'success': False,
-                'error': '未配置收件邮箱'
+                'error': '用户未登录'
+            }), 401
+
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        if not user or not user.get('email'):
+            return jsonify({
+                'success': False,
+                'error': '未找到用户邮箱，请在设置中配置邮箱'
             }), 400
         
-        to_email = email_setting['value']
-        logger.info(f"测试配置的收件邮箱: {to_email}")
-        
+        to_email = user['email']
+        logger.info(f"测试发送到用户注册邮箱: {to_email}")
+
         # 发送测试通知到邮箱
         try:
             # 创建简化的webhook配置对象

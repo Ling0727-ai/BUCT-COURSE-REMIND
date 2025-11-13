@@ -46,28 +46,28 @@
         </button>
       </div>
 
-      <!-- 邮箱提醒设置 -->
+      <!-- 邮箱设置 -->
       <div class="section">
         <h2 class="section-title">
           <i class="fas fa-envelope"></i>
-          邮箱提醒设置
+          邮箱设置
         </h2>
         <div class="form-group">
-          <label class="form-label">收件邮箱</label>
-          <input 
+          <label class="form-label">账号邮箱</label>
+          <input
             type="email" 
             class="form-input" 
-            v-model="emailSettings.toEmail" 
-            placeholder="请输入接收提醒的邮箱地址"
+            v-model="emailSettings.email"
+            placeholder="请输入新的邮箱地址"
           >
         </div>
         <div class="info-tip">
           <i class="fas fa-info-circle"></i>
-          系统将使用发送验证码的邮箱配置来发送作业提醒邮件
+          修改邮箱将同时更新账号恢复邮箱和作业提醒接收邮箱。系统默认使用注册邮箱发送提醒。
         </div>
         <button class="btn btn-primary" @click="saveEmailSettings" style="margin-top: 15px;">
           <i class="fas fa-save"></i>
-          保存邮箱设置
+          修改邮箱
         </button>
       </div>
 
@@ -149,7 +149,7 @@ export default {
 
     // 邮箱设置
     const emailSettings = reactive({
-      toEmail: ''
+      email: ''
     })
     const toast = reactive({ show: false, message: '', type: 'success' })
     
@@ -178,30 +178,38 @@ export default {
 
     // 保存邮箱设置
     const saveEmailSettings = async () => {
-      if (!emailSettings.toEmail) {
-        showToast('请填写收件邮箱', 'error')
+      if (!emailSettings.email) {
+        showToast('请填写邮箱地址', 'error')
         return
       }
 
-      showToast('正在保存邮箱设置...', 'info')
+      // 验证邮箱格式
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailPattern.test(emailSettings.email)) {
+        showToast('邮箱格式不正确', 'error')
+        return
+      }
+
+      showToast('正在修改邮箱...', 'info')
 
       try {
-        const response = await fetch('/api/settings/email', {
+        const response = await fetch('/api/auth/update-email', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            to_email: emailSettings.toEmail
+            email: emailSettings.email
           })
         })
 
         const data = await response.json()
 
         if (response.ok) {
-          showToast('邮箱设置保存成功！', 'success')
+          showToast('邮箱修改成功！账号恢复和提醒邮箱已同步更新', 'success')
+          await loadUserInfo() // 重新加载用户信息
         } else {
-          showToast(data.error || '保存失败', 'error')
+          showToast(data.error || '修改失败', 'error')
         }
       } catch (error) {
         showToast('网络错误：' + error.message, 'error')
@@ -354,27 +362,15 @@ export default {
           if (data.has_student_password) {
             studentInfo.sPassword = '••••••••'
           }
+          // 加载用户邮箱
+          emailSettings.email = data.email || ''
         }
       } catch (error) {
         console.error('加载用户信息失败:', error)
       }
     }
 
-    // 加载邮箱设置
-    const loadEmailSettings = async () => {
-      try {
-        const response = await fetch('/api/settings/email')
-        if (response.ok) {
-          const data = await response.json()
-          emailSettings.toEmail = data.to_email || ''
-        }
-      } catch (error) {
-        console.error('加载邮箱设置失败:', error)
-      }
-    }
-
     // 初始化
-    loadEmailSettings()
     loadUserInfo()
     loadDataStatus()
 
