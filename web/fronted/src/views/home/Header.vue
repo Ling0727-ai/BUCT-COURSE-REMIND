@@ -46,10 +46,10 @@ export default {
 
 <style scoped>
 .header {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  border: 1px solid rgba(14, 165, 233, 0.1);
+  color: #0f172a;
   padding: 25px 35px;
   position: relative;
   overflow: hidden;
@@ -60,7 +60,7 @@ export default {
   gap: 20px;
   margin: 20px;
   border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   z-index: 1;
 }
 
@@ -84,29 +84,28 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 0.9em;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(14, 165, 233, 0.1);
   backdrop-filter: blur(10px);
   padding: 10px 12px;
   border-radius: 25px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(14, 165, 233, 0.2);
   transition: all 0.3s ease;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  color: #0ea5e9;
   cursor: pointer;
   min-width: 44px;
   height: 44px;
 }
 
 .recycle-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+  background: rgba(14, 165, 233, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
 }
 
 .recycle-btn i {
-  font-size: 1em;
-  color: white;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  font-size: 1.1em;
+  color: #0ea5e9;
 }
 
 .current-time {
@@ -114,19 +113,25 @@ export default {
   align-items: center;
   gap: 8px;
   font-size: 0.9em;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(14, 165, 233, 0.08);
   backdrop-filter: blur(10px);
   padding: 10px 18px;
   border-radius: 25px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(14, 165, 233, 0.15);
   transition: all 0.3s ease;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  color: #334155;
+  font-weight: 500;
+}
+
+.current-time i {
+  color: #0ea5e9;
 }
 
 .current-time:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+  background: rgba(14, 165, 233, 0.12);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
 }
 
 .header::before {
@@ -136,8 +141,8 @@ export default {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
-  animation: shimmer 6s infinite;
+  background: linear-gradient(45deg, transparent, rgba(14, 165, 233, 0.05), transparent);
+  animation: shimmer 8s infinite;
   z-index: 0;
 }
 
@@ -152,23 +157,25 @@ export default {
   position: relative;
   z-index: 2;
   font-weight: 700;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header h1 i {
+  color: #0ea5e9;
 }
 
 .header p {
-  opacity: 0.95;
+  color: #475569;
   font-size: 1em;
   position: relative;
   z-index: 2;
-  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
 }
 
 .settings-btn {
-  color: white;
+  color: #334155;
   text-decoration: none;
   font-size: 0.9em;
   padding: 12px 18px;
@@ -180,10 +187,10 @@ export default {
   gap: 8px;
   position: relative;
   z-index: 1;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(14, 165, 233, 0.08);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   font-weight: 500;
   white-space: nowrap;
   text-align: center;
@@ -191,55 +198,54 @@ export default {
 
 .settings-btn i {
   font-size: 1em;
-  color: white;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  color: #0ea5e9;
+  transition: transform 0.3s ease;
 }
 
 .settings-btn span {
-  color: white;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  color: #334155;
 }
 
 .settings-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(14, 165, 233, 0.15);
   transform: translateY(-2px);
-  box-shadow: 0 12px 35px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
 }
 
 .settings-btn:hover i {
   transform: rotate(90deg);
-  color: #ffffff;
-  text-shadow: 0 2px 15px rgba(255, 255, 255, 0.5);
+  color: #0284c7;
 }
 
 .settings-btn:hover span {
-  color: #ffffff;
-  text-shadow: 0 2px 15px rgba(255, 255, 255, 0.5);
+  color: #0f172a;
 }
 
 .user-info {
   display: flex;
   align-items: center;
   gap: 15px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(14, 165, 233, 0.08);
   padding: 10px 20px;
   border-radius: 25px;
+  border: 1px solid rgba(14, 165, 233, 0.15);
   transition: all 0.3s ease;
 }
 
 .user-info:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(14, 165, 233, 0.12);
 }
 
 .username {
   font-weight: 600;
   font-size: 0.95em;
+  color: #0f172a;
 }
 
 .logout-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: none;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.2);
   padding: 8px 15px;
   border-radius: 20px;
   cursor: pointer;
@@ -254,8 +260,9 @@ export default {
 }
 
 .logout-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(239, 68, 68, 0.15);
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 @media (max-width: 768px) {

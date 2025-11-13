@@ -624,7 +624,7 @@ export default {
   max-width: 100vw;
   display: flex;
   position: relative;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #4facfe 100%);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
   overflow: hidden;
 }
 
@@ -641,8 +641,8 @@ export default {
 .shape {
   position: absolute;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  animation: float 6s ease-in-out infinite;
+  background: rgba(14, 165, 233, 0.08);
+  animation: float 8s ease-in-out infinite;
 }
 
 .shape-1 {
@@ -716,16 +716,15 @@ export default {
 .brand-title {
   font-size: 28px;
   font-weight: 700;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0 0 6px 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .brand-subtitle {
-  color: rgba(255, 255, 255, 0.9);
+  color: #475569;
   font-size: 14px;
   margin: 0;
 }
@@ -812,18 +811,18 @@ export default {
 }
 
 .form-input:focus {
-  border-color: #667eea;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
 }
 
 .form-input:focus + .input-icon {
-  color: #667eea;
+  color: #0ea5e9;
 }
 
 .input-status {
   position: absolute;
   right: 16px;
-  color: #10b981;
+  color: #22c55e;
   font-size: 14px;
 }
 
@@ -855,12 +854,12 @@ export default {
 
 .strength-fill.medium {
   width: 66%;
-  background: #f59e0b;
+  background: #f97316;
 }
 
 .strength-fill.strong {
   width: 100%;
-  background: #10b981;
+  background: #22c55e;
 }
 
 .strength-text {
@@ -895,7 +894,7 @@ export default {
 
 .captcha-btn {
   padding: 0 24px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
   color: white;
   border: none;
   border-radius: 12px;
@@ -909,7 +908,7 @@ export default {
 
 .captcha-btn:hover:not(.btn-disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.4);
 }
 
 .captcha-btn.btn-disabled {
@@ -920,7 +919,7 @@ export default {
 
 .captcha-success {
   font-size: 12px;
-  color: #10b981;
+  color: #22c55e;
   margin-top: 8px;
   display: flex;
   align-items: center;
@@ -958,8 +957,8 @@ export default {
 }
 
 .custom-checkbox input:checked + .checkmark {
-  background: #667eea;
-  border-color: #667eea;
+  background: #0ea5e9;
+  border-color: #0ea5e9;
 }
 
 .checkmark i {
@@ -978,7 +977,7 @@ export default {
 }
 
 .terms-link {
-  color: #667eea;
+  color: #0ea5e9;
   text-decoration: none;
   font-weight: 600;
 }
@@ -990,7 +989,7 @@ export default {
 .register-btn {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
   color: white;
   border: none;
   border-radius: 10px;
@@ -1020,7 +1019,7 @@ export default {
 
 .register-btn:hover:not(.btn-disabled):not(.btn-loading) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.4);
 }
 
 .register-btn.btn-disabled {
@@ -1048,7 +1047,7 @@ export default {
 }
 
 .login-link {
-  color: #667eea;
+  color: #0ea5e9;
   text-decoration: none;
   font-weight: 600;
 }
@@ -1090,18 +1089,17 @@ export default {
   justify-content: center;
   width: 100px;
   height: 100px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+  background: rgba(14, 165, 233, 0.15);
   border-radius: 50%;
   backdrop-filter: blur(15px);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(14, 165, 233, 0.3);
   z-index: 10;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .central-icon i {
   font-size: 40px;
-  color: white;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  color: #0ea5e9;
 }
 
 .pulse-ring {
@@ -1111,7 +1109,7 @@ export default {
   transform: translate(-50%, -50%);
   width: 100px;
   height: 100px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(14, 165, 233, 0.3);
   border-radius: 50%;
   animation: pulse 3s ease-in-out infinite;
   z-index: 1;
@@ -1121,7 +1119,7 @@ export default {
   width: 130px;
   height: 130px;
   animation-delay: 1.5s;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(14, 165, 233, 0.2);
 }
 
 @keyframes pulse {
@@ -1182,13 +1180,13 @@ export default {
 .icon-wrapper {
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+  background: rgba(14, 165, 233, 0.15);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(14, 165, 233, 0.25);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
 }
@@ -1200,8 +1198,7 @@ export default {
 
 .icon-wrapper i {
   font-size: 20px;
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  color: #0ea5e9;
 }
 
 @keyframes floatUp {
@@ -1234,19 +1231,14 @@ export default {
   font-size: 28px;
   font-weight: 700;
   margin: 0 0 16px 0;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #0f172a;
 }
 
 .illustration-text p {
   font-size: 16px;
   line-height: 1.6;
-  opacity: 0.9;
+  color: #475569;
   margin: 0 0 32px 0;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* 重新设计的功能亮点卡片 */

@@ -394,7 +394,7 @@ export default {
 /* 主容器 */
 .login-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #4facfe 100%);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
   position: relative;
   overflow: hidden;
 }
@@ -418,9 +418,9 @@ export default {
 .shape {
   position: absolute;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(14, 165, 233, 0.08);
   backdrop-filter: blur(10px);
-  animation: float 6s ease-in-out infinite;
+  animation: float 8s ease-in-out infinite;
 }
 
 .shape-1 {
@@ -525,7 +525,7 @@ export default {
   font-weight: 700;
   color: #1f2937;
   margin: 0;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -600,8 +600,8 @@ export default {
 
 .form-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
 }
 
 .form-input:focus + .input-border {
@@ -614,7 +614,7 @@ export default {
 
 .form-input:focus ~ .input-icon,
 .form-input.has-value ~ .input-icon {
-  color: #667eea;
+  color: #0ea5e9;
 }
 
 .input-border {
@@ -623,7 +623,7 @@ export default {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
   transform: scaleX(0);
   transition: transform 0.3s ease;
   border-radius: 0 0 12px 12px;
@@ -669,8 +669,8 @@ export default {
 }
 
 .checkbox-container input:checked + .checkmark {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  border-color: #667eea;
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+  border-color: #0ea5e9;
 }
 
 .checkbox-container input:checked + .checkmark i {
@@ -683,14 +683,14 @@ export default {
 }
 
 .forgot-password {
-  color: #667eea;
+  color: #0ea5e9;
   text-decoration: none;
   font-weight: 500;
   transition: color 0.3s ease;
 }
 
 .forgot-password:hover {
-  color: #5a6fd8;
+  color: #0284c7;
   text-decoration: underline;
 }
 
@@ -698,7 +698,7 @@ export default {
 .login-btn {
   width: 100%;
   padding: 16px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -728,7 +728,7 @@ export default {
 
 .login-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 12px 32px rgba(14, 165, 233, 0.4);
 }
 
 .login-btn:active:not(:disabled) {
@@ -806,19 +806,19 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 12px 24px;
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
+  background: rgba(14, 165, 233, 0.1);
+  color: #0ea5e9;
   text-decoration: none;
   border-radius: 8px;
   font-weight: 600;
   font-size: 14px;
   transition: all 0.3s ease;
-  border: 1px solid rgba(102, 126, 234, 0.2);
+  border: 1px solid rgba(14, 165, 233, 0.2);
   min-width: 120px;
 }
 
 .register-link:hover {
-  background: rgba(102, 126, 234, 0.15);
+  background: rgba(14, 165, 233, 0.15);
   transform: translateY(-1px);
 }
 
@@ -855,28 +855,28 @@ export default {
 .inner-circle {
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(14, 165, 233, 0.15);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(20px);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(14, 165, 233, 0.3);
   animation: pulse-glow 3s ease-in-out infinite;
 }
 
 .inner-circle i {
   font-size: 64px;
-  color: white;
+  color: #0ea5e9;
 }
 
 @keyframes pulse-glow {
   0%, 100% {
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
     transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 40px rgba(14, 165, 233, 0.4);
     transform: scale(1.05);
   }
 }
@@ -893,19 +893,19 @@ export default {
   position: absolute;
   width: 48px;
   height: 48px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(14, 165, 233, 0.15);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(14, 165, 233, 0.25);
   animation: float-element 4s ease-in-out infinite;
 }
 
 .element i {
   font-size: 20px;
-  color: white;
+  color: #0ea5e9;
 }
 
 .element-1 {
@@ -946,11 +946,12 @@ export default {
   font-weight: 700;
   margin-bottom: 16px;
   line-height: 1.2;
+  color: #0f172a;
 }
 
 .illustration-text p {
   font-size: 18px;
-  opacity: 0.9;
+  color: #475569;
   line-height: 1.6;
   margin-bottom: 32px;
 }
@@ -968,12 +969,13 @@ export default {
   gap: 12px;
   font-size: 16px;
   font-weight: 500;
+  color: #334155;
 }
 
 .feature-icon {
   width: 24px;
   height: 24px;
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(34, 197, 94, 0.15);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -983,7 +985,7 @@ export default {
 
 .feature-icon i {
   font-size: 12px;
-  color: #10b981;
+  color: #22c55e;
 }
 
 /* 提示信息 */
@@ -1004,11 +1006,11 @@ export default {
 }
 
 .toast.success {
-  border-left-color: #10b981;
+  border-left-color: #22c55e;
 }
 
 .toast.info {
-  border-left-color: #3b82f6;
+  border-left-color: #0ea5e9;
 }
 
 .toast.error {
@@ -1027,13 +1029,13 @@ export default {
 }
 
 .toast.success .toast-icon {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
 }
 
 .toast.info .toast-icon {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: rgba(14, 165, 233, 0.1);
+  color: #0ea5e9;
 }
 
 .toast.error .toast-icon {

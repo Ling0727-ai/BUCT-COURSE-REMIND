@@ -9,6 +9,14 @@
           @input="$emit('update:searchTerm', $event.target.value)"
           placeholder="搜索作业标题或科目..."
         >
+        <button 
+          v-if="searchTerm" 
+          class="clear-search" 
+          @click="$emit('update:searchTerm', '')"
+          title="清空搜索"
+        >
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       <select 
         class="filter-select" 
@@ -29,6 +37,20 @@
         <option value="normal">正常</option>
         <option value="completed">已完成</option>
       </select>
+      <button 
+        v-if="searchTerm || subjectFilter || statusFilter" 
+        class="reset-filters"
+        @click="resetFilters"
+        title="重置筛选"
+      >
+        <i class="fas fa-redo"></i>
+        <span>重置</span>
+      </button>
+    </div>
+    
+    <div v-if="searchTerm || subjectFilter || statusFilter" class="filter-info">
+      <i class="fas fa-filter"></i>
+      <span>当前筛选结果</span>
     </div>
     
     <div class="stats">
@@ -47,7 +69,7 @@
         <h3>{{ totalCount }}</h3>
         <p>总作业数</p>
       </div>
-      <div class="stat-card completed" @click="$emit('show-stat-modal', 'completed')">
+      <div class="stat-card completed hide-mobile" @click="$emit('show-stat-modal', 'completed')">
         <i class="fas fa-check-circle"></i>
         <h3>{{ completedCount }}</h3>
         <p>已完成</p>
@@ -102,7 +124,14 @@ export default {
       required: true
     }
   },
-  emits: ['update:searchTerm', 'update:subjectFilter', 'update:statusFilter', 'show-stat-modal']
+  emits: ['update:searchTerm', 'update:subjectFilter', 'update:statusFilter', 'show-stat-modal'],
+  methods: {
+    resetFilters() {
+      this.$emit('update:searchTerm', '')
+      this.$emit('update:subjectFilter', '')
+      this.$emit('update:statusFilter', '')
+    }
+  }
 }
 </script>
 
@@ -138,8 +167,8 @@ export default {
 
 .search-box input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 20px rgba(102, 126, 234, 0.2);
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
 }
 
 .search-box i {
@@ -147,7 +176,102 @@ export default {
   left: 18px;
   top: 50%;
   transform: translateY(-50%);
-  color: #999;
+  color: #64748b;
+  transition: color 0.3s ease;
+}
+
+.search-box input:focus ~ i {
+  color: #0ea5e9;
+}
+
+.clear-search {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.clear-search:hover {
+  background: rgba(14, 165, 233, 0.1);
+  color: #0ea5e9;
+}
+
+.clear-search i {
+  font-size: 14px;
+}
+
+.reset-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(14, 165, 233, 0.1);
+  border: 2px solid rgba(14, 165, 233, 0.2);
+  border-radius: 25px;
+  color: #0ea5e9;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.reset-filters:hover {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: #0ea5e9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+}
+
+.reset-filters i {
+  font-size: 14px;
+  transition: transform 0.3s ease;
+}
+
+.reset-filters:hover i {
+  transform: rotate(180deg);
+}
+
+.filter-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(14, 165, 233, 0.08);
+  border-radius: 16px;
+  color: #0ea5e9;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  animation: fadeIn 0.3s ease;
+}
+
+.filter-info i {
+  font-size: 14px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .filter-select {
@@ -158,11 +282,18 @@ export default {
   background: white;
   cursor: pointer;
   transition: all 0.3s ease;
+  color: #334155;
+  font-weight: 500;
 }
 
 .filter-select:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
+}
+
+.filter-select:hover {
+  border-color: #0ea5e9;
 }
 
 .stats {
@@ -193,7 +324,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, transparent, rgba(102, 126, 234, 0.05));
+  background: linear-gradient(135deg, transparent, rgba(14, 165, 233, 0.03));
   pointer-events: none;
 }
 
@@ -214,24 +345,24 @@ export default {
 }
 
 .stat-card.urgent i { 
-  color: #e74c3c;
-  text-shadow: 0 2px 10px rgba(231, 76, 60, 0.3);
+  color: #ef4444;
+  text-shadow: 0 2px 10px rgba(239, 68, 68, 0.2);
 }
 .stat-card.soon i { 
-  color: #f39c12;
-  text-shadow: 0 2px 10px rgba(243, 156, 18, 0.3);
+  color: #f97316;
+  text-shadow: 0 2px 10px rgba(249, 115, 22, 0.2);
 }
 .stat-card.total i { 
-  color: #667eea;
-  text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+  color: #0ea5e9;
+  text-shadow: 0 2px 10px rgba(14, 165, 233, 0.2);
 }
 .stat-card.completed i { 
-  color: #27ae60;
-  text-shadow: 0 2px 10px rgba(39, 174, 96, 0.3);
+  color: #22c55e;
+  text-shadow: 0 2px 10px rgba(34, 197, 94, 0.2);
 }
 .stat-card.todos i { 
-  color: #9b59b6;
-  text-shadow: 0 2px 10px rgba(155, 89, 182, 0.3);
+  color: #8b5cf6;
+  text-shadow: 0 2px 10px rgba(139, 92, 246, 0.2);
 }
 
 .stat-card h3 {
@@ -252,6 +383,20 @@ export default {
   margin: 0;
 }
 
+/* 移动端隐藏"已完成"卡片 */
+@media (max-width: 768px) {
+  .stat-card.hide-mobile {
+    display: none;
+  }
+}
+
+/* 中等屏幕优化布局 (340-768px) */
+@media (min-width: 340px) and (max-width: 768px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .controls {
     margin: 0 15px 15px 15px;
@@ -268,23 +413,49 @@ export default {
     min-width: auto;
   }
 
-  .search-box input,
-  .filter-select {
+  .search-box input {
     padding: 12px 16px 12px 45px;
     font-size: 14px;
+  }
+  
+  .filter-select {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  
+  .reset-filters {
+    padding: 10px 16px;
+    font-size: 14px;
+    justify-content: center;
   }
 
   .stats {
     grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
+    gap: 12px;
   }
 
   .stat-card {
-    padding: 20px 15px;
+    padding: 18px 12px;
+  }
+
+  .stat-card i {
+    font-size: 1.8em;
+    margin-bottom: 10px;
   }
 
   .stat-card h3 {
-    font-size: 1.8em;
+    font-size: 1.6em;
+    margin-bottom: 6px;
+  }
+
+  .stat-card p {
+    font-size: 0.85em;
+  }
+  
+  .filter-info {
+    font-size: 13px;
+    padding: 10px 16px;
+    justify-content: center;
   }
 }
 
@@ -295,7 +466,35 @@ export default {
   }
 
   .stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 16px 10px;
+  }
+
+  .stat-card i {
+    font-size: 1.6em;
+    margin-bottom: 8px;
+  }
+
+  .stat-card h3 {
+    font-size: 1.5em;
+    margin-bottom: 4px;
+  }
+
+  .stat-card p {
+    font-size: 0.8em;
+  }
+  
+  .reset-filters span {
+    display: none;
+  }
+  
+  .reset-filters {
+    padding: 10px;
+    min-width: 40px;
   }
 }
 </style>

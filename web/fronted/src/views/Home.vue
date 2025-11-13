@@ -91,7 +91,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from './home/composables/useToast'
 
@@ -1208,6 +1208,16 @@ export default {
       }
     }
 
+    // 监听筛选条件变化
+    watch([searchTerm, subjectFilter, statusFilter], () => {
+      filterAssignments()
+    })
+    
+    // 监听数据变化，重新筛选
+    watch([assignments, todos], () => {
+      filterAssignments()
+    }, { deep: true })
+    
     // 初始化
     onMounted(async () => {
       // 检查用户登录状态
@@ -1311,7 +1321,7 @@ export default {
 /* 全局容器 */
 .container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #4facfe 100%);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
   position: relative;
   overflow-x: hidden;
 }
@@ -1324,9 +1334,9 @@ export default {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-  background-size: 50px 50px;
-  animation: float 20s linear infinite;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: float 30s linear infinite;
   pointer-events: none;
   z-index: 0;
 }
@@ -1334,24 +1344,24 @@ export default {
 .container::after {
   content: '';
   position: fixed;
-  top: 20%;
-  right: -10%;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(255,255,255,0.1), transparent 70%);
+  top: 10%;
+  right: -5%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.05), transparent 70%);
   border-radius: 50%;
-  animation: pulse 4s ease-in-out infinite;
+  animation: pulse 6s ease-in-out infinite;
   pointer-events: none;
   z-index: 0;
 }
 
 @keyframes float {
-  0% { transform: translate(0, 0) rotate(0deg); }
-  100% { transform: translate(-50px, -50px) rotate(360deg); }
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(-30px, -30px); }
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.3; }
-  50% { transform: scale(1.2) rotate(180deg); opacity: 0.1; }
+  0%, 100% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.1); opacity: 0.2; }
 }
 </style>

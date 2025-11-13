@@ -1,20 +1,20 @@
 /* 全局CSS变量 - 统一的配色方案 */
 :root {
-  /* 主色调 - 渐变紫蓝色系 */
-  --primary-color: #667eea;
-  --primary-dark: #5a6fd8;
-  --primary-light: #8b9aff;
-  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #4facfe 100%);
-  --primary-gradient-hover: linear-gradient(135deg, #5a6fd8 0%, #6b4190 50%, #3d8bfe 100%);
-  --primary-subtle: rgba(102, 126, 234, 0.1);
-  --primary-subtle-hover: rgba(102, 126, 234, 0.15);
+  /* 主色调 - 现代深蓝绿色系 */
+  --primary-color: #0ea5e9;
+  --primary-dark: #0284c7;
+  --primary-light: #38bdf8;
+  --primary-gradient: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+  --primary-gradient-hover: linear-gradient(135deg, #0284c7 0%, #0891b2 100%);
+  --primary-subtle: rgba(14, 165, 233, 0.1);
+  --primary-subtle-hover: rgba(14, 165, 233, 0.15);
   
-  /* 次要色调 - 清亮蓝色系 */
-  --secondary-color: #4facfe;
-  --secondary-dark: #3d8bfe;
-  --secondary-light: #7cc7ff;
-  --secondary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  --secondary-subtle: rgba(79, 172, 254, 0.1);
+  /* 次要色调 - 清新青色系 */
+  --secondary-color: #06b6d4;
+  --secondary-dark: #0891b2;
+  --secondary-light: #22d3ee;
+  --secondary-gradient: linear-gradient(135deg, #06b6d4 0%, #14b8a6 100%);
+  --secondary-subtle: rgba(6, 182, 212, 0.1);
   
   /* 中性色调 */
   --neutral-50: #f8fafc;
@@ -29,25 +29,25 @@
   --neutral-900: #0f172a;
   
   /* 功能色调 */
-  --success-color: #10b981;
-  --success-light: #34d399;
-  --success-dark: #059669;
-  --success-subtle: rgba(16, 185, 129, 0.1);
+  --success-color: #22c55e;
+  --success-light: #4ade80;
+  --success-dark: #16a34a;
+  --success-subtle: rgba(34, 197, 94, 0.1);
   
-  --warning-color: #f59e0b;
-  --warning-light: #fbbf24;
-  --warning-dark: #d97706;
-  --warning-subtle: rgba(245, 158, 11, 0.1);
+  --warning-color: #f97316;
+  --warning-light: #fb923c;
+  --warning-dark: #ea580c;
+  --warning-subtle: rgba(249, 115, 22, 0.1);
   
   --error-color: #ef4444;
   --error-light: #f87171;
   --error-dark: #dc2626;
   --error-subtle: rgba(239, 68, 68, 0.1);
   
-  --info-color: #3b82f6;
-  --info-light: #60a5fa;
-  --info-dark: #2563eb;
-  --info-subtle: rgba(59, 130, 246, 0.1);
+  --info-color: #0ea5e9;
+  --info-light: #38bdf8;
+  --info-dark: #0284c7;
+  --info-subtle: rgba(14, 165, 233, 0.1);
   
   /* 文本颜色 */
   --text-primary: #1f2937;
@@ -59,11 +59,12 @@
   
   /* 背景颜色 */
   --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
+  --bg-secondary: #fafafa;
+  --bg-tertiary: #f5f5f5;
   --bg-overlay: rgba(15, 23, 42, 0.6);
   --bg-glass: rgba(255, 255, 255, 0.95);
   --bg-glass-dark: rgba(15, 23, 42, 0.95);
+  --bg-gradient: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
   
   /* 边框和分割线 */
   --border-primary: #e2e8f0;
@@ -79,8 +80,8 @@
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
   --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.25);
   --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
-  --shadow-glow: 0 0 20px rgba(102, 126, 234, 0.3);
-  --shadow-glow-lg: 0 0 40px rgba(102, 126, 234, 0.4);
+  --shadow-glow: 0 0 20px rgba(14, 165, 233, 0.3);
+  --shadow-glow-lg: 0 0 40px rgba(14, 165, 233, 0.4);
   
   /* 圆角系统 */
   --radius-none: 0;
