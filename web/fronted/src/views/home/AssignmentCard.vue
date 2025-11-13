@@ -999,14 +999,14 @@ export default {
   }
 }
 
-/* 中等屏幕优化 (481px-768px) - 紧凑按钮布局 */
+/* 中等屏幕优化 (481px-768px) - 日期和按钮在同一行 */
 @media (min-width: 481px) and (max-width: 768px) {
   .mobile-only {
-    display: block !important;
+    display: none !important;
   }
 
   .desktop-only {
-    display: none !important;
+    display: block !important;
   }
 
   .assignment-card {
@@ -1019,37 +1019,49 @@ export default {
   }
 
   .date-info {
-    margin-bottom: 12px;
-  }
-
-  .due-date-line {
-    font-size: 13px;
-  }
-
-  .remaining-time {
-    font-size: 12px;
-    padding-left: 20px;
-  }
-
-  .card-footer {
-    padding-top: 14px;
-    justify-content: flex-end !important;
-    gap: 0 !important;
-    display: flex !important;
-    flex-direction: row !important;
-  }
-
-  .date-section {
     display: none !important;
   }
 
+  /* 日期时间和按钮在同一行 */
+  .card-footer {
+    padding-top: 14px;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .date-section {
+    display: block !important;
+    flex: 0 0 auto;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .due-date-line {
+    font-size: 12px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .remaining-time {
+    font-size: 11px;
+    padding-left: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .actions {
-    gap: 4px;
+    gap: 5px;
     justify-content: flex-end;
     flex-wrap: nowrap !important;
     display: flex !important;
-    flex: 1 1 auto;
-    min-width: 0;
+    flex-shrink: 0 !important;
   }
 
   /* 中等屏幕按钮 - 所有按钮只显示图标 */
@@ -1104,7 +1116,7 @@ export default {
   }
 
   .completed-actions {
-    gap: 4px;
+    gap: 5px;
     flex-wrap: nowrap !important;
     display: flex !important;
   }
@@ -1115,88 +1127,16 @@ export default {
   }
 }
 
-/* 小屏幕特别优化 (340px-485px) - 超紧凑布局 */
-@media (min-width: 340px) and (max-width: 485px) {
-  .assignment-card {
-    padding: 14px !important;
-  }
 
-  .card-footer {
-    padding-top: 10px !important;
-    gap: 0 !important;
-    justify-content: flex-end !important;
-  }
 
-  .actions {
-    gap: 3px !important;
-    flex-wrap: nowrap !important;
-    justify-content: flex-end !important;
-  }
-
-  .btn-text {
-    display: none !important;
-  }
-
-  .btn {
-    min-width: 30px !important;
-    width: 30px !important;
-    height: 30px !important;
-    padding: 0 !important;
-    border-radius: 8px !important;
-    flex-shrink: 0 !important;
-  }
-
-  .btn i {
-    font-size: 11px !important;
-    margin: 0 !important;
-  }
-
-  .btn-primary {
-    min-width: 30px !important;
-    width: 30px !important;
-  }
-
-  .btn-danger {
-    min-width: 30px !important;
-    width: 30px !important;
-  }
-
-  .btn-success {
-    min-width: 30px !important;
-    width: 30px !important;
-  }
-
-  .undo-btn {
-    min-width: 30px !important;
-    width: 30px !important;
-  }
-
-  .btn-completed {
-    min-width: auto !important;
-    width: auto !important;
-    padding: 0 8px !important;
-    height: 30px !important;
-    font-size: 10px !important;
-  }
-
-  .btn-completed .btn-text {
-    display: inline !important;
-  }
-
-  .completed-actions {
-    gap: 3px !important;
-    flex-wrap: nowrap !important;
-  }
-}
-
-/* 小屏幕移动端样式 (≤480px) - 隐藏按钮文字 */
-@media (max-width: 480px) {
+/* 小屏幕移动端样式 (340px-480px) - 日期和按钮在同一行 */
+@media (min-width: 340px) and (max-width: 480px) {
   .mobile-only {
-    display: block !important;
+    display: none !important;
   }
 
   .desktop-only {
-    display: none !important;
+    display: block !important;
   }
 
   .assignment-card {
@@ -1209,29 +1149,54 @@ export default {
   }
 
   .date-info {
-    margin-bottom: 10px;
+    display: none !important;
+  }
+
+  /* 日期时间和按钮在同一行，紧凑布局 */
+  .card-footer {
+    padding-top: 12px;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .date-section {
+    display: block !important;
+    flex: 0 0 auto;
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
   }
 
   .due-date-line {
-    font-size: 13px;
+    font-size: 11px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .due-date-line i {
+    font-size: 11px;
   }
 
   .remaining-time {
-    font-size: 12px;
-    padding-left: 20px;
-  }
-
-  .card-footer {
-    padding-top: 12px;
-    justify-content: flex-end !important;
-    gap: 0 !important;
+    font-size: 10px;
+    padding-left: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .actions {
-    gap: 5px;
-    width: 100%;
+    gap: 5px !important;
     justify-content: flex-end;
     flex-wrap: nowrap !important;
+    display: flex !important;
+    flex-shrink: 0 !important;
   }
 
   /* 隐藏所有按钮文字，只显示图标 */
@@ -1239,42 +1204,71 @@ export default {
     display: none !important;
   }
 
-  /* 统一按钮尺寸 */
+  /* 统一按钮尺寸 - 紧凑图标按钮 */
   .btn {
-    min-width: 36px !important;
-    width: 36px !important;
-    height: 36px !important;
+    min-width: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
     padding: 0 !important;
-    border-radius: 10px;
-    flex-shrink: 0;
+    border-radius: 10px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   .btn i {
     margin: 0 !important;
-    font-size: 14px !important;
+    font-size: 12px !important;
   }
 
   .btn-content,
   .btn-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
   }
 
   .btn-content i,
   .btn-loading i {
-    font-size: 14px !important;
+    font-size: 12px !important;
     margin: 0 !important;
   }
 
-  /* 已完成按钮保持文字显示 */
+  /* 提醒按钮 */
+  .btn-primary {
+    min-width: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  /* 删除按钮 */
+  .btn-danger,
+  .delete-btn {
+    min-width: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  /* 完成按钮 */
+  .btn-success,
+  .complete-btn {
+    min-width: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  /* 已完成按钮 - 保持文字显示但压缩 */
   .btn-completed {
     min-width: auto !important;
     width: auto !important;
-    white-space: nowrap;
-    padding: 0 12px !important;
-    height: 36px !important;
-    font-size: 12px !important;
+    white-space: nowrap !important;
+    padding: 0 8px !important;
+    height: 32px !important;
+    font-size: 10px !important;
+    flex-shrink: 0 !important;
   }
 
   .btn-completed .btn-text {
@@ -1283,15 +1277,26 @@ export default {
 
   /* 撤销按钮 */
   .undo-btn {
-    width: 36px !important;
-    height: 36px !important;
+    min-width: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
     padding: 0 !important;
   }
 
+  /* 已完成状态的按钮组 */
   .completed-actions {
-    gap: 6px;
-    flex-shrink: 0;
-    flex-wrap: nowrap;
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+    flex-wrap: nowrap !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .completed-actions .btn-danger {
+    min-width: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
   }
 
   .card-title {
@@ -1301,78 +1306,143 @@ export default {
   .card-content {
     font-size: 0.9em;
   }
+}
 
-  .due-date {
+/* 超小屏幕 (≤340px) - 极致紧凑布局 */
+@media (max-width: 340px) {
+  .mobile-only {
+    display: block !important;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .assignment-card {
+    padding: 12px;
+    min-height: 220px;
+  }
+
+  .card-content {
+    margin-bottom: 10px;
+    font-size: 0.88em;
+  }
+
+  .date-info {
+    margin-bottom: 8px;
+  }
+
+  .due-date-line {
     font-size: 12px;
   }
 
-  .btn {
-    min-width: 34px !important;
-    width: 34px !important;
-    height: 34px !important;
-  }
-
-  .btn i,
-  .btn-content i,
-  .btn-loading i {
-    font-size: 13px !important;
-  }
-
-  .btn-completed {
-    height: 34px !important;
-    padding: 0 10px !important;
-    font-size: 11px !important;
-  }
-
-  .undo-btn {
-    width: 34px !important;
-    height: 34px !important;
-  }
-
-  .actions {
-    gap: 5px;
-  }
-}
-
-/* 超小屏幕 (≤340px) */
-@media (max-width: 340px) {
-  .assignment-card {
-    padding: 12px;
-  }
-
-  .due-date {
+  .remaining-time {
     font-size: 11px;
-  }
-
-  .btn {
-    min-width: 32px !important;
-    width: 32px !important;
-    height: 32px !important;
-  }
-
-  .btn i,
-  .btn-content i,
-  .btn-loading i {
-    font-size: 12px !important;
-  }
-
-  .btn-completed {
-    height: 32px !important;
-    padding: 0 8px !important;
-    font-size: 10px !important;
-  }
-
-  .undo-btn {
-    width: 32px !important;
-    height: 32px !important;
-  }
-
-  .actions {
-    gap: 4px;
+    padding-left: 18px;
   }
 
   .card-footer {
-    gap: 8px;
+    padding-top: 10px;
+    justify-content: flex-end !important;
+    gap: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .actions {
+    gap: 4px !important;
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: nowrap !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  /* 隐藏所有按钮文字 */
+  .btn-text {
+    display: none !important;
+  }
+
+  /* 更小的按钮尺寸 */
+  .btn {
+    min-width: 30px !important;
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .btn i {
+    margin: 0 !important;
+    font-size: 11px !important;
+  }
+
+  .btn-content,
+  .btn-loading {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .btn-content i,
+  .btn-loading i {
+    font-size: 11px !important;
+    margin: 0 !important;
+  }
+
+  /* 所有按钮统一尺寸 */
+  .btn-primary,
+  .btn-danger,
+  .delete-btn,
+  .btn-success,
+  .complete-btn,
+  .undo-btn {
+    min-width: 30px !important;
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  /* 已完成按钮 */
+  .btn-completed {
+    min-width: auto !important;
+    width: auto !important;
+    height: 30px !important;
+    padding: 0 8px !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .btn-completed .btn-text {
+    display: inline !important;
+  }
+
+  /* 已完成按钮组 */
+  .completed-actions {
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+    flex-wrap: nowrap !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .completed-actions .btn-danger {
+    min-width: 30px !important;
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .card-title {
+    font-size: 1em;
   }
 }
 </style>
