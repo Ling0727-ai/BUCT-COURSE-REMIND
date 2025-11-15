@@ -56,8 +56,8 @@
           <label class="form-label">账号邮箱</label>
           <input
             type="email" 
-            class="form-input" 
             v-model="emailSettings.email"
+            class="form-input"
             placeholder="请输入新的邮箱地址"
           >
         </div>
@@ -128,14 +128,18 @@
 </template>
 
 <script>
-import { ref, reactive, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import {computed, reactive, ref} from 'vue'
+import {useRouter} from 'vue-router'
+import {useToast} from './home/composables/useToast.js'
+import './home/styles/toast.css'
 
 export default {
   name: 'Settings',
   setup() {
     const router = useRouter()
-    
+    // 引入全局悬浮 Toast
+    const {showToast: showTopToast} = useToast()
+
     // 设置数据
     const settings = reactive({
       serverUrl: ''
@@ -218,8 +222,18 @@ export default {
 
     // 保存学生信息
     const saveStudentInfo = async () => {
-      if (!studentInfo.studentId || !studentInfo.sPassword) {
-        showToast('请填写完整的学生信息', 'error')
+      // 允许部分更新：只改学号或只改密码
+      const payload = {}
+      if (studentInfo.studentId && studentInfo.studentId.trim() !== '') {
+        payload.student_id = studentInfo.studentId.trim()
+      }
+      if (studentInfo.sPassword && !/^•+$/.test(studentInfo.sPassword.trim())) {
+        // 只有在不是掩码占位时才发送密码
+        payload.s_password = studentInfo.sPassword
+      }
+
+      if (Object.keys(payload).length === 0) {
+        showToast('请填写学号或新密码', 'error')
         return
       }
 
@@ -228,21 +242,23 @@ export default {
       try {
         const response = await fetch('/api/auth/update-student-info', {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            student_id: studentInfo.studentId,
-            s_password: studentInfo.sPassword
-          })
+          body: JSON.stringify(payload)
         })
 
         const data = await response.json()
 
         if (response.ok) {
-          showToast('学生信息保存成功！', 'success')
+          // 保存成功后，若更新了密码，则使用新长度生成掩码
+          if ('s_password' in payload) {
+            studentInfo.sPassword = '•'.repeat(Math.min(payload.s_password.length, 100))
+          }
+          showToast(data.message || '学生信息保存成功！', 'success')
         } else {
-          showToast(data.error || '保存失败', 'error')
+          showToast(data.error || data.message || '保存失败', 'error')
         }
       } catch (error) {
         showToast('网络错误：' + error.message, 'error')
@@ -250,17 +266,11 @@ export default {
     }
 
 
-
-    // 显示提示消息
-    const showToast = (message, type = 'success') => {
-      toast.message = message
-      toast.type = type
-      toast.show = true
-      
-      // 3秒后自动隐藏
-      setTimeout(() => {
-        toast.show = false
-      }, 3000)
+    // 显示提示消息（改为调用全局顶部悬浮 Toast）
+    const showToast = (message, type = 'success', title) => {
+      const titleMap = {success: '成功', error: '错误', info: '提示', warning: '提示'}
+      // 统一使用顶部悬浮窗；不再使用本地内嵌 Toast
+      showTopToast(type, title || titleMap[type] || '提示', message)
     }
 
     // 格式化日期时间
@@ -354,13 +364,15 @@ export default {
     // 加载用户信息
     const loadUserInfo = async () => {
       try {
-        const response = await fetch('/api/auth/user-info')
+        const response = await fetch('/api/auth/user-info', {credentials: 'include'})
         if (response.ok) {
           const data = await response.json()
           studentInfo.studentId = data.student_id || ''
-          // 不显示密码，只显示是否已设置
-          if (data.has_student_password) {
-            studentInfo.sPassword = '••••••••'
+          // 根据后端返回的长度渲染掩码
+          if (data.has_student_password && data.student_password_length > 0) {
+            studentInfo.sPassword = '•'.repeat(Math.min(data.student_password_length, 100))
+          } else {
+            studentInfo.sPassword = ''
           }
           // 加载用户邮箱
           emailSettings.email = data.email || ''
@@ -929,9 +941,10 @@ export default {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  z-index: 1000;
+  z-index: 999999;
   animation: toastSlideIn 0.4s ease;
   font-weight: 500;
+  pointer-events: auto;
 }
 
 .toast.error {

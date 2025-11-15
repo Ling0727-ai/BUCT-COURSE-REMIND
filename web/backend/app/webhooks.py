@@ -1,13 +1,13 @@
-import json
-import requests
-from typing import Dict, List, Optional
+import logging
 from datetime import datetime, timedelta
 from enum import Enum
-import logging
-from flask import Blueprint, jsonify, request, current_app, session
+from typing import Dict
+
 from bson import ObjectId
-from .auth import login_required
+from flask import Blueprint, jsonify, request, current_app, session
+
 from . import mongo
+from .auth import login_required
 from .notification_services import check_and_send_notifications, send_webhook_notification
 
 # 配置日志
@@ -379,7 +379,7 @@ def manual_reminder():
 科目: {subject}
 作业: {title}
 截止时间: {due_date_str}"""
-        
+
         # 获取当前用户的注册邮箱
         user_id = session.get('user_id')
         if not user_id:
@@ -394,7 +394,7 @@ def manual_reminder():
                 'success': False,
                 'error': '未找到用户邮箱，请在设置中配置邮箱'
             }), 400
-        
+
         to_email = user['email']
         logger.info(f"使用用户注册邮箱发送提醒: {to_email}")
 
@@ -477,7 +477,7 @@ def test_webhook():
                 'success': False,
                 'error': '未找到用户邮箱，请在设置中配置邮箱'
             }), 400
-        
+
         to_email = user['email']
         logger.info(f"测试发送到用户注册邮箱: {to_email}")
 

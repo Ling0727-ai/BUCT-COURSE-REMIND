@@ -1,12 +1,13 @@
-import requests
 import json
 import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
-from flask import current_app
-from . import mongo
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 import requests
+from flask import current_app
+
+from . import mongo
 
 ASSIGNMENTS_COLLECTION = 'assignments'
 WEBHOOK_LOGS_COLLECTION = 'webhook_logs'
@@ -179,9 +180,11 @@ __all__ = ['check_and_send_notifications', 'send_webhook_notification',
            'send_email_notification']
 
 def send_email_notification(config, message):
-    """Sends an email notification."""
+    """Sends an email notification using environment variables.
+    Expected config: {'to_email': 'recipient@example.com'}
+    Returns True on success, False on failure with error logged.
+    """
     try:
-        # 从环境变量获取邮件配置
         import os
         smtp_server = os.getenv('MAIL_SMTP_SERVER', 'smtp.163.com')
         smtp_port = int(os.getenv('MAIL_SMTP_PORT', 465))
@@ -189,30 +192,53 @@ def send_email_notification(config, message):
         sender_password = os.getenv('MAIL_PASSWORD', '')
 
         if not sender_password or sender_password == 'dummy_password_for_dev':
-            current_app.logger.error("邮箱密码未配置，无法发送邮件")
+            current_app.logger.error("邮箱密码未配置，无法发送邮件 (MAIL_PASSWORD 未设置)")
             return False
 
-        to_email = config.get('to_email')
+        to_email = (config or {}).get('to_email')
         if not to_email:
-            current_app.logger.error("未指定收件人邮箱")
+            current_app.logger.error("未指定收件人邮箱 (config.to_email 为空)")
             return False
 
-        # 构建邮件
         msg = MIMEMultipart()
         msg['From'] = sender_email
         msg['To'] = to_email
         msg['Subject'] = "作业提醒通知"
-        msg.attach(MIMEText(message, 'plain', 'utf-8'))
-        
-        # 发送邮件
-        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
+        msg.attach(MIMEText(message or '', 'plain', 'utf-8'))
 
-        current_app.logger.info(f"邮件发送成功: {to_email}")
-        return True
+        # 多配置尝试：SSL 优先，其次 StartTLS
+        smtp_candidates = [
+            {'server': smtp_server, 'port': smtp_port, 'ssl': True},
+            {'server': smtp_server, 'port': 587, 'ssl': False},
+            {'server': smtp_server, 'port': 25, 'ssl': False},
+        ]
+
+        last_err = None
+        for conf in smtp_candidates:
+            try:
+                if conf['ssl']:
+                    server = smtplib.SMTP_SSL(conf['server'], conf['port'])
+                else:
+                    server = smtplib.SMTP(conf['server'], conf['port'])
+                    try:
+                        server.starttls()
+                    except Exception:
+                        pass
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+                server.quit()
+                current_app.logger.info(f"邮件发送成功: {to_email} (配置: {conf})")
+                return True
+            except Exception as e:
+                last_err = e
+                current_app.logger.warning(f"发送失败，尝试下一个配置: {conf}, 错误: {e}")
+                try:
+                    server.quit()
+                except Exception:
+                    pass
+
+        current_app.logger.error(f"邮件发送失败: {last_err}")
+        return False
     except Exception as e:
         current_app.logger.error(f"邮件发送失败: {str(e)}")
-        return False
         return False

@@ -196,7 +196,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, var(--primary-dark), var(--secondary-dark));
+    background: linear-gradient(135deg, #0284c7 0%, #0891b2 100%);
 }
 
 ::-webkit-scrollbar-corner {
@@ -330,6 +330,58 @@ body {
 .m-5 { margin: var(--space-5); }
 .m-6 { margin: var(--space-6); }
 .m-8 { margin: var(--space-8); }
+
+/* 移动端安全区域与边距优化 */
+@supports (padding: max(0px)) {
+    body {
+        padding-top: max(0px, env(safe-area-inset-top));
+        padding-bottom: max(0px, env(safe-area-inset-bottom));
+        padding-left: max(0px, env(safe-area-inset-left));
+        padding-right: max(0px, env(safe-area-inset-right));
+    }
+}
+
+/* 页面容器通用留白（小中屏） */
+@media (max-width: 768px) {
+    .page-container,
+    .container,
+    .app-container {
+        padding: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .page-container,
+    .container,
+    .app-container {
+        padding: 14px;
+    }
+}
+
+@media (max-width: 340px) {
+    .page-container,
+    .container,
+    .app-container {
+        padding: 10px;
+    }
+}
+
+/* 通用模态留白辅助类，可供需要的组件使用 */
+.modal-edge-padding {
+    padding: 16px;
+}
+
+@media (max-width: 480px) {
+    .modal-edge-padding {
+        padding: 14px;
+    }
+}
+
+@media (max-width: 340px) {
+    .modal-edge-padding {
+        padding: 10px;
+    }
+}
 
 /* 动画关键帧 */
 @keyframes fadeIn {

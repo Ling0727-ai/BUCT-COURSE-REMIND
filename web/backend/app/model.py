@@ -5,17 +5,18 @@
 本文档定义了项目中使用的 MongoDB 数据库的集合（Collections）结构和字段说明。
 """
 
-from flask_pymongo import PyMongo
-from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timezone, timedelta
-from bson import ObjectId
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import base64
 import os
+from datetime import datetime, timezone, timedelta
+
+from bson import ObjectId
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from dotenv import load_dotenv
+from flask_pymongo import PyMongo
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # 加载环境变量
 load_dotenv()
@@ -105,6 +106,7 @@ class User:
             'password_hash': generate_password_hash(password),
             'student_id': student_id,
             's_password': self._encrypt_password(s_password) if s_password else None,  # 使用ECC加密存储
+            's_password_len': len(s_password) if s_password else None,
             'is_admin': False,
             'created_at': get_beijing_time(),
             'updated_at': get_beijing_time()
@@ -137,9 +139,27 @@ class User:
         """更新学号和外部密码"""
         return self.update_user(user_id, {
             'student_id': student_id,
-            's_password': self._encrypt_password(s_password) if s_password else None  # 使用ECC加密存储
+            's_password': self._encrypt_password(s_password) if s_password else None,  # 使用ECC加密存储
+            's_password_len': len(s_password) if s_password else None
         })
-    
+
+    def update_student_info_optional(self, user_id, student_id=None, s_password=None):
+        """可选更新学号或外部系统密码（任意字段提供即更新）"""
+        update_data = {}
+        if student_id is not None:
+            update_data['student_id'] = student_id
+        if s_password is not None:
+            # 仅当提供了新的密码字符串时才更新，加密存储
+            update_data['s_password'] = self._encrypt_password(s_password) if s_password else None
+            update_data['s_password_len'] = len(s_password) if s_password else None
+        if not update_data:
+            # 无更新内容，直接返回一个模拟的结果对象
+            class _Result:
+                modified_count = 0
+
+            return _Result()
+        return self.update_user(user_id, update_data)
+
     def get_decrypted_s_password(self, user):
         """获取解密后的学生密码"""
         if not user or 's_password' not in user or not user['s_password']:
@@ -561,7 +581,7 @@ class CompletedAssignment:
     
     def mark_completed(self, user_id, assignment_id, assignment_title, assignment_subject):
         """标记作业为已完成"""
-        from datetime import datetime, timedelta
+        from datetime import timedelta
         
         completed_at = get_beijing_time()
         expires_at = completed_at + timedelta(hours=12)  # 12小时后过期
@@ -614,8 +634,7 @@ class CompletedAssignment:
     
     def cleanup_expired(self):
         """手动清理过期记录（MongoDB TTL索引会自动处理，这个方法作为备用）"""
-        from datetime import datetime
-        
+
         result = self.db[self.collection].delete_many({
             'expires_at': {'$lt': get_beijing_time()}
         })

@@ -22,18 +22,24 @@
         </div>
         <div class="form-group">
           <label for="todoHours">预计时间</label>
-          <div class="hours-input-group">
-            <input 
+          <div class="time-input-wrapper">
+            <input
               id="todoHours"
-              type="number" 
-              :value="todo.hours"
-              @input="$emit('update:todo', { ...todo, hours: parseFloat($event.target.value) || 1 })"
-              placeholder="1"
-              min="0.5"
-              max="168"
-              step="0.5"
+              :value="todo.timeInput"
+              class="time-input"
+              maxlength="8"
+              placeholder="24:00:00"
+              type="text"
+              @input="handleTimeInput($event.target.value)"
             >
-            <span class="hours-suffix">小时后</span>
+            <span class="time-hint">格式: 时:分:秒 (不输入默认24h)</span>
+          </div>
+          <div class="time-examples">
+            <span class="example-tag" @click="setQuickTime('01:00:00')">1小时</span>
+            <span class="example-tag" @click="setQuickTime('03:00:00')">3小时</span>
+            <span class="example-tag" @click="setQuickTime('12:00:00')">12小时</span>
+            <span class="example-tag" @click="setQuickTime('24:00:00')">1天</span>
+            <span class="example-tag" @click="setQuickTime('72:00:00')">3天</span>
           </div>
         </div>
         <div class="form-group">
@@ -96,7 +102,64 @@ export default {
       default: false
     }
   },
-  emits: ['close', 'add', 'update:todo']
+  emits: ['close', 'add', 'update:todo'],
+  methods: {
+    handleTimeInput(value) {
+      // 保存原始输入
+      const timeInput = value.trim()
+
+      // 解析时间输入，支持多种格式
+      let hours = 24 // 默认24小时
+
+      if (!timeInput) {
+        // 空输入，使用默认值24小时
+        hours = 24
+      } else if (/^\d+:\d+:\d+$/.test(timeInput)) {
+        // HH:MM:SS 格式
+        const [h, m, s] = timeInput.split(':').map(Number)
+        hours = h + m / 60 + s / 3600
+      } else if (/^\d+:\d+$/.test(timeInput)) {
+        // HH:MM 格式
+        const [h, m] = timeInput.split(':').map(Number)
+        hours = h + m / 60
+      } else if (/^\d+$/.test(timeInput)) {
+        // 纯数字，视为小时数
+        hours = parseFloat(timeInput)
+      } else if (/^\d+\.?\d*$/.test(timeInput)) {
+        // 小数格式的小时数
+        hours = parseFloat(timeInput)
+      } else {
+        // 无法解析的格式，保持默认24小时
+        hours = 24
+      }
+
+      // 限制范围 0.01-8760小时（最多1年）
+      hours = Math.max(0.01, Math.min(8760, hours))
+
+      this.$emit('update:todo', {
+        ...this.todo,
+        hours: hours,
+        timeInput: timeInput // 保存用户的原始输入以供显示
+      })
+    },
+
+    setQuickTime(timeStr) {
+      // 快捷设置时间
+      this.handleTimeInput(timeStr)
+    }
+  },
+  watch: {
+    show(newVal) {
+      if (newVal && !this.todo.timeInput) {
+        // 弹窗打开时，如果没有timeInput，设置默认值
+        this.$emit('update:todo', {
+          ...this.todo,
+          hours: 24,
+          timeInput: '24:00:00'
+        })
+      }
+    }
+  }
 }
 </script>
 
@@ -231,24 +294,58 @@ export default {
   font-family: inherit;
 }
 
-.hours-input-group {
+.time-input-wrapper {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.hours-input-group input {
-  flex: 1;
-  min-width: 0;
+.time-input {
+  width: 100%;
+  font-family: 'Courier New', monospace;
+  font-size: 16px !important;
+  letter-spacing: 1px;
 }
 
-.hours-suffix {
+.time-hint {
   color: #6c757d;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
+  font-size: 12px;
   padding: 0 4px;
+  display: block;
 }
+
+.time-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.example-tag {
+  display: inline-block;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #e9ecef, #dee2e6);
+  color: #495057;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #ced4da;
+}
+
+.example-tag:hover {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+  border-color: #667eea;
+}
+
+.example-tag:active {
+  transform: translateY(0);
+}
+
 
 .modal-footer {
   padding: 20px 30px 25px;

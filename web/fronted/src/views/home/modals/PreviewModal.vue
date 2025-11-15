@@ -274,11 +274,12 @@ export default {
   justify-content: center;
   z-index: 1000;
   animation: fadeIn 0.3s ease;
-  padding: 20px;
+  padding: 20px; /* 全局留白 */
 }
 
 .preview-modal-overlay {
   z-index: 1100 !important;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 
 @keyframes fadeIn {
@@ -291,16 +292,13 @@ export default {
   border-radius: 20px;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
   max-width: 600px;
-  width: 100%;
-  max-height: 85vh;
+  width: min(96vw, 600px);
+  max-height: 86vh; /* 略小于视口，便于露出留白且可达关闭按钮 */
   animation: slideUp 0.3s ease;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.preview-modal {
-  max-width: 600px;
+  margin: 0 auto; /* 居中 */
 }
 
 @keyframes slideUp {
@@ -315,7 +313,7 @@ export default {
 }
 
 .modal-header {
-  padding: 25px 30px 20px;
+  padding: 20px 24px 16px;
   border-bottom: 1px solid #e9ecef;
   display: flex;
   justify-content: space-between;
@@ -364,11 +362,11 @@ export default {
 }
 
 .modal-body {
-  padding: 20px 30px;
+  padding: 16px 24px;
   overflow-y: auto;
   overflow-x: hidden;
-  flex: 1;
-  min-height: 200px;
+  flex: 1 1 auto;
+  min-height: 280px; /* 中间内容足够高，便于滑动 */
   -webkit-overflow-scrolling: touch;
 }
 
@@ -521,7 +519,7 @@ export default {
 }
 
 .modal-footer {
-  padding: 20px 30px 25px;
+  padding: 16px 24px 20px;
   border-top: 1px solid #e9ecef;
   display: flex;
   justify-content: flex-end;
@@ -579,133 +577,55 @@ export default {
 /* 中小屏幕优化 (≤768px) */
 @media (max-width: 768px) {
   .modal-overlay {
-    padding: 16px;
+    padding: 18px;
   }
 
   .modal-content {
-    max-height: 80vh;
+    max-height: 88vh;
     border-radius: 16px;
-    width: 100%;
   }
 
   .modal-header {
-    padding: 16px 20px 12px;
+    padding: 16px 18px 12px;
     border-radius: 16px 16px 0 0;
   }
 
-  .modal-header h3 {
-    font-size: 1.2em;
-  }
-
-  .close-btn {
-    width: 44px;
-    height: 44px;
-    font-size: 1.1em;
-  }
-
   .modal-body {
-    padding: 16px 20px;
-    min-height: 250px;
-  }
-
-  .preview-field {
-    margin-bottom: 16px;
-  }
-
-  .preview-field label {
-    font-size: 12px;
-    margin-bottom: 6px;
-  }
-
-  .preview-value {
-    padding: 10px 12px;
-    font-size: 14px;
+    padding: 14px 18px;
+    min-height: 320px;
   }
 
   .modal-footer {
-    padding: 12px 20px 16px;
-    gap: 10px;
+    padding: 12px 18px 16px;
     border-radius: 0 0 16px 16px;
-  }
-
-  .btn {
-    padding: 10px 20px;
-    font-size: 13px;
-    min-width: 80px;
   }
 }
 
 /* 小屏幕移动端优化 (≤480px) */
 @media (max-width: 480px) {
   .modal-overlay {
-    padding: 12px;
+    padding: 14px;
   }
 
   .modal-content {
-    max-height: 85vh;
-    border-radius: 12px;
-    width: 100%;
+    width: 94vw;
+    max-height: 90vh;
+    border-radius: 14px;
   }
 
   .modal-header {
     padding: 14px 16px 10px;
-    border-radius: 12px 12px 0 0;
-  }
-
-  .modal-header h3 {
-    font-size: 1.1em;
-    gap: 8px;
-  }
-
-  .close-btn {
-    width: 44px;
-    height: 44px;
-    font-size: 1em;
+    border-radius: 14px 14px 0 0;
   }
 
   .modal-body {
     padding: 12px 16px;
-    min-height: 300px;
-  }
-
-  .preview-field {
-    margin-bottom: 14px;
-  }
-
-  .preview-field label {
-    font-size: 11px;
-    margin-bottom: 5px;
-  }
-
-  .preview-value {
-    padding: 8px 10px;
-    font-size: 13px;
-  }
-
-  .preview-title {
-    font-size: 14px;
-  }
-
-  .preview-content {
-    font-size: 13px;
+    min-height: 340px;
   }
 
   .modal-footer {
     padding: 10px 16px 14px;
-    gap: 8px;
-    border-radius: 0 0 12px 12px;
-    flex-wrap: wrap;
-  }
-
-  .btn {
-    padding: 9px 16px;
-    font-size: 12px;
-    min-width: 70px;
-    flex: 1;
-  }
-
-  .btn i {
-    font-size: 12px;
+    border-radius: 0 0 14px 14px;
   }
 }
 
@@ -716,67 +636,24 @@ export default {
   }
 
   .modal-content {
-    max-height: 85vh;
-    border-radius: 10px;
+    width: 95vw;
+    max-height: 92vh;
+    border-radius: 12px;
   }
 
   .modal-header {
     padding: 12px 14px 8px;
-    border-radius: 10px 10px 0 0;
-  }
-
-  .modal-header h3 {
-    font-size: 1em;
-    gap: 6px;
-  }
-
-  .close-btn {
-    width: 44px;
-    height: 44px;
-    font-size: 0.95em;
+    border-radius: 12px 12px 0 0;
   }
 
   .modal-body {
     padding: 10px 14px;
-    min-height: 280px;
-  }
-
-  .preview-field {
-    margin-bottom: 12px;
-  }
-
-  .preview-field label {
-    font-size: 10px;
-    margin-bottom: 4px;
-  }
-
-  .preview-value {
-    padding: 7px 9px;
-    font-size: 12px;
-  }
-
-  .preview-title {
-    font-size: 13px;
-  }
-
-  .preview-content {
-    font-size: 12px;
+    min-height: 320px;
   }
 
   .modal-footer {
     padding: 8px 14px 12px;
-    gap: 6px;
-    border-radius: 0 0 10px 10px;
-  }
-
-  .btn {
-    padding: 8px 12px;
-    font-size: 11px;
-    min-width: 60px;
-  }
-
-  .btn i {
-    font-size: 11px;
+    border-radius: 0 0 12px 12px;
   }
 }
 </style>

@@ -5,6 +5,9 @@
       <p>智能汇总所有科目作业，永不错过截止日期</p>
     </div>
     <div class="header-actions">
+      <button class="refresh-btn" title="刷新数据" @click="$emit('refresh')">
+        <i class="fas fa-sync-alt"></i>
+      </button>
       <button class="recycle-btn" title="回收站" @click="$emit('show-recycle-bin')">
         <i class="fas fa-trash-alt"></i>
       </button>
@@ -40,7 +43,7 @@ export default {
       default: null
     }
   },
-  emits: ['show-recycle-bin', 'logout']
+  emits: ['show-recycle-bin', 'logout', 'refresh']
 }
 </script>
 
@@ -79,6 +82,7 @@ export default {
   position: relative;
 }
 
+.refresh-btn,
 .recycle-btn {
   display: flex;
   align-items: center;
@@ -97,15 +101,22 @@ export default {
   height: 44px;
 }
 
+.refresh-btn:hover,
 .recycle-btn:hover {
   background: rgba(14, 165, 233, 0.15);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
 }
 
+.refresh-btn:active {
+  transform: translateY(-2px) rotate(180deg);
+}
+
+.refresh-btn i,
 .recycle-btn i {
   font-size: 1.1em;
   color: #0ea5e9;
+  transition: transform 0.3s ease;
 }
 
 .current-time {

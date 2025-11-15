@@ -57,10 +57,10 @@
       <div class="modal-footer">
         <button 
           v-if="items.length > 0"
-          class="btn btn-danger"
-          @click="$emit('clear-recycle-bin')"
+          class="btn btn-success"
+          @click="$emit('restore-all')"
         >
-          <i class="fas fa-trash"></i> 清空回收站
+          <i class="fas fa-undo-alt"></i> 全部恢复
         </button>
         <button class="btn btn-secondary" @click="$emit('close')">关闭</button>
       </div>
@@ -81,7 +81,7 @@ export default {
       default: () => []
     }
   },
-  emits: ['close', 'restore-item', 'permanent-delete', 'clear-recycle-bin'],
+  emits: ['close', 'restore-item', 'permanent-delete', 'restore-all'],
   methods: {
     truncateText(text, maxLength) {
       if (!text) return ''

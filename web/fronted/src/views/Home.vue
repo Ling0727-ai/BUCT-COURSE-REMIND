@@ -6,6 +6,7 @@
       :user="user"
       @show-recycle-bin="showRecycleBin"
       @logout="handleLogout"
+      @refresh="() => fetchAssignments(true)"
     />
 
     <!-- 控制面板组件 -->
@@ -27,7 +28,7 @@
       :assignments="filteredAssignments"
       :loading="loading"
       :error="error"
-      @refresh="fetchAssignments"
+      @refresh="(showNotification) => fetchAssignments(showNotification)"
       @open-url="openAssignmentUrl"
       @show-preview="showPreview"
       @set-reminder="setReminder"
@@ -85,23 +86,23 @@
       @close="closeRecycleBin"
       @restore-item="restoreItem"
       @permanent-delete="permanentDelete"
-      @clear-recycle-bin="clearRecycleBin"
+      @restore-all="restoreAll"
     />
 
     <!-- 提醒设置弹窗 -->
     <ReminderModal
-      :show="showReminderModal"
-      :assignment="reminderAssignment"
-      @close="closeReminderModal"
-      @confirm="confirmReminder"
+        :assignment="reminderAssignment"
+        :show="showReminderModal"
+        @close="closeReminderModal"
+        @confirm="confirmReminder"
     />
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useToast } from './home/composables/useToast'
+import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
+import {useRouter} from 'vue-router'
+import {useToast} from './home/composables/useToast'
 
 // 导入组件
 import Header from './home/Header.vue'
@@ -173,7 +174,8 @@ export default {
     const newTodo = ref({
       title: '',
       description: '',
-      hours: 1,
+      hours: 24,
+      timeInput: '24:00:00',
       priority: 'medium'
     })
 
@@ -376,10 +378,8 @@ export default {
         console.log('确认提醒设置 - assignment:', assignment, 'config:', reminderConfig)
 
         let response
+        // 简化请求体：后端会从数据库查询作业信息，只需传递提醒配置
         const requestBody = {
-          title: assignment.title,
-          subject: assignment.subject,
-          deadline: assignment.dueDate,
           reminderConfig: reminderConfig
         }
 
@@ -673,10 +673,15 @@ export default {
     }
 
     // 获取作业数据
-    const fetchAssignments = async () => {
+    const fetchAssignments = async (showNotification = false) => {
       loading.value = true
       error.value = ''
-      
+
+      // 显示加载提示（如果是手动刷新）
+      if (showNotification) {
+        showToast('info', '刷新数据', '正在刷新作业数据...')
+      }
+
       try {
         // 并行获取作业和待办数据
         const [assignmentsResponse, todosResponse] = await Promise.all([
@@ -809,8 +814,16 @@ export default {
       } catch (err) {
         console.error('获取数据错误:', err)
         error.value = '网络连接错误'
+        if (showNotification) {
+          showToast('error', '网络错误', '网络连接错误，请检查网络')
+        }
       } finally {
         loading.value = false
+        // 显示成功提示（如果是手动刷新且没有错误）
+        if (showNotification && !error.value) {
+          const totalCount = assignments.value.length + todos.value.length
+          showToast('success', '刷新成功', `已加载 ${totalCount} 条数据`)
+        }
       }
     }
 
@@ -844,7 +857,8 @@ export default {
       newTodo.value = {
         title: '',
         description: '',
-        hours: 1,
+        hours: 24,
+        timeInput: '24:00:00',
         priority: 'medium'
       }
     }
@@ -1168,53 +1182,71 @@ export default {
       )
     }
 
-    const clearRecycleBin = () => {
-      const performClear = async () => {
+    const restoreAll = () => {
+      const performRestoreAll = async () => {
         try {
-          // 并行清空作业和待办的回收站
-          const [assignmentsResponse, todosResponse] = await Promise.all([
-            fetch('/api/assignments/clear-deleted', {
-              method: 'DELETE',
-              credentials: 'include'
-            }),
-            fetch('/api/todos/clear-deleted', {
-              method: 'DELETE',
-              credentials: 'include'
-            })
-          ])
-          
-          let success = true
-          const errors = []
-          
-          if (!assignmentsResponse.ok) {
-            const errorData = await assignmentsResponse.json()
-            errors.push(`作业清空失败: ${errorData.error || '未知错误'}`)
-            success = false
+          // 批量恢复所有已删除的项目
+          const restorePromises = deletedItems.value.map(item => {
+            if (item.type === '待办') {
+              // 恢复待办
+              return fetch(`/api/todos/${item._todoId}/restore`, {
+                method: 'POST',
+                credentials: 'include'
+              })
+            } else {
+              // 恢复作业
+              return fetch(`/api/assignments/${item.id}/restore`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              })
+            }
+          })
+
+          const responses = await Promise.all(restorePromises)
+
+          // 检查所有恢复是否成功
+          let successCount = 0
+          let failCount = 0
+
+          for (const response of responses) {
+            if (response.ok) {
+              successCount++
+            } else {
+              failCount++
+            }
           }
-          
-          if (!todosResponse.ok) {
-            const errorData = await todosResponse.json()
-            errors.push(`待办清空失败: ${errorData.error || '未知错误'}`)
-            success = false
-          }
-          
-          if (success) {
+
+          if (failCount === 0) {
+            // 全部成功
             deletedItems.value = []
-            showToast('success', '清空完成', '回收站已清空')
-            console.log('清空回收站成功')
+            showToast('success', '恢复完成', `已成功恢复 ${successCount} 个项目`)
+
+            // 重新获取数据以更新列表
+            await fetchAssignments(false)
+            filterAssignments()
           } else {
-            console.error('清空回收站部分失败:', errors)
-            showToast('error', '清空失败', errors.join('\n'))
+            // 部分失败
+            showToast('warning', '部分恢复', `成功恢复 ${successCount} 个，失败 ${failCount} 个`)
+
+            // 刷新回收站列表
+            await fetchDeletedItems()
+            await fetchAssignments(false)
+            filterAssignments()
           }
+
+          console.log(`批量恢复完成: 成功 ${successCount}, 失败 ${failCount}`)
         } catch (error) {
-          console.error('清空回收站错误:', error)
+          console.error('批量恢复错误:', error)
           showToast('error', '网络错误', '请检查网络连接后重试')
         }
       }
       
       showCustomConfirm(
-        '确定要清空回收站吗？\n\n此操作将永久删除所有项目，无法撤销！', 
-        performClear
+          `确定要恢复回收站中的所有 ${deletedItems.value.length} 个项目吗？`,
+          performRestoreAll
       )
     }
 
@@ -1279,7 +1311,7 @@ export default {
       
       // 每5分钟自动刷新一次数据
       setInterval(() => {
-        fetchAssignments()
+        fetchAssignments(true) // 自动刷新时也显示顶部悬浮提示
       }, 300000)
     })
     
@@ -1346,7 +1378,7 @@ export default {
       fetchDeletedItems,
       restoreItem,
       permanentDelete,
-      clearRecycleBin,
+      restoreAll,
       showReminderModal,
       reminderAssignment,
       closeReminderModal,

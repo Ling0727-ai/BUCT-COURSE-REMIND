@@ -3,10 +3,13 @@
 处理从爬虫获取的课程数据的存储和检索
 """
 
-from flask import Blueprint, request, jsonify, session
-from bson import ObjectId
-from datetime import datetime, timedelta
+import hashlib
 import logging
+from datetime import datetime, timedelta
+
+from bson import ObjectId
+from flask import Blueprint, request, jsonify, session
+
 from .auth import login_required
 from .model import get_beijing_time
 
@@ -28,8 +31,8 @@ class CourseData:
     
     def save_user_course_data(self, user_id, tasks_data):
         """
-        智能保存用户的课程数据（保护软删除状态）
-        
+        智能保存用户的课程数据（保护删除状态）
+
         Args:
             user_id: 用户ID
             tasks_data: 任务数据列表，格式：
@@ -45,13 +48,23 @@ class CourseData:
             ]
         """
         try:
-            # 获取用户当前的软删除状态
+            # 获取用户当前的所有删除状态（软删除 + 永久删除）
             from .assignment_status import get_assignment_status_manager
             status_manager = get_assignment_status_manager()
-            deleted_ids = set(status_manager.get_deleted_assignment_ids(user_id))
-            
-            logger.info(f"用户 {user_id} 当前有 {len(deleted_ids)} 个软删除项目")
-            
+
+            # 查询所有删除状态
+            deleted_cursor = status_manager.db[status_manager.collection].find(
+                {
+                    'user_id': ObjectId(user_id),
+                    'status': {'$in': ['deleted', 'permanent_deleted']}
+                },
+                {'assignment_id': 1, 'status': 1}
+            )
+            deleted_map = {doc['assignment_id']: doc['status'] for doc in deleted_cursor}
+            deleted_ids = set(deleted_map.keys())
+
+            logger.info(f"用户 {user_id} 当前有 {len(deleted_ids)} 个已删除项目（软删除+永久删除）")
+
             # 生成新数据的task_id集合
             current_time = get_beijing_time()
             new_task_ids = set()
@@ -63,12 +76,13 @@ class CourseData:
                 if task_type not in ['homework', 'test', 'todo']:
                     # 如果没有明确的type或type不在预期范围内，使用原来的逻辑
                     task_type = 'homework' if task.get('details', '').strip() else 'test'
-                
-                if task_type not in ['homework', 'test', 'todo']:
-                    # 如果没有明确的type或type不在预期范围内，使用原来的逻辑
-                    task_type = 'homework' if task.get('details', '').strip() else 'test'
-                
-                task_id = f"{task_type}_{abs(hash(task.get('subject', '') + task.get('title', '') + task.get('deadline', '')))}"
+
+                # 使用确定性哈希算法（MD5）确保同样的内容始终生成相同的ID
+                # 这样即使刷新数据库，已删除的项目标记仍然有效
+                # 包含科目、标题、截止时间和详细内容，确保唯一性
+                content_str = f"{task.get('subject', '')}|{task.get('title', '')}|{task.get('deadline', '')}|{task.get('details', '')}"
+                content_hash = hashlib.md5(content_str.encode('utf-8')).hexdigest()[:16]  # 取前16位
+                task_id = f"{task_type}_{content_hash}"
                 new_task_ids.add(task_id)
                 
                 doc = {
@@ -84,37 +98,33 @@ class CourseData:
                     'updated_at': current_time
                 }
                 documents.append(doc)
-            
-            # 检查软删除项目的处理策略
-            deleted_to_remove = deleted_ids - new_task_ids  # 不再存在的软删除项目
-            deleted_to_keep = deleted_ids & new_task_ids    # 仍然存在的软删除项目
-            
-            logger.info(f"软删除项目分析: 保留 {len(deleted_to_keep)} 个, 永久删除 {len(deleted_to_remove)} 个")
-            
+
+            # 检查删除项目的处理策略
+            deleted_to_remove = deleted_ids - new_task_ids  # 不再存在的删除项目（应清理状态）
+            deleted_to_keep = deleted_ids & new_task_ids  # 仍然存在的删除项目（保留状态）
+
+            logger.info(f"删除项目分析: 保留 {len(deleted_to_keep)} 个, 清理状态 {len(deleted_to_remove)} 个")
+
+            # 清理不再存在的删除状态记录
+            if deleted_to_remove:
+                removed_count = status_manager.clear_user_status_by_ids(user_id, list(deleted_to_remove))
+                logger.info(f"清理 {removed_count} 个不再存在的删除状态记录")
+
             # 删除该用户的所有旧数据
             delete_result = self.db[self.collection].delete_many({'user_id': ObjectId(user_id)})
             logger.info(f"删除用户 {user_id} 的旧课程数据 {delete_result.deleted_count} 条")
-            
-            # 插入新数据，包括软删除的项目（软删除项目会在get_user_course_data中被过滤）
+
+            # 插入新数据（包括已删除的项目，它们会在显示时被过滤）
             inserted_count = 0
             if documents:
                 insert_result = self.db[self.collection].insert_many(documents)
                 inserted_count = len(insert_result.inserted_ids)
                 logger.info(f"为用户 {user_id} 插入新课程数据 {inserted_count} 条")
-                
-                # 记录软删除项目的保护情况
+
+                # 记录删除项目的保护情况
                 if deleted_to_keep:
-                    logger.info(f"保护了 {len(deleted_to_keep)} 个软删除项目（数据已插入但会在显示时过滤）")
-            
-            # 处理软删除状态
-            if deleted_to_remove:
-                # 永久删除不再存在的软删除项目
-                removed_count = status_manager.clear_user_status_by_ids(user_id, list(deleted_to_remove))
-                logger.info(f"永久删除 {removed_count} 个不再存在的软删除项目")
-            
-            if deleted_to_keep:
-                logger.info(f"保留 {len(deleted_to_keep)} 个仍存在的软删除项目状态")
-            
+                    logger.info(f"保护了 {len(deleted_to_keep)} 个已删除项目（数据已插入但会在显示时过滤）")
+
             return inserted_count
             
         except Exception as e:
@@ -123,44 +133,41 @@ class CourseData:
     
     def get_user_course_data(self, user_id):
         """
-        获取用户的课程数据（过滤软删除）
-        
+        获取用户的课程数据（过滤所有已删除项目）
+
         Args:
             user_id: 用户ID
             
         Returns:
-            list: 课程数据列表（已过滤软删除）
+            list: 课程数据列表（已过滤所有删除）
         """
         try:
             cursor = self.db[self.collection].find(
                 {'user_id': ObjectId(user_id)}
             ).sort('updated_at', -1)
-            
-            # 获取软删除和永久删除的任务ID列表
+
+            # 获取所有已删除的任务ID（软删除 + 永久删除）
             from .assignment_status import get_assignment_status_manager
             status_manager = get_assignment_status_manager()
-            deleted_ids = set(status_manager.get_deleted_assignment_ids(user_id))
-            
-            # 获取永久删除的任务ID列表
-            forever_deleted_ids = set()
-            try:
-                forever_cursor = status_manager.db[status_manager.collection].find(
-                    {
-                        'user_id': ObjectId(user_id),
-                        'forever': 0
-                    },
-                    {'assignment_id': 1}
-                )
-                forever_deleted_ids = set(doc['assignment_id'] for doc in forever_cursor)
-            except Exception as e:
-                logger.warning(f"获取永久删除任务ID列表失败: {e}")
-            
+
+            # 统一查询所有删除状态
+            deleted_cursor = status_manager.db[status_manager.collection].find(
+                {
+                    'user_id': ObjectId(user_id),
+                    'status': {'$in': ['deleted', 'permanent_deleted']}
+                },
+                {'assignment_id': 1}
+            )
+            deleted_ids = set(doc['assignment_id'] for doc in deleted_cursor)
+
+            logger.info(f"用户 {user_id} 有 {len(deleted_ids)} 个已删除项目")
+
             tasks = []
             for doc in cursor:
                 task_id = doc.get('task_id')
-                
-                # 跳过软删除和永久删除的任务
-                if task_id in deleted_ids or task_id in forever_deleted_ids:
+
+                # 跳过所有已删除的任务
+                if task_id in deleted_ids:
                     continue
                 
                 task = {
@@ -174,8 +181,8 @@ class CourseData:
                     'updated_at': doc.get('updated_at')
                 }
                 tasks.append(task)
-            
-            logger.info(f"为用户 {user_id} 返回 {len(tasks)} 条课程数据（已过滤软删除）")
+
+            logger.info(f"为用户 {user_id} 返回 {len(tasks)} 条课程数据（已过滤所有删除）")
             return tasks
             
         except Exception as e:

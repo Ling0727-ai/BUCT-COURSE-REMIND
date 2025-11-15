@@ -10,7 +10,7 @@
       <i class="fas fa-exclamation-triangle"></i>
       <h3>加载失败</h3>
       <p>{{ error }}</p>
-      <button class="btn btn-primary" @click="$emit('refresh')">重新加载</button>
+      <button class="btn btn-primary" @click="$emit('refresh', true)">重新加载</button>
     </div>
     
     <div v-else class="assignments-grid">

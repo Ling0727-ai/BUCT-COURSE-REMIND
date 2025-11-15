@@ -52,7 +52,7 @@
       <div class="actions" @click.stop>
         <button 
           v-if="!assignment.completed"
-          class="btn btn-primary"
+          class="btn btn-warning"
           @click="$emit('set-reminder', assignment)"
           title="设置提醒"
         >
@@ -470,7 +470,8 @@ export default {
 }
 
 .date-section {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-width: 0; /* 允许收缩 */
 }
 
 .due-date-line {
@@ -488,6 +489,9 @@ export default {
 
 .date-text {
   color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .remaining-time {
@@ -536,8 +540,9 @@ export default {
 .actions {
   display: flex;
   gap: 8px;
-  flex-wrap: nowrap;
+  flex-wrap: nowrap; /* 禁止换行，三按钮同排 */
   align-items: center;
+  flex-shrink: 0;
 }
 
 .btn {
@@ -557,29 +562,22 @@ export default {
   line-height: 1;
 }
 
-.btn i {
-  flex-shrink: 0;
-  font-size: 14px;
-}
-
-.btn-text {
-  display: inline;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+/* 新增：黄色提醒按钮样式 */
+.btn-warning {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.btn-primary:hover {
+.btn-warning:hover {
+  background: linear-gradient(135deg, #d97706, #ea580c);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
-  background: linear-gradient(135deg, #0284c7, #0891b2);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
 }
 
+/* 新增：绿色完成按钮样式 */
 .btn-success {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: white;
@@ -588,7 +586,7 @@ export default {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.btn-success:hover {
+.btn-success:hover:not(:disabled) {
   background: linear-gradient(135deg, #16a34a, #15803d);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
@@ -836,6 +834,95 @@ export default {
   transform: scale(0.95);
 }
 
+/* 中屏优化（≤768px）：缩小按钮与文字，尽量同排 */
+@media (max-width: 768px) {
+  .card-footer {
+    gap: 12px;
+  }
+
+  .due-date-line {
+    font-size: 13px;
+    gap: 6px;
+  }
+
+  .actions {
+    gap: 6px;
+  }
+
+  .btn-text {
+    display: none; /* 中小屏隐藏按钮文字，仅留图标节省空间 */
+  }
+
+  .btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    min-width: 36px;
+  }
+
+  .btn i {
+    font-size: 14px;
+  }
+}
+
+/* 小屏优化（≤480px）：进一步压缩，确保三按钮同一行 */
+@media (max-width: 480px) {
+  .card-footer {
+    gap: 10px;
+  }
+
+  .date-section {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .due-date-line {
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .date-text {
+    max-width: 65vw; /* 防止日期挤占按钮空间 */
+  }
+
+  .actions {
+    gap: 6px;
+  }
+
+  .btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0;
+    border-radius: 8px;
+  }
+
+  .btn i {
+    font-size: 13px;
+  }
+}
+
+/* 超小屏（≤340px）：最小化占用 */
+@media (max-width: 340px) {
+  .due-date-line {
+    font-size: 11px;
+  }
+
+  .date-text {
+    max-width: 58vw;
+  }
+
+  .btn {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+  }
+
+  .btn i {
+    font-size: 12px;
+  }
+}
+
 /* 桌面端样式优化 (>768px) */
 @media (min-width: 769px) {
   .mobile-only {
@@ -894,6 +981,11 @@ export default {
 
   /* 特定按钮优化 */
   .btn-primary {
+    min-width: 36px !important;
+    width: 36px !important;
+  }
+
+  .btn-warning {
     min-width: 36px !important;
     width: 36px !important;
   }
@@ -972,6 +1064,11 @@ export default {
   }
 
   .btn-primary {
+    min-width: 38px !important;
+    width: 38px !important;
+  }
+
+  .btn-warning {
     min-width: 38px !important;
     width: 38px !important;
   }
@@ -1084,6 +1181,11 @@ export default {
   }
 
   .btn-primary {
+    min-width: 32px !important;
+    width: 32px !important;
+  }
+
+  .btn-warning {
     min-width: 32px !important;
     width: 32px !important;
   }
@@ -1238,7 +1340,7 @@ export default {
   }
 
   /* 提醒按钮 */
-  .btn-primary {
+  .btn-warning {
     min-width: 32px !important;
     width: 32px !important;
     height: 32px !important;
@@ -1400,6 +1502,7 @@ export default {
 
   /* 所有按钮统一尺寸 */
   .btn-primary,
+  .btn-warning,
   .btn-danger,
   .delete-btn,
   .btn-success,

@@ -4,10 +4,12 @@
 使用统一的状态管理系统
 """
 
-from flask import Blueprint, request, jsonify, session
-from bson import ObjectId
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
+
+from bson import ObjectId
+from flask import Blueprint, request, jsonify, session
+
 from . import mongo
 from .auth import login_required
 
@@ -170,7 +172,7 @@ def mark_assignment_uncomplete(assignment_id):
 @assignments_bp.route('/<assignment_id>/remind', methods=['POST'])
 @login_required
 def remind_assignment(assignment_id):
-    """提醒作业/测试 - 支持自定义提醒时间（几小时后/具体时间/立即）"""
+    """提醒作业 - 支持多种提醒方式"""
     try:
         user_id = session.get('user_id')
         if not user_id:
@@ -178,13 +180,51 @@ def remind_assignment(assignment_id):
 
         logger.info(f"用户 {user_id} 提醒作业: {assignment_id}")
 
-        # 从前端请求中获取作业信息
+        # 检查作业是否已完成或已删除
+        from .assignment_status import get_assignment_status_manager
+        status_manager = get_assignment_status_manager()
+
+        # 检查是否已完成
+        completed_ids = status_manager.get_completed_assignment_ids(user_id)
+        if assignment_id in [str(aid) for aid in completed_ids]:
+            logger.warning(f"作业 {assignment_id} 已完成，不发送提醒")
+            return jsonify({
+                'success': False,
+                'error': '该作业已完成，无需提醒'
+            }), 400
+
+        # 检查是否已删除
+        deleted_ids = status_manager.get_deleted_assignment_ids(user_id)
+        if assignment_id in [str(aid) for aid in deleted_ids]:
+            logger.warning(f"作业 {assignment_id} 已删除，不发送提醒")
+            return jsonify({
+                'success': False,
+                'error': '该作业已删除，无法提醒'
+            }), 400
+
+        # 从数据库查询作业信息（更准确、更安全）
+        assignment_doc = mongo.db.course_data.find_one({
+            'user_id': ObjectId(user_id),
+            'task_id': assignment_id
+        })
+
+        if not assignment_doc:
+            logger.warning(f"作业 {assignment_id} 不存在于数据库中")
+            return jsonify({
+                'success': False,
+                'error': '作业不存在'
+            }), 404
+
+        # 从数据库文档中提取作业信息
+        subject = assignment_doc.get('subject', '未知科目')
+        task = assignment_doc.get('title', '未知任务')
+        deadline = assignment_doc.get('deadline', '')
+        task_type = assignment_doc.get('type', 'homework')
+        assignment_type = '作业' if task_type == 'homework' else '测试'
+
+        # 从请求中获取提醒配置
         data = request.get_json() or {}
-        subject = data.get('subject', '作业')
-        task = data.get('title', '任务')
-        deadline = data.get('deadline', '')  # 前端传的ISO字符串
-        reminder_config = data.get('reminderConfig', {}) or {}
-        assignment_type = '作业' if 'homework' in assignment_id else '测试'
+        reminder_config = data.get('reminderConfig', {})
 
         # 解析截止时间（字符串 -> datetime），默认使用北京时间
         due_dt = None
@@ -223,22 +263,53 @@ def remind_assignment(assignment_id):
         if rtype == 'instant':
             scheduled_time = now
             schedule_desc = '立即'
-        elif rtype in ['1h', '3h', '6h', '12h', '1d'] or ('hours' in reminder_config):
-            # 小时数：默认表示发生在"截止时间前N小时"；若无截止时间，则"从现在起N小时后"
+        elif rtype in ['1h', '3h', '6h', '12h'] or ('hours' in reminder_config):
+            # 获取时间参数
             hours = reminder_config.get('hours')
+            timing = reminder_config.get('timing', 'before')  # 默认为'before'
+
             if hours is None:
-                preset = {'1h': 1, '3h': 3, '6h': 6, '12h': 12, '1d': 24}
+                preset = {'1h': 1, '3h': 3, '6h': 6, '12h': 12}
                 hours = preset.get(rtype, 1)
             try:
                 hours = float(hours)
             except Exception:
                 hours = 1.0
-            if due_dt:
-                scheduled_time = due_dt - timedelta(hours=hours)
-                schedule_desc = f"截止前{int(hours) if hours.is_integer() else hours}小时"
-            else:
+
+            # 根据timing判断是"截止前"还是"从现在起"
+            if timing == 'after':
+                # 从现在起N小时后
                 scheduled_time = now + timedelta(hours=hours)
                 schedule_desc = f"{int(hours) if hours.is_integer() else hours}小时后"
+            else:
+                # 截止时间前N小时（默认行为）
+                if due_dt:
+                    scheduled_time = due_dt - timedelta(hours=hours)
+                    schedule_desc = f"截止前{int(hours) if hours.is_integer() else hours}小时"
+                else:
+                    # 如果没有截止时间，改为从现在起N小时后
+                    scheduled_time = now + timedelta(hours=hours)
+                    schedule_desc = f"{int(hours) if hours.is_integer() else hours}小时后"
+        elif rtype in ['custom-hours-before', 'custom-hours-after']:
+            # 处理新的自定义小时前/后选项
+            hours = reminder_config.get('hours', 1)
+            try:
+                hours = float(hours)
+            except Exception:
+                hours = 1.0
+
+            if rtype == 'custom-hours-after':
+                # 从现在起N小时后
+                scheduled_time = now + timedelta(hours=hours)
+                schedule_desc = f"{int(hours) if hours.is_integer() else hours}小时后"
+            else:
+                # 截止时间前N小时
+                if due_dt:
+                    scheduled_time = due_dt - timedelta(hours=hours)
+                    schedule_desc = f"截止前{int(hours) if hours.is_integer() else hours}小时"
+                else:
+                    scheduled_time = now + timedelta(hours=hours)
+                    schedule_desc = f"{int(hours) if hours.is_integer() else hours}小时后"
         elif rtype == 'custom-datetime' and reminder_config.get('datetime'):
             custom_str = reminder_config.get('datetime')  # 形如 YYYY-MM-DDTHH:mm
             try:

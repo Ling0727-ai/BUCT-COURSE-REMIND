@@ -1,19 +1,22 @@
+import os
+import random
+import re
+import smtplib
+import string
+from datetime import datetime, timedelta
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from functools import wraps
+
+from bson import ObjectId
 from flask import Blueprint, request, jsonify, session, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
-from bson import ObjectId
-from functools import wraps
-import random
-import string
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import re
-import os
 
 from . import mongo
 from .model import User
 from .rsa_crypto import get_rsa_crypto
+
+
 # 直接在这里实现测试模式，避免导入问题
 def is_test_mode():
     """检查是否为测试模式"""
@@ -32,7 +35,8 @@ def send_test_verification_email(email, code):
     print(f"🧪 [测试模式] 验证码已生成: {code}")
     print(f"📧 [测试模式] 目标邮箱: {email}")
     return True
-import sys
+
+
 from config import Config
 
 USERS_COLLECTION = 'users'
@@ -466,27 +470,39 @@ def register():
 @auth_bp.route('/update-student-info', methods=['POST'])
 @login_required
 def update_student_info():
-    """更新学号和外部密码"""
-    data = request.get_json()
-    student_id = data.get('student_id')
-    s_password = data.get('s_password')
-    
-    if not student_id or not s_password:
-        return jsonify({'error': '学号和密码不能为空'}), 400
-    
+    """更新学号和/或外部系统密码（允许部分更新）"""
+    data = request.get_json() or {}
+    student_id = data.get('student_id', None)
+    s_password = data.get('s_password', None)
+
+    # 过滤前端占位的掩码值，防止把仅由“•”组成的占位符写回数据库
+    if isinstance(s_password, str):
+        masked = True
+        for ch in s_password.strip():
+            if ch != '•':
+                masked = False
+                break
+        if masked and len(s_password.strip()) > 0:
+            s_password = None
+
+    if student_id is None and s_password is None:
+        return jsonify({'error': '无可更新的字段'}), 400
+
     user_id = session.get('user_id')
     user_model = get_user_model()
-    
+
     try:
-        result = user_model.update_student_credentials(user_id, student_id, s_password)
+        # 允许部分更新
+        result = user_model.update_student_info_optional(user_id, student_id=student_id, s_password=s_password)
         if result.modified_count > 0:
             current_app.logger.info(f"用户 {session.get('username')} 更新学生信息成功")
             return jsonify({'message': '学生信息更新成功'})
         else:
-            return jsonify({'error': '更新失败'}), 400
+            return jsonify({'message': '无变更'}), 200
     except Exception as e:
         current_app.logger.error(f"更新学生信息失败: {str(e)}")
         return jsonify({'error': '更新失败，请重试'}), 500
+
 
 @auth_bp.route('/update-email', methods=['POST'])
 @login_required
@@ -542,6 +558,7 @@ def get_user_info():
             'email': user['email'],
             'student_id': user.get('student_id', ''),
             'has_student_password': bool(user.get('s_password')),
+            'student_password_length': int(user.get('s_password_len')) if user.get('s_password_len') is not None else 0,
             'is_admin': user.get('is_admin', False)
         })
     else:

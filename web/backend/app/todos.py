@@ -5,12 +5,14 @@
 提供用户待办事项的CRUD操作接口
 """
 
-from flask import Blueprint, jsonify, request, session, current_app
 from datetime import datetime, timedelta, timezone
+
+from bson import ObjectId
+from flask import Blueprint, jsonify, request, session, current_app
+
+from . import mongo
 from .auth import login_required
 from .model import Todo
-from . import mongo
-from bson import ObjectId
 
 # 定义北京时区
 BEIJING_TZ = timezone(timedelta(hours=8))
@@ -99,8 +101,8 @@ def create_todo():
         estimated_hours = None
         hours = data.get('hours')
         due_date_str = data.get('due_date')
-        
-        if hours is not None:
+
+        if hours is not None and hours != '':
             # 前端发送小时数，计算截止时间并保存原始小时数
             try:
                 hours_float = float(hours)
@@ -117,7 +119,13 @@ def create_todo():
                 due_date = datetime.fromisoformat(due_date_str.replace('Z', '+00:00'))
             except ValueError:
                 return jsonify({'error': '截止日期格式错误', 'success': False}), 400
-        
+        else:
+            # 未提供时间，默认24小时后
+            hours_float = 24.0
+            due_date = get_beijing_time() + timedelta(hours=hours_float)
+            estimated_hours = hours_float
+            current_app.logger.info(f"未提供时间，使用默认值24小时，截止时间: {due_date}")
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
         
@@ -305,7 +313,23 @@ def remind_todo(todo_id):
         existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
         if not existing_todo:
             return jsonify({'error': '待办事项不存在', 'success': False}), 404
-        
+
+        # 检查待办是否已完成
+        if existing_todo.get('completed'):
+            current_app.logger.warning(f"待办 {todo_id} 已完成，不发送提醒")
+            return jsonify({
+                'error': '该待办事项已完成，无需提醒',
+                'success': False
+            }), 400
+
+        # 检查待办是否已删除（软删除）
+        if existing_todo.get('deleted'):
+            current_app.logger.warning(f"待办 {todo_id} 已删除，不发送提醒")
+            return jsonify({
+                'error': '该待办事项已删除，无法提醒',
+                'success': False
+            }), 400
+
         # 从前端请求中获取提醒配置
         data = request.get_json() or {}
         reminder_config = data.get('reminderConfig', {})
@@ -332,9 +356,36 @@ def remind_todo(todo_id):
         reminder_time_text = ""
         if reminder_config:
             reminder_type = reminder_config.get('type', 'instant')
+            timing = reminder_config.get('timing', 'before')
+
             if reminder_type == 'instant':
                 reminder_time_text = "立即"
-            elif reminder_type in ['1h', '3h', '6h', '12h', '1d'] or 'hours' in reminder_config:
+            elif reminder_type in ['1h', '3h', '6h', '12h'] or 'hours' in reminder_config:
+                hours = reminder_config.get('hours', 0)
+
+                if timing == 'after':
+                    # 从现在起N小时后
+                    if hours >= 24:
+                        days = hours // 24
+                        remaining_hours = hours % 24
+                        if remaining_hours > 0:
+                            reminder_time_text = f"{days}天{remaining_hours}小时后"
+                        else:
+                            reminder_time_text = f"{days}天后"
+                    else:
+                        reminder_time_text = f"{hours}小时后"
+                else:
+                    # 截止时间前N小时
+                    if hours >= 24:
+                        days = hours // 24
+                        remaining_hours = hours % 24
+                        if remaining_hours > 0:
+                            reminder_time_text = f"提前{days}天{remaining_hours}小时"
+                        else:
+                            reminder_time_text = f"提前{days}天"
+                    else:
+                        reminder_time_text = f"提前{hours}小时"
+            elif reminder_type == 'custom-hours-before':
                 hours = reminder_config.get('hours', 0)
                 if hours >= 24:
                     days = hours // 24
@@ -345,6 +396,17 @@ def remind_todo(todo_id):
                         reminder_time_text = f"提前{days}天"
                 else:
                     reminder_time_text = f"提前{hours}小时"
+            elif reminder_type == 'custom-hours-after':
+                hours = reminder_config.get('hours', 0)
+                if hours >= 24:
+                    days = hours // 24
+                    remaining_hours = hours % 24
+                    if remaining_hours > 0:
+                        reminder_time_text = f"{days}天{remaining_hours}小时后"
+                    else:
+                        reminder_time_text = f"{days}天后"
+                else:
+                    reminder_time_text = f"{hours}小时后"
             elif reminder_type == 'custom-datetime' and 'datetime' in reminder_config:
                 custom_time = reminder_config.get('datetime', '')
                 reminder_time_text = f"在{custom_time}时"
