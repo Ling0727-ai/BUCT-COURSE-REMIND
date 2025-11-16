@@ -8,6 +8,7 @@ requests==2.31.0
 gunicorn==21.2.0
 beautifulsoup4>=4.9.0
 lxml
-buct-course==1.0.1
+buct-course==1.2.0
 cryptography
 pycryptodome==3.19.0
+pip
