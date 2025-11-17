@@ -323,13 +323,13 @@ class BUCTScraperEnhanced:
                 logger.warning(f"用户 {user_id} 登出时发生异常: {logout_error}")
 
             # 4. 构造返回数据
-            homework_tasks = [task for task in formatted_tasks if task['type'] == 'homework']
-            test_tasks = [task for task in formatted_tasks if task['type'] == 'test']
-            
-            # 移除内部标识字段
-            for task in formatted_tasks:
-                task.pop('type', None)
-            
+            homework_tasks = [task for task in formatted_tasks if task.get('type') == 'homework']
+            test_tasks = [task for task in formatted_tasks if task.get('type') == 'test']
+
+            # 不再移除 type 字段，因为后续处理需要它来正确分类作业和测试
+            # for task in formatted_tasks:
+            #     task.pop('type', None)
+
             response_data = {
                 "tasks": formatted_tasks,
                 "stats": {
@@ -340,16 +340,25 @@ class BUCTScraperEnhanced:
             }
             
             logger.info(f"用户 {user_id} 完整流程结束，成功获取数据: {response_data['stats']}")
+
+            # 清理内部客户端缓存，防止会话泄漏
+            self.logout(user_id)
+
             return {'success': True, 'data': response_data}
 
         except Exception as e:
             logger.error(f"为用户 {user_id} 获取待办任务时发生异常: {e}", exc_info=True)
-            # 确保在异常情况下也要登出
+            # 确保在异常情况下也要登出和清理
             try:
+                client = self._get_client(user_id)
                 client.logout()
                 logger.info(f"异常处理：用户 {user_id} 已登出")
-            except:
-                pass
+            except Exception as logout_err:
+                logger.warning(f"异常处理登出失败: {logout_err}")
+
+            # 清理内部客户端缓存
+            self.logout(user_id)
+
             return {'success': False, 'error': f"获取数据时发生异常: {e}"}
 
     def logout(self, user_id):

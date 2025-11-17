@@ -414,6 +414,7 @@ export default {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
   position: relative;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* 装饰性浮动元素 */

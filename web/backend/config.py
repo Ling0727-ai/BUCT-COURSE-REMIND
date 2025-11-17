@@ -27,5 +27,9 @@ class Config:
     elif not MAIL_PASSWORD:
         MAIL_PASSWORD = 'dummy_password_for_dev'  # 开发环境默认值
 
+    # CORS 配置
+    CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:8080')  # 逗号分隔
+    CORS_REFRESH_INTERVAL_HOURS = int(os.environ.get('CORS_REFRESH_INTERVAL_HOURS', 6))  # 动态刷新间隔（小时）
+
 
 config = Config()

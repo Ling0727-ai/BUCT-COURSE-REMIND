@@ -127,49 +127,56 @@ def login():
     
     user = mongo.db[USERS_COLLECTION].find_one({'username': username})
     
-    if user and check_password_hash(user['password_hash'], password):
-        session['user_id'] = str(user['_id'])
-        session['username'] = user['username']
-        current_app.logger.info(f"用户 {username} 登录成功")
-        
-        # 登录成功后自动刷新作业数据
-        user_id = str(user['_id'])
-        refresh_success = auto_refresh_assignments_on_login(user_id)
-        
-        response_data = {
-            'message': '登录成功',
-            'user': { 'id': str(user['_id']), 'username': user['username'], 'is_admin': user.get('is_admin', False) }
+    # 细化错误提示：账号不存在 vs 密码错误
+    if not user:
+        current_app.logger.warning(f"用户 {username} 登录失败：账号不存在")
+        return jsonify({'error': '账号不存在'}), 401
+
+    if not check_password_hash(user['password_hash'], password):
+        current_app.logger.warning(f"用户 {username} 登录失败：密码错误")
+        return jsonify({'error': '密码错误'}), 401
+
+    # 登录成功
+    session['user_id'] = str(user['_id'])
+    session['username'] = user['username']
+    current_app.logger.info(f"用户 {username} 登录成功")
+
+    # 登录成功后自动刷新作业数据
+    user_id = str(user['_id'])
+    refresh_success = auto_refresh_assignments_on_login(user_id)
+
+    response_data = {
+        'message': '登录成功',
+        'user': { 'id': str(user['_id']), 'username': user['username'], 'is_admin': user.get('is_admin', False) }
+    }
+
+    # 如果数据刷新成功，添加刷新信息到响应中
+    if refresh_success.get('success'):
+        response_data['data_refresh'] = {
+            'success': True,
+            'message': refresh_success.get('message', '作业数据已更新'),
+            'count': refresh_success.get('count', 0)
         }
-        
-        # 如果数据刷新成功，添加刷新信息到响应中
-        if refresh_success.get('success'):
-            response_data['data_refresh'] = {
-                'success': True,
-                'message': refresh_success.get('message', '作业数据已更新'),
-                'count': refresh_success.get('count', 0)
-            }
-        else:
-            response_data['data_refresh'] = {
-                'success': False,
-                'message': refresh_success.get('error', '数据刷新失败，但不影响登录')
-            }
-        
-        return jsonify(response_data)
     else:
-        current_app.logger.warning(f"用户 {username} 登录失败")
-        return jsonify({'error': '用户名或密码错误'}), 401
+        response_data['data_refresh'] = {
+            'success': False,
+            'message': refresh_success.get('error', '数据刷新失败，但不影响登录')
+        }
+
+    return jsonify(response_data)
 
 @auth_bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
     username = session.get('username')
-    
+    user_id = session.get('user_id')
+
     # 调用scraper的logout方法，退出外站登录状态
     try:
         from .scraper import get_scraper
         scraper = get_scraper()
-        if scraper:
-            scraper.logout()
+        if scraper and user_id:
+            scraper.logout(user_id)
             current_app.logger.info(f"用户 {username} 的外站登录状态已清理")
     except Exception as e:
         current_app.logger.warning(f"清理外站登录状态时发生错误: {e}")

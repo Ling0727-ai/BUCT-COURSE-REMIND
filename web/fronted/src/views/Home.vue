@@ -96,6 +96,15 @@
         @close="closeReminderModal"
         @confirm="confirmReminder"
     />
+
+    <!-- 页脚 -->
+    <div class="app-footer">
+      <div class="footer-content">
+        <span>联系邮箱：<a href="mailto:***REMOVED***">***REMOVED***</a></span>
+        <span class="sep">|</span>
+        <span>GitHub：<a href="https://github.com/ling0727-ai" target="_blank" rel="noopener">lingxin</a></span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1436,5 +1445,25 @@ export default {
 @keyframes pulse {
   0%, 100% { transform: scale(1); opacity: 0.4; }
   50% { transform: scale(1.1); opacity: 0.2; }
+}
+
+/* 页脚样式 */
+.app-footer {
+  width: 100%;
+  padding: 16px 20px;
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 40px;
+}
+
+.app-footer a { color: #0ea5e9; text-decoration: none; }
+
+.app-footer a:hover { text-decoration: underline; }
+
+.app-footer .sep { margin: 0 8px; color: #94a3b8; }
+
+@media (max-width: 600px) {
+  .app-footer { font-size: 11px; padding: 12px 12px; }
 }
 </style>

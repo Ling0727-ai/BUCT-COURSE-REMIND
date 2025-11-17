@@ -17,31 +17,47 @@
             @input="$emit('update:todo', { ...todo, title: $event.target.value })"
             placeholder="请输入待办事项名称"
             maxlength="100"
-            @keyup.enter="$emit('add')"
+            @keyup.enter="handleAdd"
           >
         </div>
+
         <div class="form-group">
-          <label for="todoHours">预计时间</label>
-          <div class="time-input-wrapper">
-            <input
-              id="todoHours"
-              :value="todo.timeInput"
-              class="time-input"
-              maxlength="8"
-              placeholder="24:00:00"
-              type="text"
-              @input="handleTimeInput($event.target.value)"
+          <label for="todoDeadline">
+            <i class="fas fa-calendar-alt"></i>
+            截止时间 (DDL) *
+          </label>
+
+          <!-- 快捷选项 -->
+          <div class="quick-options">
+            <button
+              v-for="option in quickTimeOptions"
+              :key="option.value"
+              :class="['option-btn', { active: selectedQuickOption === option.value }]"
+              @click="selectQuickTime(option.value)"
+              type="button"
             >
-            <span class="time-hint">格式: 时:分:秒 (不输入默认24h)</span>
+              <i :class="option.icon"></i>
+              <span>{{ option.label }}</span>
+            </button>
           </div>
-          <div class="time-examples">
-            <span class="example-tag" @click="setQuickTime('01:00:00')">1小时</span>
-            <span class="example-tag" @click="setQuickTime('03:00:00')">3小时</span>
-            <span class="example-tag" @click="setQuickTime('12:00:00')">12小时</span>
-            <span class="example-tag" @click="setQuickTime('24:00:00')">1天</span>
-            <span class="example-tag" @click="setQuickTime('72:00:00')">3天</span>
+
+          <!-- 日期时间选择器 -->
+          <div class="datetime-picker">
+            <input
+              id="todoDeadline"
+              type="datetime-local"
+              :value="deadlineInput"
+              @input="handleDeadlineInput($event.target.value)"
+              :min="minDatetime"
+              class="datetime-input"
+            >
+            <span class="datetime-hint">
+              <i class="fas fa-info-circle"></i>
+              设置待办事项的截止时间
+            </span>
           </div>
         </div>
+
         <div class="form-group">
           <label for="todoDescription">备注</label>
           <textarea 
@@ -53,6 +69,7 @@
             maxlength="500"
           ></textarea>
         </div>
+
         <div class="form-group">
           <label for="todoPriority">优先级</label>
           <select 
@@ -67,11 +84,14 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" @click="$emit('close')">取消</button>
-        <button 
+        <button class="btn btn-secondary" @click="$emit('close')">
+          <i class="fas fa-times"></i>
+          取消
+        </button>
+        <button
           class="btn btn-primary" 
-          @click="$emit('add')"
-          :disabled="!todo.title.trim() || adding"
+          @click="handleAdd"
+          :disabled="!isValid || adding"
         >
           <span v-if="!adding">
             <i class="fas fa-plus"></i> 添加
@@ -86,6 +106,8 @@
 </template>
 
 <script>
+import { ref, computed, watch } from 'vue'
+
 export default {
   name: 'AddTodoModal',
   props: {
@@ -103,61 +125,129 @@ export default {
     }
   },
   emits: ['close', 'add', 'update:todo'],
-  methods: {
-    handleTimeInput(value) {
-      // 保存原始输入
-      const timeInput = value.trim()
+  setup(props, { emit }) {
+    const selectedQuickOption = ref('')
+    const deadlineInput = ref('')
 
-      // 解析时间输入，支持多种格式
-      let hours = 24 // 默认24小时
+    // 快捷时间选项
+    const quickTimeOptions = [
+      { value: '1h', label: '1小时后', icon: 'fas fa-clock' },
+      { value: '3h', label: '3小时后', icon: 'fas fa-clock' },
+      { value: '6h', label: '6小时后', icon: 'fas fa-clock' },
+      { value: '12h', label: '12小时后', icon: 'fas fa-clock' },
+      { value: '1d', label: '1天后', icon: 'fas fa-calendar-day' },
+      { value: '3d', label: '3天后', icon: 'fas fa-calendar-week' },
+      { value: '1w', label: '1周后', icon: 'fas fa-calendar-alt' }
+    ]
 
-      if (!timeInput) {
-        // 空输入，使用默认值24小时
-        hours = 24
-      } else if (/^\d+:\d+:\d+$/.test(timeInput)) {
-        // HH:MM:SS 格式
-        const [h, m, s] = timeInput.split(':').map(Number)
-        hours = h + m / 60 + s / 3600
-      } else if (/^\d+:\d+$/.test(timeInput)) {
-        // HH:MM 格式
-        const [h, m] = timeInput.split(':').map(Number)
-        hours = h + m / 60
-      } else if (/^\d+$/.test(timeInput)) {
-        // 纯数字，视为小时数
-        hours = parseFloat(timeInput)
-      } else if (/^\d+\.?\d*$/.test(timeInput)) {
-        // 小数格式的小时数
-        hours = parseFloat(timeInput)
-      } else {
-        // 无法解析的格式，保持默认24小时
-        hours = 24
+    // 最小可选时间（当前时间）
+    const minDatetime = computed(() => {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      const hours = String(now.getHours()).padStart(2, '0')
+      const minutes = String(now.getMinutes()).padStart(2, '0')
+      return `${year}-${month}-${day}T${hours}:${minutes}`
+    })
+
+    // 验证表单是否有效
+    const isValid = computed(() => {
+      if (!props.todo.title || !props.todo.title.trim()) return false
+      if (!deadlineInput.value) return false
+
+      const selectedTime = new Date(deadlineInput.value)
+      const now = new Date()
+      return selectedTime > now
+    })
+
+    // 选择快捷时间
+    const selectQuickTime = (value) => {
+      selectedQuickOption.value = value
+
+      const now = new Date()
+
+      // 根据选项计算目标时间（毫秒）
+      const timeMap = {
+        '1h': 3600000,       // 1 hour
+        '3h': 10800000,      // 3 hours
+        '6h': 21600000,      // 6 hours
+        '12h': 43200000,     // 12 hours
+        '1d': 86400000,      // 1 day
+        '3d': 259200000,     // 3 days
+        '1w': 604800000      // 1 week
       }
 
-      // 限制范围 0.01-8760小时（最多1年）
-      hours = Math.max(0.01, Math.min(8760, hours))
+      const targetDate = new Date(now.getTime() + timeMap[value])
 
-      this.$emit('update:todo', {
-        ...this.todo,
-        hours: hours,
-        timeInput: timeInput // 保存用户的原始输入以供显示
-      })
-    },
+      // 格式化为 datetime-local 格式
+      const year = targetDate.getFullYear()
+      const month = String(targetDate.getMonth() + 1).padStart(2, '0')
+      const day = String(targetDate.getDate()).padStart(2, '0')
+      const hours = String(targetDate.getHours()).padStart(2, '0')
+      const minutes = String(targetDate.getMinutes()).padStart(2, '0')
 
-    setQuickTime(timeStr) {
-      // 快捷设置时间
-      this.handleTimeInput(timeStr)
+      deadlineInput.value = `${year}-${month}-${day}T${hours}:${minutes}`
+      updateTodoDeadline(deadlineInput.value)
     }
-  },
-  watch: {
-    show(newVal) {
-      if (newVal && !this.todo.timeInput) {
-        // 弹窗打开时，如果没有timeInput，设置默认值
-        this.$emit('update:todo', {
-          ...this.todo,
-          hours: 24,
-          timeInput: '24:00:00'
-        })
+
+    // 处理日期时间输入
+    const handleDeadlineInput = (value) => {
+      deadlineInput.value = value
+      selectedQuickOption.value = '' // 清除快捷选项高亮
+      updateTodoDeadline(value)
+    }
+
+    // 更新 todo 对象的截止时间
+    const updateTodoDeadline = (datetimeStr) => {
+      if (!datetimeStr) return
+
+      const selectedDate = new Date(datetimeStr)
+      const now = new Date()
+
+      // 计算小时差（用于兼容旧的 hours 字段）
+      const hoursDiff = (selectedDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+
+      emit('update:todo', {
+        ...props.todo,
+        deadline: selectedDate.toISOString(),
+        hours: Math.max(0.01, hoursDiff), // 保留旧字段以兼容
+        timeInput: datetimeStr // 保存输入值
+      })
+    }
+
+    // 处理添加操作
+    const handleAdd = () => {
+      if (isValid.value && !props.adding) {
+        emit('add')
       }
+    }
+
+    // 监听弹窗显示状态，初始化默认值
+    watch(() => props.show, (newVal) => {
+      if (newVal) {
+        if (!props.todo.timeInput) {
+          // 默认设置为24小时后
+          selectQuickTime('1d')
+        } else {
+          deadlineInput.value = props.todo.timeInput
+        }
+      } else {
+        // 关闭时重置
+        selectedQuickOption.value = ''
+        deadlineInput.value = ''
+      }
+    })
+
+    return {
+      selectedQuickOption,
+      deadlineInput,
+      quickTimeOptions,
+      minDatetime,
+      isValid,
+      selectQuickTime,
+      handleDeadlineInput,
+      handleAdd
     }
   }
 }
@@ -177,6 +267,7 @@ export default {
   justify-content: center;
   z-index: 1000;
   animation: fadeIn 0.3s ease;
+  padding: 20px;
 }
 
 @keyframes fadeIn {
@@ -188,11 +279,13 @@ export default {
   background: white;
   border-radius: 20px;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
-  max-width: 500px;
-  width: 90%;
+  max-width: 600px;
+  width: min(92vw, 600px);
   max-height: 90vh;
   overflow-y: auto;
   animation: slideUp 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes slideUp {
@@ -212,6 +305,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -252,21 +346,28 @@ export default {
 
 .modal-body {
   padding: 25px 30px;
+  flex: 1 1 auto;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
   color: #2c3e50;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.95em;
 }
 
-.form-group input,
+.form-group label i {
+  color: #667eea;
+}
+
+.form-group input[type="text"],
 .form-group textarea,
 .form-group select {
   width: 100%;
@@ -294,58 +395,92 @@ export default {
   font-family: inherit;
 }
 
-.time-input-wrapper {
+/* 快捷选项按钮 */
+.quick-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.option-btn {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.option-btn i {
+  font-size: 18px;
+  color: #6c757d;
+}
+
+.option-btn:hover {
+  background: linear-gradient(135deg, #e9ecef, #dee2e6);
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.option-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-color: #667eea;
+  color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.option-btn.active i {
+  color: white;
+}
+
+/* 日期时间选择器 */
+.datetime-picker {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.time-input {
+.datetime-input {
   width: 100%;
-  font-family: 'Courier New', monospace;
-  font-size: 16px !important;
-  letter-spacing: 1px;
+  padding: 14px 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  background: #f8f9fa;
+  box-sizing: border-box;
+  font-family: inherit;
+  color: #2c3e50;
 }
 
-.time-hint {
+.datetime-input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.datetime-hint {
   color: #6c757d;
   font-size: 12px;
   padding: 0 4px;
-  display: block;
-}
-
-.time-examples {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  align-items: center;
+  gap: 6px;
 }
 
-.example-tag {
-  display: inline-block;
-  padding: 6px 12px;
-  background: linear-gradient(135deg, #e9ecef, #dee2e6);
-  color: #495057;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid #ced4da;
+.datetime-hint i {
+  color: #3b82f6;
 }
-
-.example-tag:hover {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
-  border-color: #667eea;
-}
-
-.example-tag:active {
-  transform: translateY(0);
-}
-
 
 .modal-footer {
   padding: 20px 30px 25px;
@@ -353,34 +488,37 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .btn {
   padding: 12px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 8px;
   text-align: center;
-  font-weight: 500;
-  min-width: 100px;
+  font-weight: 600;
+  min-width: 110px;
+}
+
+.btn i {
+  font-size: 14px;
 }
 
 .btn-secondary {
-  background: linear-gradient(135deg, #6c757d, #495057);
+  background: linear-gradient(135deg, #6c757d, #5a6268);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
 }
 
 .btn-secondary:hover {
-  background: linear-gradient(135deg, #5a6268, #3d4043);
+  background: linear-gradient(135deg, #5a6268, #495057);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
 }
@@ -388,20 +526,59 @@ export default {
 .btn-primary {
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
   background: linear-gradient(135deg, #5a6fd8, #6a42a0);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
 }
 
 .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none !important;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .modal-content {
+    max-width: 95vw;
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .quick-options {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .option-btn {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .option-btn i {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-header h3 {
+    font-size: 1.2em;
+  }
+
+  .btn {
+    padding: 10px 18px;
+    font-size: 13px;
+    min-width: 90px;
+  }
 }
 </style>

@@ -64,14 +64,23 @@
           <div class="form-row">
             <div class="form-group">
               <label>密码</label>
-              <div class="input-wrapper">
+              <div class="input-wrapper has-eye">
                 <i class="fas fa-lock input-icon"></i>
                 <input 
-                  type="password" 
-                  v-model="formData.password" 
+                  :type="showPassword ? 'text' : 'password'"
+                  v-model="formData.password"
                   placeholder="至少6位密码"
                   class="form-input"
+                  autocomplete="new-password"
                 >
+                <button
+                  type="button"
+                  class="toggle-visibility"
+                  :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                  @click="showPassword = !showPassword"
+                >
+                  <i :class="['fas', showPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
+                </button>
                 <span class="input-status success" v-if="formData.password.length >= 6">
                   <i class="fas fa-check"></i>
                 </span>
@@ -86,14 +95,23 @@
 
             <div class="form-group">
               <label>确认密码</label>
-              <div class="input-wrapper">
+              <div class="input-wrapper has-eye">
                 <i class="fas fa-lock input-icon"></i>
                 <input 
-                  type="password" 
-                  v-model="formData.confirmPassword" 
+                  :type="showConfirmPassword ? 'text' : 'password'"
+                  v-model="formData.confirmPassword"
                   placeholder="再次输入密码"
                   class="form-input"
+                  autocomplete="new-password"
                 >
+                <button
+                  type="button"
+                  class="toggle-visibility"
+                  :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'"
+                  @click="showConfirmPassword = !showConfirmPassword"
+                >
+                  <i :class="['fas', showConfirmPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
+                </button>
                 <span class="input-status success" v-if="formData.confirmPassword && formData.password === formData.confirmPassword">
                   <i class="fas fa-check"></i>
                 </span>
@@ -120,14 +138,23 @@
 
             <div class="form-group">
               <label>外部系统密码 <span class="optional"></span></label>
-              <div class="input-wrapper">
+              <div class="input-wrapper has-eye">
                 <i class="fas fa-key input-icon"></i>
                 <input 
-                  type="password" 
-                  v-model="formData.sPassword" 
+                  :type="showSPassword ? 'text' : 'password'"
+                  v-model="formData.sPassword"
                   placeholder="教务系统密码"
                   class="form-input"
+                  autocomplete="new-password"
                 >
+                <button
+                  type="button"
+                  class="toggle-visibility"
+                  :aria-label="showSPassword ? '隐藏密码' : '显示密码'"
+                  @click="showSPassword = !showSPassword"
+                >
+                  <i :class="['fas', showSPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
+                </button>
                 <span class="input-status success" v-if="formData.sPassword.length > 0">
                   <i class="fas fa-check"></i>
                 </span>
@@ -178,7 +205,10 @@
                 <i class="fas fa-check"></i>
               </span>
               <span class="checkbox-text">
-                我已阅读并同意 <a href="#" class="terms-link">服务条款</a> 和 <a href="#" class="terms-link">隐私政策</a>
+                我已阅读并同意
+                <router-link to="/terms" class="terms-link">服务条款</router-link>
+                和
+                <router-link to="/privacy" class="terms-link">隐私政策</router-link>
               </span>
             </label>
           </div>
@@ -334,6 +364,9 @@ export default {
       studentId: '',
       sPassword: ''
     })
+    const showPassword = ref(false)
+    const showConfirmPassword = ref(false)
+    const showSPassword = ref(false)
     const agreeTerms = ref(false)
     const loading = ref(false)
     const showSuccess = ref(false)
@@ -600,6 +633,9 @@ export default {
 
     return {
       formData,
+      showPassword,
+      showConfirmPassword,
+      showSPassword,
       agreeTerms,
       loading,
       showSuccess,
@@ -808,6 +844,29 @@ export default {
   color: #1f2937;
   transition: all 0.3s ease;
   outline: none;
+}
+
+/* 给带小眼睛的输入框留出右侧空间 */
+.input-wrapper.has-eye .form-input {
+  padding-right: 52px;
+}
+
+.toggle-visibility {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.toggle-visibility:hover {
+  color: #6b7280;
+  background: rgba(0,0,0,0.05);
 }
 
 .form-input:focus {

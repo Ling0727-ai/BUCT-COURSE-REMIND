@@ -57,18 +57,28 @@
 
               <div class="form-group">
                 <label class="form-label">密码</label>
-                <div class="input-wrapper">
+                <div class="input-wrapper has-eye">
                   <div class="input-icon">
                     <i class="fas fa-lock"></i>
                   </div>
                   <input 
-                    type="password" 
-                    v-model="password" 
+                    :type="showPassword ? 'text' : 'password'"
+                    v-model="password"
                     placeholder="请输入您的密码"
                     @keyup.enter="handleLogin"
                     class="form-input"
                     :class="{ 'has-value': password.length > 0 }"
+                    autocomplete="current-password"
                   >
+                  <!-- 显示/隐藏密码 -->
+                  <button
+                    type="button"
+                    class="toggle-visibility"
+                    :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                    @click="showPassword = !showPassword"
+                  >
+                    <i :class="['fas', showPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
+                  </button>
                   <div class="input-border"></div>
                 </div>
               </div>
@@ -112,6 +122,12 @@
                 <router-link to="/register" class="register-link">
                   立即注册
                 </router-link>
+              </div>
+              <div class="legal-links">
+                登录即表示您已阅读并同意
+                <router-link to="/terms" class="terms-link">服务条款</router-link>
+                和
+                <router-link to="/privacy" class="terms-link">隐私政策</router-link>
               </div>
             </div>
           </div>
@@ -202,7 +218,7 @@
     </transition>
 
     <transition name="toast-slide">
-      <div v-if="errorMessage" class="toast error">
+      <div v-if="showError" class="toast error">
         <div class="toast-icon">
           <i class="fas fa-exclamation-triangle"></i>
         </div>
@@ -228,6 +244,7 @@ import { useRouter } from 'vue-router'
 import rsaCrypto from '@/utils/rsa-crypto'
 import SecurityIndicator from '@/components/SecurityIndicator.vue'
 import ForgotPasswordModal from '@/components/ForgotPasswordModal.vue'
+import { useToast } from './home/composables/useToast' // 新增：全局悬浮 Toast
 
 export default {
   name: 'Login',
@@ -237,8 +254,10 @@ export default {
   },
   setup() {
     const router = useRouter()
+    const { showToast: showTopToast } = useToast() // 新增：顶部浮层提醒
     const username = ref('')
     const password = ref('')
+    const showPassword = ref(false)
     const rememberMe = ref(false)
     const loading = ref(false)
     const showSuccess = ref(false)
@@ -246,12 +265,20 @@ export default {
     const dataRefreshLoading = ref(false)
     const dataRefreshMessage = ref('')
     const errorMessage = ref('')
+    const showError = ref(false)
     const showForgotPasswordModal = ref(false)
+
+    const showErrorToast = (msg) => {
+      errorMessage.value = msg
+      showError.value = true
+      setTimeout(() => { showError.value = false }, 3000)
+      // 同步触发全局悬浮提示
+      showTopToast('error', '登录失败', msg)
+    }
 
     const handleLogin = async () => {
       if (!username.value.trim() || !password.value.trim()) {
-        errorMessage.value = '请输入账号和密码'
-        setTimeout(() => { errorMessage.value = '' }, 3000)
+        showErrorToast('请输入账号和密码')
         return
       }
 
@@ -275,13 +302,23 @@ export default {
           body: JSON.stringify(requestData)
         })
 
-        const data = await response.json()
+        let data = {}
+        try {
+          data = await response.json()
+        } catch (e) {
+          // 非JSON响应
+          data = { error: '服务器返回异常' }
+        }
 
         if (response.ok) {
           showSuccess.value = true
-          
-          // 处理数据刷新状态
+          // 顶部提示登录成功
+          showTopToast('success', '登录成功', '欢迎回来')
+
+          // 处理数据刷新状态（顶部 info 也提示一下）
           if (data.data_refresh) {
+            const msg = data.data_refresh.message || '作业数据正在后台更新...'
+            showTopToast(data.data_refresh.success ? 'info' : 'warning', '数据更新', msg)
             if (data.data_refresh.success) {
               dataRefreshMessage.value = data.data_refresh.message
               showDataRefresh.value = true
@@ -318,17 +355,24 @@ export default {
             sessionStorage.setItem('user', JSON.stringify(userInfo))
           }
           
+          // 清除关闭计时器，避免重新登录后误触发退出
+          try {
+            localStorage.removeItem('app_last_closed_at')
+            // 设置一个标记表示刚刚登录成功
+            localStorage.setItem('app_just_logged_in', String(Date.now()))
+          } catch (e) {
+            console.warn('清除关闭计时器失败:', e)
+          }
+
           setTimeout(() => {
             router.push('/')
           }, 800)
         } else {
-          errorMessage.value = data.error || '登录失败'
-          setTimeout(() => { errorMessage.value = '' }, 3000)
+          showErrorToast(data.error || '登录失败')
         }
       } catch (error) {
         console.error('登录错误:', error)
-        errorMessage.value = '网络错误，请检查网络连接后重试'
-        setTimeout(() => { errorMessage.value = '' }, 3000)
+        showErrorToast('网络错误，请检查网络连接后重试')
       } finally {
         loading.value = false
         setTimeout(() => {
@@ -370,9 +414,20 @@ export default {
       }, 3000)
     }
 
+    // 自动登出提示（关闭超过6h）
+    const autoLogoutMessage = sessionStorage.getItem('logout_reason')
+    if (autoLogoutMessage) {
+      errorMessage.value = autoLogoutMessage
+      showError.value = true
+      setTimeout(() => { showError.value = false }, 4000)
+      showTopToast('info', '自动退出', autoLogoutMessage)
+      sessionStorage.removeItem('logout_reason')
+    }
+
     return {
       username,
       password,
+      showPassword,
       rememberMe,
       loading,
       showSuccess,
@@ -380,6 +435,7 @@ export default {
       dataRefreshLoading,
       dataRefreshMessage,
       errorMessage,
+      showError,
       showForgotPasswordModal,
       handleLogin,
       showForgotPassword,
@@ -391,7 +447,9 @@ export default {
 </script>
 
 <style scoped>
-/* 主容器 */
+/****************************
+  主容器
+****************************/
 .login-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
@@ -575,6 +633,28 @@ export default {
 
 .input-wrapper {
   position: relative;
+}
+
+.input-wrapper.has-eye .form-input {
+  padding-right: 56px; /* 给右侧小眼睛留空间 */
+}
+
+.toggle-visibility {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.toggle-visibility:hover {
+  color: #6b7280;
+  background: rgba(0,0,0,0.04);
 }
 
 .input-icon {
@@ -1152,5 +1232,22 @@ export default {
   .shape {
     display: none;
   }
+}
+
+.legal-links {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+.legal-links .terms-link {
+  color: #0ea5e9;
+  text-decoration: none;
+  font-weight: 600;
+  margin: 0 4px;
+}
+.legal-links .terms-link:hover {
+  text-decoration: underline;
 }
 </style>
