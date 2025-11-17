@@ -89,8 +89,8 @@
           取消
         </button>
         <button
-          :disabled="!isValid || adding"
-          class="btn btn-primary"
+            :disabled="!isValid || adding"
+            class="btn btn-primary"
           @click="handleAdd"
         >
           <span v-if="!adding">
