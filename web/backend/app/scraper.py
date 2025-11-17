@@ -2,8 +2,9 @@
 
 import logging
 from threading import Lock
-from buct_course import BUCTClient
+
 from bson import ObjectId
+from buct_course import BUCTClient
 
 # 导入mongo实例，以便查询数据库
 from . import mongo

@@ -30,11 +30,11 @@
           <!-- 快捷选项 -->
           <div class="quick-options">
             <button
-              v-for="option in quickTimeOptions"
-              :key="option.value"
-              :class="['option-btn', { active: selectedQuickOption === option.value }]"
-              @click="selectQuickTime(option.value)"
-              type="button"
+                v-for="option in quickTimeOptions"
+                :key="option.value"
+                :class="['option-btn', { active: selectedQuickOption === option.value }]"
+                type="button"
+                @click="selectQuickTime(option.value)"
             >
               <i :class="option.icon"></i>
               <span>{{ option.label }}</span>
@@ -44,12 +44,12 @@
           <!-- 日期时间选择器 -->
           <div class="datetime-picker">
             <input
-              id="todoDeadline"
-              type="datetime-local"
-              :value="deadlineInput"
-              @input="handleDeadlineInput($event.target.value)"
-              :min="minDatetime"
-              class="datetime-input"
+                id="todoDeadline"
+                :min="minDatetime"
+                :value="deadlineInput"
+                class="datetime-input"
+                type="datetime-local"
+                @input="handleDeadlineInput($event.target.value)"
             >
             <span class="datetime-hint">
               <i class="fas fa-info-circle"></i>
@@ -89,9 +89,9 @@
           取消
         </button>
         <button
-          class="btn btn-primary" 
-          @click="handleAdd"
           :disabled="!isValid || adding"
+          class="btn btn-primary"
+          @click="handleAdd"
         >
           <span v-if="!adding">
             <i class="fas fa-plus"></i> 添加
@@ -106,7 +106,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import {computed, ref, watch} from 'vue'
 
 export default {
   name: 'AddTodoModal',
@@ -125,19 +125,19 @@ export default {
     }
   },
   emits: ['close', 'add', 'update:todo'],
-  setup(props, { emit }) {
+  setup(props, {emit}) {
     const selectedQuickOption = ref('')
     const deadlineInput = ref('')
 
     // 快捷时间选项
     const quickTimeOptions = [
-      { value: '1h', label: '1小时后', icon: 'fas fa-clock' },
-      { value: '3h', label: '3小时后', icon: 'fas fa-clock' },
-      { value: '6h', label: '6小时后', icon: 'fas fa-clock' },
-      { value: '12h', label: '12小时后', icon: 'fas fa-clock' },
-      { value: '1d', label: '1天后', icon: 'fas fa-calendar-day' },
-      { value: '3d', label: '3天后', icon: 'fas fa-calendar-week' },
-      { value: '1w', label: '1周后', icon: 'fas fa-calendar-alt' }
+      {value: '1h', label: '1小时后', icon: 'fas fa-clock'},
+      {value: '3h', label: '3小时后', icon: 'fas fa-clock'},
+      {value: '6h', label: '6小时后', icon: 'fas fa-clock'},
+      {value: '12h', label: '12小时后', icon: 'fas fa-clock'},
+      {value: '1d', label: '1天后', icon: 'fas fa-calendar-day'},
+      {value: '3d', label: '3天后', icon: 'fas fa-calendar-week'},
+      {value: '1w', label: '1周后', icon: 'fas fa-calendar-alt'}
     ]
 
     // 最小可选时间（当前时间）

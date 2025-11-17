@@ -126,7 +126,7 @@ def login():
         return jsonify({'error': '用户名和密码不能为空'}), 400
     
     user = mongo.db[USERS_COLLECTION].find_one({'username': username})
-    
+
     # 细化错误提示：账号不存在 vs 密码错误
     if not user:
         current_app.logger.warning(f"用户 {username} 登录失败：账号不存在")
@@ -147,7 +147,7 @@ def login():
 
     response_data = {
         'message': '登录成功',
-        'user': { 'id': str(user['_id']), 'username': user['username'], 'is_admin': user.get('is_admin', False) }
+        'user': {'id': str(user['_id']), 'username': user['username'], 'is_admin': user.get('is_admin', False)}
     }
 
     # 如果数据刷新成功，添加刷新信息到响应中

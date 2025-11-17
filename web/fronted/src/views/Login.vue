@@ -61,21 +61,21 @@
                   <div class="input-icon">
                     <i class="fas fa-lock"></i>
                   </div>
-                  <input 
-                    :type="showPassword ? 'text' : 'password'"
-                    v-model="password"
+                  <input
+                      v-model="password"
+                      :type="showPassword ? 'text' : 'password'"
                     placeholder="请输入您的密码"
                     @keyup.enter="handleLogin"
                     class="form-input"
                     :class="{ 'has-value': password.length > 0 }"
-                    autocomplete="current-password"
+                      autocomplete="current-password"
                   >
                   <!-- 显示/隐藏密码 -->
                   <button
-                    type="button"
-                    class="toggle-visibility"
-                    :aria-label="showPassword ? '隐藏密码' : '显示密码'"
-                    @click="showPassword = !showPassword"
+                      :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                      class="toggle-visibility"
+                      type="button"
+                      @click="showPassword = !showPassword"
                   >
                     <i :class="['fas', showPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
                   </button>
@@ -125,9 +125,9 @@
               </div>
               <div class="legal-links">
                 登录即表示您已阅读并同意
-                <router-link to="/terms" class="terms-link">服务条款</router-link>
+                <router-link class="terms-link" to="/terms">服务条款</router-link>
                 和
-                <router-link to="/privacy" class="terms-link">隐私政策</router-link>
+                <router-link class="terms-link" to="/privacy">隐私政策</router-link>
               </div>
             </div>
           </div>
@@ -239,12 +239,12 @@
 </template>
 
 <script>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import {ref} from 'vue'
+import {useRouter} from 'vue-router'
 import rsaCrypto from '@/utils/rsa-crypto'
 import SecurityIndicator from '@/components/SecurityIndicator.vue'
 import ForgotPasswordModal from '@/components/ForgotPasswordModal.vue'
-import { useToast } from './home/composables/useToast' // 新增：全局悬浮 Toast
+import {useToast} from './home/composables/useToast' // 新增：全局悬浮 Toast
 
 export default {
   name: 'Login',
@@ -254,7 +254,7 @@ export default {
   },
   setup() {
     const router = useRouter()
-    const { showToast: showTopToast } = useToast() // 新增：顶部浮层提醒
+    const {showToast: showTopToast} = useToast() // 新增：顶部浮层提醒
     const username = ref('')
     const password = ref('')
     const showPassword = ref(false)
@@ -271,7 +271,9 @@ export default {
     const showErrorToast = (msg) => {
       errorMessage.value = msg
       showError.value = true
-      setTimeout(() => { showError.value = false }, 3000)
+      setTimeout(() => {
+        showError.value = false
+      }, 3000)
       // 同步触发全局悬浮提示
       showTopToast('error', '登录失败', msg)
     }
@@ -307,7 +309,7 @@ export default {
           data = await response.json()
         } catch (e) {
           // 非JSON响应
-          data = { error: '服务器返回异常' }
+          data = {error: '服务器返回异常'}
         }
 
         if (response.ok) {
@@ -354,7 +356,7 @@ export default {
             // 即使不记住密码，也要保存当前会话的用户信息
             sessionStorage.setItem('user', JSON.stringify(userInfo))
           }
-          
+
           // 清除关闭计时器，避免重新登录后误触发退出
           try {
             localStorage.removeItem('app_last_closed_at')
@@ -419,7 +421,9 @@ export default {
     if (autoLogoutMessage) {
       errorMessage.value = autoLogoutMessage
       showError.value = true
-      setTimeout(() => { showError.value = false }, 4000)
+      setTimeout(() => {
+        showError.value = false
+      }, 4000)
       showTopToast('info', '自动退出', autoLogoutMessage)
       sessionStorage.removeItem('logout_reason')
     }
@@ -654,7 +658,7 @@ export default {
 
 .toggle-visibility:hover {
   color: #6b7280;
-  background: rgba(0,0,0,0.04);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .input-icon {
@@ -1241,12 +1245,14 @@ export default {
   color: #6b7280;
   line-height: 1.5;
 }
+
 .legal-links .terms-link {
   color: #0ea5e9;
   text-decoration: none;
   font-weight: 600;
   margin: 0 4px;
 }
+
 .legal-links .terms-link:hover {
   text-decoration: underline;
 }

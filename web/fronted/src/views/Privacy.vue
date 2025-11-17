@@ -6,7 +6,8 @@
 
       <section>
         <h2>一、引言</h2>
-        <p>本隐私政策旨在向您说明我们如何收集、使用、共享和保护您的个人信息。我们深知个人信息对您的重要性，并承诺按照合法、正当、必要、诚信的原则处理您的信息。</p>
+        <p>
+          本隐私政策旨在向您说明我们如何收集、使用、共享和保护您的个人信息。我们深知个人信息对您的重要性，并承诺按照合法、正当、必要、诚信的原则处理您的信息。</p>
       </section>
 
       <section>
@@ -34,7 +35,8 @@
         <ol>
           <li>获得您的明确同意后；</li>
           <li>基于法律法规、行政或司法机关要求；</li>
-          <li>在必要范围内与服务提供商合作（如邮件发送服务），我们会与其签署保密协议，并要求其仅为实现目的而使用相关信息；</li>
+          <li>在必要范围内与服务提供商合作（如邮件发送服务），我们会与其签署保密协议，并要求其仅为实现目的而使用相关信息；
+          </li>
           <li>为保护您、我们或公众的合法权益、财产或安全所必需。</li>
         </ol>
       </section>
@@ -64,7 +66,8 @@
 
       <section>
         <h2>八、政策更新</h2>
-        <p>我们可能适时对本隐私政策进行修订。更新后的政策将通过页面公告或其他合理方式进行提示，修订在公告载明的日期生效。</p>
+        <p>
+          我们可能适时对本隐私政策进行修订。更新后的政策将通过页面公告或其他合理方式进行提示，修订在公告载明的日期生效。</p>
       </section>
 
       <section>
@@ -77,7 +80,7 @@
         <p>针对本隐私政策或个人信息保护事宜，欢迎通过以下方式反馈：</p>
         <ul>
           <li>电子邮箱：<a href="mailto:***REMOVED***">***REMOVED***</a></li>
-          <li>GitHub：<a href="https://github.com/ling0727-ai" target="_blank" rel="noopener">ling0727-ai</a></li>
+          <li>GitHub：<a href="https://github.com/ling0727-ai" rel="noopener" target="_blank">ling0727-ai</a></li>
         </ul>
       </section>
     </div>
@@ -96,30 +99,44 @@ export default {
   background: #f5f7fb;
   padding: 24px 16px;
 }
+
 .legal-card {
   max-width: 900px;
   margin: 0 auto;
   background: #fff;
   border-radius: 16px;
   padding: 28px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
+
 h1 {
   margin: 0 0 8px;
   font-size: 28px;
   color: #111827;
 }
+
 .update-time {
   margin: 0 0 20px;
   color: #6b7280;
   font-size: 14px;
 }
-section { margin: 18px 0; }
+
+section {
+  margin: 18px 0;
+}
+
 h2 {
   font-size: 18px;
   margin: 0 0 8px;
   color: #0f172a;
 }
-p, li { color: #374151; line-height: 1.8; }
-ol { padding-left: 18px; }
+
+p, li {
+  color: #374151;
+  line-height: 1.8;
+}
+
+ol {
+  padding-left: 18px;
+}
 </style>

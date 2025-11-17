@@ -66,18 +66,18 @@
               <label>密码</label>
               <div class="input-wrapper has-eye">
                 <i class="fas fa-lock input-icon"></i>
-                <input 
-                  :type="showPassword ? 'text' : 'password'"
-                  v-model="formData.password"
+                <input
+                    v-model="formData.password"
+                    :type="showPassword ? 'text' : 'password'"
                   placeholder="至少6位密码"
                   class="form-input"
-                  autocomplete="new-password"
+                    autocomplete="new-password"
                 >
                 <button
-                  type="button"
-                  class="toggle-visibility"
-                  :aria-label="showPassword ? '隐藏密码' : '显示密码'"
-                  @click="showPassword = !showPassword"
+                    :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                    class="toggle-visibility"
+                    type="button"
+                    @click="showPassword = !showPassword"
                 >
                   <i :class="['fas', showPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
                 </button>
@@ -97,18 +97,18 @@
               <label>确认密码</label>
               <div class="input-wrapper has-eye">
                 <i class="fas fa-lock input-icon"></i>
-                <input 
-                  :type="showConfirmPassword ? 'text' : 'password'"
-                  v-model="formData.confirmPassword"
+                <input
+                    v-model="formData.confirmPassword"
+                    :type="showConfirmPassword ? 'text' : 'password'"
                   placeholder="再次输入密码"
                   class="form-input"
-                  autocomplete="new-password"
+                    autocomplete="new-password"
                 >
                 <button
-                  type="button"
-                  class="toggle-visibility"
-                  :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'"
-                  @click="showConfirmPassword = !showConfirmPassword"
+                    :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'"
+                    class="toggle-visibility"
+                    type="button"
+                    @click="showConfirmPassword = !showConfirmPassword"
                 >
                   <i :class="['fas', showConfirmPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
                 </button>
@@ -140,18 +140,18 @@
               <label>外部系统密码 <span class="optional"></span></label>
               <div class="input-wrapper has-eye">
                 <i class="fas fa-key input-icon"></i>
-                <input 
-                  :type="showSPassword ? 'text' : 'password'"
-                  v-model="formData.sPassword"
+                <input
+                    v-model="formData.sPassword"
+                    :type="showSPassword ? 'text' : 'password'"
                   placeholder="教务系统密码"
                   class="form-input"
-                  autocomplete="new-password"
+                    autocomplete="new-password"
                 >
                 <button
-                  type="button"
-                  class="toggle-visibility"
-                  :aria-label="showSPassword ? '隐藏密码' : '显示密码'"
-                  @click="showSPassword = !showSPassword"
+                    :aria-label="showSPassword ? '隐藏密码' : '显示密码'"
+                    class="toggle-visibility"
+                    type="button"
+                    @click="showSPassword = !showSPassword"
                 >
                   <i :class="['fas', showSPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
                 </button>
@@ -206,9 +206,9 @@
               </span>
               <span class="checkbox-text">
                 我已阅读并同意
-                <router-link to="/terms" class="terms-link">服务条款</router-link>
+                <router-link class="terms-link" to="/terms">服务条款</router-link>
                 和
-                <router-link to="/privacy" class="terms-link">隐私政策</router-link>
+                <router-link class="terms-link" to="/privacy">隐私政策</router-link>
               </span>
             </label>
           </div>
@@ -343,8 +343,8 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import {computed, onMounted, onUnmounted, reactive, ref} from 'vue'
+import {useRouter} from 'vue-router'
 import rsaCrypto from '@/utils/rsa-crypto'
 import SecurityIndicator from '@/components/SecurityIndicator.vue'
 
@@ -866,7 +866,7 @@ export default {
 
 .toggle-visibility:hover {
   color: #6b7280;
-  background: rgba(0,0,0,0.05);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .form-input:focus {

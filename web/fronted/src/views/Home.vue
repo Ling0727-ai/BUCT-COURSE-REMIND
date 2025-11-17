@@ -102,7 +102,7 @@
       <div class="footer-content">
         <span>联系邮箱：<a href="mailto:***REMOVED***">***REMOVED***</a></span>
         <span class="sep">|</span>
-        <span>GitHub：<a href="https://github.com/ling0727-ai" target="_blank" rel="noopener">lingxin</a></span>
+        <span>GitHub：<a href="https://github.com/ling0727-ai" rel="noopener" target="_blank">lingxin</a></span>
       </div>
     </div>
   </div>
@@ -1457,13 +1457,24 @@ export default {
   margin-top: 40px;
 }
 
-.app-footer a { color: #0ea5e9; text-decoration: none; }
+.app-footer a {
+  color: #0ea5e9;
+  text-decoration: none;
+}
 
-.app-footer a:hover { text-decoration: underline; }
+.app-footer a:hover {
+  text-decoration: underline;
+}
 
-.app-footer .sep { margin: 0 8px; color: #94a3b8; }
+.app-footer .sep {
+  margin: 0 8px;
+  color: #94a3b8;
+}
 
 @media (max-width: 600px) {
-  .app-footer { font-size: 11px; padding: 12px 12px; }
+  .app-footer {
+    font-size: 11px;
+    padding: 12px 12px;
+  }
 }
 </style>

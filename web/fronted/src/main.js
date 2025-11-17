@@ -1,8 +1,8 @@
-import { createApp } from 'vue'
+import {createApp} from 'vue'
 import App from './App.vue'
 import router from './router'
 import './assets/global.css'
-import { initMobileOptimizations } from './utils/mobile-utils'
+import {initMobileOptimizations} from './utils/mobile-utils'
 
 const app = createApp(App).use(router)
 app.mount('#app')
@@ -31,11 +31,16 @@ function getOpenTabIds() {
     const arr = JSON.parse(raw)
     if (!Array.isArray(arr)) return []
     return arr.filter(id => typeof id === 'string')
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 function setOpenTabIds(ids) {
-  try { localStorage.setItem(OPEN_TAB_STORAGE_KEY, JSON.stringify(ids)) } catch {}
+  try {
+    localStorage.setItem(OPEN_TAB_STORAGE_KEY, JSON.stringify(ids))
+  } catch {
+  }
 }
 
 function markTabOpen() {
@@ -51,7 +56,10 @@ function markTabClosed() {
   setOpenTabIds(ids)
   if (ids.length === 0) {
     // 最后一个标签被关闭，记录关闭时间
-    try { localStorage.setItem(LAST_CLOSED_AT_KEY, String(Date.now())) } catch {}
+    try {
+      localStorage.setItem(LAST_CLOSED_AT_KEY, String(Date.now()))
+    } catch {
+    }
   }
 }
 
@@ -64,13 +72,17 @@ function hasLoginInfo() {
 
 async function forceLogout(reason) {
   try {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
-  } catch {}
+    await fetch('/api/auth/logout', {method: 'POST', credentials: 'include'})
+  } catch {
+  }
   // 清理存储
   localStorage.removeItem('user')
   sessionStorage.removeItem('user')
   // 可附带原因以供登录页提示
-  try { sessionStorage.setItem('logout_reason', reason) } catch {}
+  try {
+    sessionStorage.setItem('logout_reason', reason)
+  } catch {
+  }
   // 重定向登录
   router.replace('/login')
 }
