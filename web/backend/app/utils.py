@@ -1,12 +1,15 @@
-from flask import Blueprint, jsonify
 from datetime import datetime, timedelta
-from .auth import login_required
+
+from flask import Blueprint, jsonify
+
 from . import mongo
+from .auth import login_required
 
 utils_bp = Blueprint('utils', __name__, url_prefix='/api')
 
 ASSIGNMENTS_COLLECTION = 'assignments'
 TESTS_COLLECTION = 'tests'
+
 
 @utils_bp.route('/health', methods=['GET'])
 def health_check():
@@ -14,7 +17,7 @@ def health_check():
     try:
         # 检查数据库连接
         mongo.db.command('ping')
-        
+
         return jsonify({
             'status': 'healthy',
             'timestamp': datetime.now().isoformat(),
@@ -28,17 +31,18 @@ def health_check():
             'timestamp': datetime.now().isoformat()
         }), 500
 
+
 @utils_bp.route('/stats', methods=['GET'])
 @login_required
 def get_stats():
     total_assignments = mongo.db[ASSIGNMENTS_COLLECTION].count_documents({})
     total_tests = mongo.db[TESTS_COLLECTION].count_documents({})
-    
+
     now = datetime.now()
     urgent_assignments = mongo.db[ASSIGNMENTS_COLLECTION].count_documents({
         'due_date': {'$lte': now + timedelta(days=2)}
     })
-    
+
     return jsonify({
         'total_assignments': total_assignments,
         'total_tests': total_tests,

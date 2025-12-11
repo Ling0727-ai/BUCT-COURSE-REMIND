@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta
 
 from bson import ObjectId
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, jsonify, session
 
 from .auth import login_required
 from .model import get_beijing_time
@@ -19,16 +19,17 @@ course_data_bp = Blueprint('course_data', __name__, url_prefix='/api/course-data
 # 配置日志
 logger = logging.getLogger(__name__)
 
+
 class CourseData:
     """课程数据模型类"""
-    
+
     def __init__(self, mongo_db):
         self.db = mongo_db
         self.collection = 'course_data'
         # 创建索引以提高查询性能
         self.db[self.collection].create_index([("user_id", 1), ("updated_at", -1)])
         self.db[self.collection].create_index([("user_id", 1), ("task_id", 1)], unique=True)
-    
+
     def save_user_course_data(self, user_id, tasks_data):
         """
         智能保存用户的课程数据（保护删除状态）
@@ -47,6 +48,7 @@ class CourseData:
                 }
             ]
         """
+        deleted_cursor = None
         try:
             # 获取用户当前的所有删除状态（软删除 + 永久删除）
             from .assignment_status import get_assignment_status_manager
@@ -61,6 +63,9 @@ class CourseData:
                 {'assignment_id': 1, 'status': 1}
             )
             deleted_map = {doc['assignment_id']: doc['status'] for doc in deleted_cursor}
+            # 关闭cursor
+            deleted_cursor.close()
+            deleted_cursor = None
             deleted_ids = set(deleted_map.keys())
 
             logger.info(f"用户 {user_id} 当前有 {len(deleted_ids)} 个已删除项目（软删除+永久删除）")
@@ -69,7 +74,7 @@ class CourseData:
             current_time = get_beijing_time()
             new_task_ids = set()
             documents = []
-            
+
             for task in tasks_data:
                 # 生成任务唯一ID，优先使用传入的type字段
                 task_type = task.get('type', 'homework')
@@ -84,7 +89,7 @@ class CourseData:
                 content_hash = hashlib.md5(content_str.encode('utf-8')).hexdigest()[:16]  # 取前16位
                 task_id = f"{task_type}_{content_hash}"
                 new_task_ids.add(task_id)
-                
+
                 doc = {
                     'user_id': ObjectId(user_id),
                     'task_id': task_id,
@@ -126,11 +131,11 @@ class CourseData:
                     logger.info(f"保护了 {len(deleted_to_keep)} 个已删除项目（数据已插入但会在显示时过滤）")
 
             return inserted_count
-            
+
         except Exception as e:
             logger.error(f"保存用户 {user_id} 课程数据失败: {e}")
             raise e
-    
+
     def get_user_course_data(self, user_id):
         """
         获取用户的课程数据（过滤所有已删除项目）
@@ -141,6 +146,8 @@ class CourseData:
         Returns:
             list: 课程数据列表（已过滤所有删除）
         """
+        cursor = None
+        deleted_cursor = None
         try:
             cursor = self.db[self.collection].find(
                 {'user_id': ObjectId(user_id)}
@@ -169,7 +176,7 @@ class CourseData:
                 # 跳过所有已删除的任务
                 if task_id in deleted_ids:
                     continue
-                
+
                 task = {
                     'task_id': task_id,
                     'subject': doc.get('subject'),
@@ -184,11 +191,23 @@ class CourseData:
 
             logger.info(f"为用户 {user_id} 返回 {len(tasks)} 条课程数据（已过滤所有删除）")
             return tasks
-            
+
         except Exception as e:
             logger.error(f"获取用户 {user_id} 课程数据失败: {e}")
             raise e
-    
+        finally:
+            # 确保cursor被关闭释放资源
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except:
+                    pass
+            if deleted_cursor is not None:
+                try:
+                    deleted_cursor.close()
+                except:
+                    pass
+
     def get_last_update_time(self, user_id):
         """
         获取用户数据的最后更新时间
@@ -204,15 +223,15 @@ class CourseData:
                 {'user_id': ObjectId(user_id)},
                 sort=[('updated_at', -1)]
             )
-            
+
             if doc:
                 return doc.get('updated_at')
             return None
-            
+
         except Exception as e:
             logger.error(f"获取用户 {user_id} 最后更新时间失败: {e}")
             return None
-    
+
     def clear_user_data(self, user_id):
         """
         清空用户的课程数据
@@ -224,13 +243,15 @@ class CourseData:
             result = self.db[self.collection].delete_many({'user_id': ObjectId(user_id)})
             logger.info(f"清空用户 {user_id} 的课程数据 {result.deleted_count} 条")
             return result.deleted_count
-            
+
         except Exception as e:
             logger.error(f"清空用户 {user_id} 课程数据失败: {e}")
             raise e
 
+
 # 全局实例
 course_data_manager = None
+
 
 def get_course_data_manager():
     """获取课程数据管理器实例"""
@@ -244,6 +265,7 @@ def get_course_data_manager():
             raise RuntimeError("需要在Flask应用上下文中调用此函数")
     return course_data_manager
 
+
 @course_data_bp.route('/refresh', methods=['POST'])
 @login_required
 def refresh_course_data():
@@ -252,28 +274,28 @@ def refresh_course_data():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'success': False, 'error': '用户未登录'}), 401
-        
+
         logger.info(f"用户 {user_id} 请求手动刷新课程数据")
-        
+
         # 获取scraper实例
         from .scraper import get_scraper
         scraper = get_scraper()
-        
+
         # 获取最新数据
         result = scraper.get_pending_tasks(user_id)
-        
+
         if not result.get('success'):
             return jsonify({'success': False, 'error': result.get('error', '获取数据失败')}), 500
-        
+
         data = result.get('data', {})
         tasks_list = data.get('tasks', [])
-        
+
         # 保存到数据库
         course_data_mgr = get_course_data_manager()
         saved_count = course_data_mgr.save_user_course_data(user_id, tasks_list)
-        
+
         logger.info(f"用户 {user_id} 手动刷新完成，保存了 {saved_count} 条数据")
-        
+
         return jsonify({
             'success': True,
             'message': f'数据刷新成功，共更新 {saved_count} 条记录',
@@ -281,10 +303,11 @@ def refresh_course_data():
             'stats': data.get('stats', {}),
             'updated_at': get_beijing_time().isoformat()
         })
-        
+
     except Exception as e:
         logger.error(f"手动刷新课程数据失败: {str(e)}")
         return jsonify({'success': False, 'error': '刷新数据失败'}), 500
+
 
 @course_data_bp.route('/list', methods=['GET'])
 @login_required
@@ -294,12 +317,12 @@ def get_course_data_list():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'success': False, 'error': '用户未登录'}), 401
-        
+
         # 从数据库获取数据
         course_data_mgr = get_course_data_manager()
         tasks = course_data_mgr.get_user_course_data(user_id)
         last_update = course_data_mgr.get_last_update_time(user_id)
-        
+
         # 获取作业状态信息
         from .assignment_status import get_assignment_status_manager
         status_manager = get_assignment_status_manager()
@@ -307,7 +330,7 @@ def get_course_data_list():
         deleted_ids = status_manager.get_deleted_assignment_ids(user_id)
         completed_set = set(str(aid) for aid in completed_ids)
         deleted_set = set(str(aid) for aid in deleted_ids)
-        
+
         # 获取永久删除的任务ID列表
         forever_deleted_set = set()
         try:
@@ -321,22 +344,22 @@ def get_course_data_list():
             forever_deleted_set = set(str(doc['assignment_id']) for doc in forever_cursor)
         except Exception as e:
             logger.warning(f"获取永久删除任务ID列表失败: {e}")
-        
+
         # 转换数据格式以兼容前端（过滤掉已删除和永久删除的任务）
         formatted_tasks = []
         homework_count = 0
         test_count = 0
-        
+
         for task in tasks:
             task_id = task.get('task_id')
             task_type = task.get('type', 'homework')
-            
+
             # 跳过已删除和永久删除的任务
             if task_id in deleted_set or task_id in forever_deleted_set:
                 continue
             if task_id in deleted_set:
                 continue
-            
+
             formatted_task = {
                 'id': task_id,
                 'subject': task.get('subject', ''),
@@ -354,20 +377,20 @@ def get_course_data_list():
                 'tasks_count': 1
             }
             formatted_tasks.append(formatted_task)
-            
+
             if task_type == 'homework':
                 homework_count += 1
             else:
                 test_count += 1
-        
+
         stats = {
             'homework_count': homework_count,
             'tests_count': test_count,
             'total_count': len(formatted_tasks)
         }
-        
+
         logger.info(f"从数据库为用户 {user_id} 返回 {len(formatted_tasks)} 条课程数据")
-        
+
         return jsonify({
             'success': True,
             'tasks': formatted_tasks,
@@ -376,10 +399,11 @@ def get_course_data_list():
             'last_update': last_update.isoformat() if last_update else None,
             'source': 'database'
         })
-        
+
     except Exception as e:
         logger.error(f"获取课程数据列表失败: {str(e)}")
         return jsonify({'success': False, 'error': '获取数据失败'}), 500
+
 
 @course_data_bp.route('/status', methods=['GET'])
 @login_required
@@ -389,19 +413,19 @@ def get_data_status():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'success': False, 'error': '用户未登录'}), 401
-        
+
         course_data_mgr = get_course_data_manager()
         last_update = course_data_mgr.get_last_update_time(user_id)
-        
+
         # 计算距离下次自动刷新的时间
         next_auto_refresh = None
         hours_until_refresh = None
-        
+
         if last_update:
             next_auto_refresh = last_update + timedelta(hours=12)
             time_diff = next_auto_refresh - get_beijing_time()
             hours_until_refresh = max(0, time_diff.total_seconds() / 3600)
-        
+
         return jsonify({
             'success': True,
             'last_update': last_update.isoformat() if last_update else None,
@@ -409,7 +433,7 @@ def get_data_status():
             'hours_until_refresh': round(hours_until_refresh, 1) if hours_until_refresh is not None else None,
             'has_data': last_update is not None
         })
-        
+
     except Exception as e:
         logger.error(f"获取数据状态失败: {str(e)}")
         return jsonify({'success': False, 'error': '获取状态失败'}), 500

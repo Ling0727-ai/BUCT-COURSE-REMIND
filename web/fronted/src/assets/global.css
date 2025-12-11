@@ -149,6 +149,13 @@
   --z-popover: 1060;
   --z-tooltip: 1070;
   --z-toast: 1080;
+
+  /* 鼠标拖尾颜色 - 蓝绿色系 (与主题色蓝色相仿，采用更明亮的变体) */
+  --trail-color-1: rgba(34, 211, 238, 0.95);  /* 亮青色 #22d3ee */
+  --trail-color-2: rgba(6, 182, 212, 0.9);    /* 中青色 #06b6d4 */
+  --trail-color-3: rgba(20, 184, 166, 0.9);   /* 青绿色 #14b8a6 */
+  --trail-color-4: rgba(45, 212, 191, 0.85);  /* 浅青绿色 #2dd4bf */
+  --trail-glow: rgba(34, 211, 238, 0.85);     /* 亮青色发光 */
 }
 
 /* 全局重置和基础样式 */
@@ -557,6 +564,101 @@ body {
 
 .transition-bounce {
   transition: var(--transition-bounce);
+}
+
+/* 鼠标拖尾容器与元素 */
+.mouse-trail-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: calc(var(--z-tooltip) - 5); /* 位于普通内容之上，低于提示与toast */
+  overflow: hidden;
+}
+
+.trail-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, var(--trail-color-1) 0%, var(--trail-color-2) 35%, transparent 100%);
+  box-shadow:
+    0 0 15px var(--trail-glow),
+    0 0 25px rgba(34, 211, 238, 0.6),
+    0 0 35px rgba(6, 182, 212, 0.4),
+    inset 0 0 8px rgba(255, 255, 255, 0.6);
+  will-change: transform, opacity;
+  opacity: 0;
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+/* 多种颜色变化（通过 JS 动态添加类名） - 蓝绿色系 */
+.trail-dot.color-1 {
+  background: radial-gradient(circle at center, var(--trail-color-1) 0%, var(--trail-color-3) 50%, transparent 100%);
+  box-shadow:
+    0 0 15px rgba(34, 211, 238, 0.8),
+    0 0 25px rgba(20, 184, 166, 0.5),
+    inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+.trail-dot.color-2 {
+  background: radial-gradient(circle at center, var(--trail-color-2) 0%, var(--trail-color-4) 50%, transparent 100%);
+  box-shadow:
+    0 0 15px rgba(6, 182, 212, 0.8),
+    0 0 25px rgba(45, 212, 191, 0.5),
+    inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+.trail-dot.color-3 {
+  background: radial-gradient(circle at center, var(--trail-color-4) 0%, var(--trail-color-2) 50%, transparent 100%);
+  box-shadow:
+    0 0 15px rgba(45, 212, 191, 0.7),
+    0 0 25px rgba(6, 182, 212, 0.5),
+    inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+.trail-dot.color-4 {
+  background: radial-gradient(circle at center, var(--trail-color-3) 0%, var(--trail-color-1) 50%, transparent 100%);
+  box-shadow:
+    0 0 15px rgba(20, 184, 166, 0.8),
+    0 0 25px rgba(34, 211, 238, 0.5),
+    inset 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+@keyframes trailFadeScale {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 0.9;
+    transform: scale(1.15);
+  }
+  60% {
+    opacity: 0.5;
+    transform: scale(1.35);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+.trail-anim {
+  animation: trailFadeScale 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+/* 暗色模式下拖尾颜色微调 - 蓝绿色系更明显 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --trail-color-1: rgba(34, 211, 238, 0.98);
+    --trail-color-2: rgba(6, 182, 212, 0.95);
+    --trail-color-3: rgba(20, 184, 166, 0.95);
+    --trail-color-4: rgba(45, 212, 191, 0.9);
+    --trail-glow: rgba(34, 211, 238, 0.9);
+  }
+  .trail-dot {
+    box-shadow:
+      0 0 18px var(--trail-glow),
+      0 0 30px rgba(34, 211, 238, 0.7),
+      0 0 40px rgba(6, 182, 212, 0.5),
+      inset 0 0 8px rgba(255, 255, 255, 0.4);
+  }
 }
 
 /* 响应式设计 */

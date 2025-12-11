@@ -156,3 +156,10 @@ export const cleanupMobileOptimizations = () => {
   window.removeEventListener('resize', setViewportHeight)
   window.removeEventListener('orientationchange', setViewportHeight)
 }
+
+/**
+ * 检测是否为桌面设备
+ */
+export const isDesktop = () => {
+  return !isMobile()
+}

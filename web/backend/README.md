@@ -5,6 +5,7 @@
 ### 1. 准备工作
 
 确保你的服务器已安装：
+
 - Docker (≥ 20.0)
 - Docker Compose (≥ 2.0)
 
@@ -19,12 +20,14 @@ docker-compose --version
 我们提供了自动化配置脚本，让部署更简单：
 
 **Windows系统**:
+
 ```powershell
 # 运行自动化配置脚本
 .\setup.ps1
 ```
 
 **Linux/Mac系统**:
+
 ```bash
 # 给脚本添加执行权限
 chmod +x setup.sh
@@ -34,6 +37,7 @@ chmod +x setup.sh
 ```
 
 或者手动配置：
+
 ```bash
 # 复制环境变量模板
 cp .env.template .env
@@ -137,6 +141,7 @@ docker-compose up --build
 ### 数据库配置
 
 **MongoDB (默认)**:
+
 - 使用Docker容器运行MongoDB 6.0
 - 支持数据持久化存储
 - 内置认证和权限管理
@@ -155,6 +160,7 @@ NGINX_HTTPS_PORT=443  # HTTPS服务端口
 ### 抓取频率设置
 
 通过前端设置页面可以配置：
+
 - 默认60分钟执行一次
 - 可在运行时动态调整
 - 支持立即手动刷新
@@ -227,6 +233,7 @@ GET /api/stats
 ## 📝 Webhook配置示例
 
 ### 邮件通知
+
 ```json
 {
     "type": "email",
@@ -242,6 +249,7 @@ GET /api/stats
 ```
 
 ### Telegram机器人
+
 ```json
 {
     "type": "telegram",
@@ -254,6 +262,7 @@ GET /api/stats
 ```
 
 ### 自定义Webhook
+
 ```json
 {
     "type": "webhook",
@@ -270,6 +279,7 @@ GET /api/stats
 ## 🛠️ 维护操作
 
 ### 查看日志
+
 ```bash
 # 查看所有服务日志
 docker-compose logs -f
@@ -280,6 +290,7 @@ docker-compose logs -f nginx
 ```
 
 ### 备份数据
+
 ```bash
 # 备份SQLite数据库
 docker-compose exec assignment-manager cp /app/data/assignments.db /app/data/assignments_backup.db
@@ -289,6 +300,7 @@ cp ./data/assignments.db ./data/assignments_backup_$(date +%Y%m%d).db
 ```
 
 ### 更新系统
+
 ```bash
 # 停止服务
 docker-compose down
@@ -301,6 +313,7 @@ docker-compose up -d
 ```
 
 ### 重置系统
+
 ```bash
 # 完全重置（会删除所有数据）
 docker-compose down -v

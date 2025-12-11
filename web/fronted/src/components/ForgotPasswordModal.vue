@@ -30,6 +30,12 @@
             </div>
           </div>
 
+          <!-- 显示用户名提示 -->
+          <div v-if="formData.username" class="username-hint">
+            <i class="fas fa-user-circle"></i>
+            <span>该邮箱对应的用户名：<strong>{{ formData.username }}</strong></span>
+          </div>
+
           <div class="form-group">
             <label>邮箱验证码</label>
             <div class="captcha-container">
@@ -223,7 +229,8 @@ export default {
       email: '',
       captcha: '',
       newPassword: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      username: ''  // 存储用户名
     })
 
     const isValidEmail = computed(() => {
@@ -267,14 +274,17 @@ export default {
       }
 
       try {
+        // 创建加密的请求数据
+        const requestData = await rsaCrypto.createEncryptedRequest({
+          email: formData.email
+        })
+
         const response = await fetch('/api/auth/send-verification-code', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            email: formData.email
-          })
+          body: JSON.stringify(requestData)
         })
 
         const data = await response.json()
@@ -284,6 +294,11 @@ export default {
           captchaSent.value = true
           
           if (data.test_mode && data.verification_code) {
+            // 保存用户名（如果有）
+            if (data.username) {
+              formData.username = data.username
+            }
+
             const testTip = document.createElement('div')
             testTip.className = 'toast success test-mode'
             testTip.innerHTML = `
@@ -291,6 +306,7 @@ export default {
                 <i class="fas fa-info-circle"></i>
                 <div>
                   <div>邮件服务暂时不可用，使用测试模式</div>
+                  ${data.username ? `<div style="margin-top: 8px;">用户名：<strong>${data.username}</strong></div>` : ''}
                   <div style="font-size: 18px; font-weight: bold; margin-top: 8px;">
                     验证码：${data.verification_code}
                   </div>
@@ -664,6 +680,29 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.username-hint {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.username-hint i {
+  font-size: 18px;
+}
+
+.username-hint strong {
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 .password-strength {

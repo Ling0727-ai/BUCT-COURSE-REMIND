@@ -38,7 +38,7 @@
             
             <div class="form-body">
               <div class="form-group">
-                <label class="form-label">用户名</label>
+                <label class="form-label">用户名/邮箱</label>
                 <div class="input-wrapper">
                   <div class="input-icon">
                     <i class="fas fa-user"></i>
@@ -46,7 +46,7 @@
                   <input 
                     type="text" 
                     v-model="username" 
-                    placeholder="请输入用户名"
+                    placeholder="请输入用户名或邮箱"
                     @keyup.enter="handleLogin"
                     class="form-input"
                     :class="{ 'has-value': username.length > 0 }"
@@ -280,7 +280,7 @@ export default {
 
     const handleLogin = async () => {
       if (!username.value.trim() || !password.value.trim()) {
-        showErrorToast('请输入账号和密码')
+        showErrorToast('请输入用户名/邮箱和密码')
         return
       }
 

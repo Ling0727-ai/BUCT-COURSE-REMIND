@@ -5,10 +5,11 @@ from dotenv import load_dotenv
 # 加载.env文件
 load_dotenv()
 
+
 class Config:
     # JWT密钥
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev_secret_key_for_jwt'
-    
+
     # MongoDB连接URI（从环境变量获取，兼容Docker部署）
     MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/buct-course')
 

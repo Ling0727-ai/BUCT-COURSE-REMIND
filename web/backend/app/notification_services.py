@@ -13,9 +13,21 @@ ASSIGNMENTS_COLLECTION = 'assignments'
 WEBHOOK_LOGS_COLLECTION = 'webhook_logs'
 SETTINGS_COLLECTION = 'settings'
 
+
 def check_and_send_notifications():
-    """Check for urgent assignments and send notifications."""
+    """
+    [已弃用] 检查紧急作业并发送通知
+
+    ⚠️ 警告：此函数已被scheduler.py中的自动提醒系统取代。
+    直接调用此函数可能导致重复发送邮件。
+    建议使用scheduler的auto-reminder功能，它会自动检查并创建提醒，
+    且能避免重复发送。
+
+    此函数仅保留用于手动触发测试。
+    """
     try:
+        current_app.logger.warning("⚠️ check_and_send_notifications() 已弃用，可能导致重复邮件，建议使用auto-reminder")
+
         webhook_setting = mongo.db[SETTINGS_COLLECTION].find_one({'key': 'webhooks'})
         if not webhook_setting or not webhook_setting.get('value'): return
 
@@ -42,7 +54,7 @@ def send_webhook_notification(webhook_config, message):
     try:
         webhook_type = webhook_config.get('type')
         config = webhook_config.get('config', {})
-        
+
         success = False
         # 只处理邮箱类型的webhook
         if webhook_type == 'email':
@@ -51,7 +63,7 @@ def send_webhook_notification(webhook_config, message):
             # 其他类型的webhook直接返回成功，但不实际发送
             current_app.logger.info(f"跳过非邮箱webhook类型: {webhook_type}")
             success = True
-        
+
         log_data = {
             'webhook_type': webhook_type, 'message': message,
             'status': 'success' if success else 'failed',
@@ -63,20 +75,21 @@ def send_webhook_notification(webhook_config, message):
         current_app.logger.error(f"发送通知失败: {str(e)}")
         return False
 
+
 def send_dingtalk_notification(config, message):
     """发送钉钉机器人通知"""
     try:
         webhook_url = config.get('webhook_url')
         if not webhook_url:
             return False
-            
+
         payload = {
             "msgtype": "text",
             "text": {
                 "content": message
             }
         }
-        
+
         response = requests.post(webhook_url, json=payload, timeout=10)
         response.raise_for_status()
         return True
@@ -84,20 +97,21 @@ def send_dingtalk_notification(config, message):
         current_app.logger.error(f"钉钉通知发送失败: {str(e)}")
         return False
 
+
 def send_wechat_notification(config, message):
     """发送企业微信机器人通知"""
     try:
         webhook_url = config.get('webhook_url')
         if not webhook_url:
             return False
-            
+
         payload = {
             "msgtype": "text",
             "text": {
                 "content": message
             }
         }
-        
+
         response = requests.post(webhook_url, json=payload, timeout=10)
         response.raise_for_status()
         return True
@@ -105,17 +119,18 @@ def send_wechat_notification(config, message):
         current_app.logger.error(f"企业微信通知发送失败: {str(e)}")
         return False
 
+
 def send_discord_notification(config, message):
     """发送Discord通知"""
     try:
         webhook_url = config.get('webhook_url')
         if not webhook_url:
             return False
-            
+
         payload = {
             "content": message
         }
-        
+
         response = requests.post(webhook_url, json=payload, timeout=10)
         response.raise_for_status()
         return True
@@ -123,23 +138,25 @@ def send_discord_notification(config, message):
         current_app.logger.error(f"Discord通知发送失败: {str(e)}")
         return False
 
+
 def send_slack_notification(config, message):
     """发送Slack通知"""
     try:
         webhook_url = config.get('webhook_url')
         if not webhook_url:
             return False
-            
+
         payload = {
             "text": message
         }
-        
+
         response = requests.post(webhook_url, json=payload, timeout=10)
         response.raise_for_status()
         return True
     except Exception as e:
         current_app.logger.error(f"Slack通知发送失败: {str(e)}")
         return False
+
 
 def send_custom_webhook(config, message):
     """发送自定义webhook通知"""
@@ -148,10 +165,10 @@ def send_custom_webhook(config, message):
         method = config.get('method', 'POST')
         headers = config.get('headers', {})
         body_template = config.get('body_template', '')
-        
+
         if not webhook_url:
             return False
-            
+
         # 处理消息模板
         if body_template:
             try:
@@ -163,21 +180,23 @@ def send_custom_webhook(config, message):
                 body = message
         else:
             body = message
-            
+
         if method.upper() == 'POST':
             response = requests.post(webhook_url, data=body, headers=headers, timeout=10)
         else:
             response = requests.get(webhook_url, headers=headers, timeout=10)
-            
+
         response.raise_for_status()
         return True
     except Exception as e:
         current_app.logger.error(f"自定义webhook发送失败: {str(e)}")
         return False
 
+
 # 导出函数到模块级别
-__all__ = ['check_and_send_notifications', 'send_webhook_notification', 
+__all__ = ['check_and_send_notifications', 'send_webhook_notification',
            'send_email_notification']
+
 
 def send_email_notification(config, message):
     """Sends an email notification using environment variables.
@@ -191,14 +210,23 @@ def send_email_notification(config, message):
         sender_email = os.getenv('MAIL_SENDER', 'buct_course_remind@163.com')
         sender_password = os.getenv('MAIL_PASSWORD', '')
 
+        # DEBUG: 记录邮件配置（不记录密码）
+        current_app.logger.debug(f"邮件配置 - SMTP服务器: {smtp_server}, 端口: {smtp_port}, 发件人: {sender_email}")
+        current_app.logger.debug(
+            f"邮箱密码已配置: {bool(sender_password and sender_password != 'dummy_password_for_dev')}")
+
         if not sender_password or sender_password == 'dummy_password_for_dev':
-            current_app.logger.error("邮箱密码未配置，无法发送邮件 (MAIL_PASSWORD 未设置)")
+            current_app.logger.error("❌ 邮箱密码未配置，无法发送邮件 (MAIL_PASSWORD 未设置或为默认值)")
+            current_app.logger.error("请在.env文件中设置正确的MAIL_PASSWORD（163邮箱授权码）")
             return False
 
         to_email = (config or {}).get('to_email')
         if not to_email:
-            current_app.logger.error("未指定收件人邮箱 (config.to_email 为空)")
+            current_app.logger.error("❌ 未指定收件人邮箱 (config.to_email 为空)")
             return False
+
+        current_app.logger.debug(f"准备发送邮件到: {to_email}")
+        current_app.logger.debug(f"邮件内容长度: {len(message) if message else 0} 字符")
 
         msg = MIMEMultipart()
         msg['From'] = sender_email
@@ -214,31 +242,63 @@ def send_email_notification(config, message):
         ]
 
         last_err = None
+        attempt_count = 0
         for conf in smtp_candidates:
+            attempt_count += 1
+            server = None
             try:
+                current_app.logger.debug(
+                    f"尝试 #{attempt_count}: 连接到 {conf['server']}:{conf['port']} (SSL={conf['ssl']})")
+
                 if conf['ssl']:
-                    server = smtplib.SMTP_SSL(conf['server'], conf['port'])
+                    server = smtplib.SMTP_SSL(conf['server'], conf['port'], timeout=30)
                 else:
-                    server = smtplib.SMTP(conf['server'], conf['port'])
+                    server = smtplib.SMTP(conf['server'], conf['port'], timeout=30)
                     try:
                         server.starttls()
-                    except Exception:
-                        pass
+                        current_app.logger.debug("StartTLS 升级成功")
+                    except Exception as e:
+                        current_app.logger.debug(f"StartTLS 升级失败或不支持: {e}")
+
+                current_app.logger.debug(f"正在登录邮箱: {sender_email}")
                 server.login(sender_email, sender_password)
+                current_app.logger.debug("邮箱登录成功")
+
+                current_app.logger.debug("正在发送邮件...")
                 server.send_message(msg)
                 server.quit()
-                current_app.logger.info(f"邮件发送成功: {to_email} (配置: {conf})")
+
+                current_app.logger.info(
+                    f"✅ 邮件发送成功: {to_email} (使用配置: {conf['server']}:{conf['port']}, SSL={conf['ssl']})")
                 return True
+            except smtplib.SMTPAuthenticationError as e:
+                last_err = e
+                current_app.logger.error(f"❌ SMTP认证失败 (配置 #{attempt_count}): {e}")
+                current_app.logger.error("请检查MAIL_SENDER和MAIL_PASSWORD是否正确（163邮箱需要使用授权码，不是登录密码）")
+                try:
+                    server.quit()
+                except Exception:
+                    pass
+            except smtplib.SMTPException as e:
+                last_err = e
+                current_app.logger.warning(f"⚠️ SMTP错误 (配置 #{attempt_count}): {e}，尝试下一个配置")
+                try:
+                    server.quit()
+                except Exception:
+                    pass
             except Exception as e:
                 last_err = e
-                current_app.logger.warning(f"发送失败，尝试下一个配置: {conf}, 错误: {e}")
+                current_app.logger.warning(
+                    f"⚠️ 连接失败 (配置 #{attempt_count}): {type(e).__name__}: {e}，尝试下一个配置")
                 try:
                     server.quit()
                 except Exception:
                     pass
 
-        current_app.logger.error(f"邮件发送失败: {last_err}")
+        current_app.logger.error(f"❌ 所有SMTP配置均失败，邮件发送失败: {type(last_err).__name__}: {last_err}")
         return False
     except Exception as e:
-        current_app.logger.error(f"邮件发送失败: {str(e)}")
+        current_app.logger.error(f"❌ 邮件发送过程异常: {type(e).__name__}: {str(e)}")
+        import traceback
+        current_app.logger.error(f"异常堆栈:\n{traceback.format_exc()}")
         return False

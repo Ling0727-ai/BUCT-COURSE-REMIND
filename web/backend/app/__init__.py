@@ -75,7 +75,8 @@ def create_app():
     _start_cors_refresh_thread(app)
 
     with app.app_context():
-        from . import auth, assignments, webhooks, settings, utils, test_routes, health, admin, todos, crypto_routes, course_data
+        from . import auth, assignments, webhooks, settings, utils, test_routes, health, admin, todos, crypto_routes, \
+            course_data
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(assignments.assignments_bp)
         app.register_blueprint(webhooks.webhooks_bp)

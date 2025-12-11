@@ -3,6 +3,8 @@ import App from './App.vue'
 import router from './router'
 import './assets/global.css'
 import {initMobileOptimizations} from './utils/mobile-utils'
+import { isDesktop } from './utils/mobile-utils'
+import { initMouseTrail } from './utils/mouse-trail'
 
 const app = createApp(App).use(router)
 app.mount('#app')
@@ -128,4 +130,14 @@ document.addEventListener('visibilitychange', () => {
     checkClosureExpiration()
   }
 })
+
+// 鼠标轨迹特效（仅桌面）
+if (isDesktop()) {
+  try {
+    const mgr = initMouseTrail()
+    window.__MOUSE_TRAIL_MANAGER = mgr
+  } catch (e) {
+    console.warn('[mouse-trail] init failed', e)
+  }
+}
 // ====== 结束 ======

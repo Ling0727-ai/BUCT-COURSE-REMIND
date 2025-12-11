@@ -24,7 +24,7 @@ services:
       - assignment-network
     # 健康检查
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -57,7 +57,7 @@ services:
       - mongodb
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3

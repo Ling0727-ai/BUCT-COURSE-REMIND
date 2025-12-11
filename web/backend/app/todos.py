@@ -17,14 +17,19 @@ from .model import Todo
 # 定义北京时区
 BEIJING_TZ = timezone(timedelta(hours=8))
 
+
 def get_beijing_time():
     """获取北京时间（naive datetime，用于MongoDB存储）"""
-    # 获取UTC时间，然后转换为北京时间（不带时区信息）
-    utc_now = datetime.utcnow()
-    beijing_now = utc_now + timedelta(hours=8)
-    return beijing_now
+    # 获取UTC时间（带时区信息）
+    utc_now = datetime.now(timezone.utc)
+    # 转换为北京时间（UTC+8）
+    beijing_now = utc_now.astimezone(timezone(timedelta(hours=8)))
+    # 返回naive datetime（去掉时区信息）
+    return beijing_now.replace(tzinfo=None)
+
 
 todos_bp = Blueprint('todos', __name__, url_prefix='/api/todos')
+
 
 @todos_bp.route('/', methods=['GET'])
 @login_required
@@ -34,16 +39,16 @@ def get_todos():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         # 获取查询参数
         include_completed = request.args.get('include_completed', 'false').lower() == 'true'
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 获取待办列表
         todos = todo_model.get_user_todos(user_id, include_completed)
-        
+
         # 转换ObjectId为字符串
         for todo in todos:
             todo['_id'] = str(todo['_id'])
@@ -59,16 +64,17 @@ def get_todos():
             # 确保 estimated_hours 字段存在
             if 'estimated_hours' not in todo:
                 todo['estimated_hours'] = None
-        
+
         return jsonify({
             'success': True,
             'todos': todos,
             'count': len(todos)
         })
-        
+
     except Exception as e:
         current_app.logger.error(f"获取待办列表失败: {str(e)}")
         return jsonify({'error': '获取待办列表失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/', methods=['POST'])
 @login_required
@@ -78,11 +84,11 @@ def create_todo():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         data = request.get_json()
         if not data or not data.get('title'):
             return jsonify({'error': '待办标题不能为空', 'success': False}), 400
-        
+
         title = data.get('title').strip()
         # 更健壮的描述字段处理
         description_raw = data.get('description')
@@ -91,11 +97,11 @@ def create_todo():
         else:
             description = description_raw.strip() if description_raw.strip() else None
         priority = data.get('priority', 'medium')
-        
+
         # 验证优先级
         if priority not in ['low', 'medium', 'high']:
             priority = 'medium'
-        
+
         # 处理截止日期 - 支持两种格式：小时数或ISO日期字符串
         due_date = None
         estimated_hours = None
@@ -128,7 +134,7 @@ def create_todo():
 
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 创建待办事项
         todo_id = todo_model.create_todo(
             user_id=user_id,
@@ -138,18 +144,19 @@ def create_todo():
             due_date=due_date,
             estimated_hours=estimated_hours
         )
-        
+
         current_app.logger.info(f"用户 {user_id} 创建待办事项: {title}")
-        
+
         return jsonify({
             'success': True,
             'message': '待办事项创建成功',
             'todo_id': str(todo_id)
         })
-        
+
     except Exception as e:
         current_app.logger.error(f"创建待办事项失败: {str(e)}")
         return jsonify({'error': '创建待办事项失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/<todo_id>', methods=['PUT'])
 @login_required
@@ -159,36 +166,36 @@ def update_todo(todo_id):
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         data = request.get_json()
         if not data:
             return jsonify({'error': '请提供更新数据', 'success': False}), 400
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 检查待办是否存在
         existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
         if not existing_todo:
             return jsonify({'error': '待办事项不存在', 'success': False}), 404
-        
+
         # 准备更新数据
         update_data = {}
-        
+
         if 'title' in data:
             title = data['title'].strip()
             if not title:
                 return jsonify({'error': '待办标题不能为空', 'success': False}), 400
             update_data['title'] = title
-        
+
         if 'description' in data:
             update_data['description'] = data['description'].strip() or None
-        
+
         if 'priority' in data:
             priority = data['priority']
             if priority in ['low', 'medium', 'high']:
                 update_data['priority'] = priority
-        
+
         # 处理截止日期更新 - 支持小时数或ISO日期字符串
         if 'hours' in data:
             # 前端发送小时数，计算截止时间
@@ -214,10 +221,10 @@ def update_todo(todo_id):
                     return jsonify({'error': '截止日期格式错误', 'success': False}), 400
             else:
                 update_data['due_date'] = None
-        
+
         # 更新待办事项
         result = todo_model.update_todo(todo_id, user_id, update_data)
-        
+
         if result.matched_count > 0:
             current_app.logger.info(f"用户 {user_id} 更新待办事项 {todo_id}")
             return jsonify({
@@ -226,10 +233,11 @@ def update_todo(todo_id):
             })
         else:
             return jsonify({'error': '待办事项不存在', 'success': False}), 404
-        
+
     except Exception as e:
         current_app.logger.error(f"更新待办事项失败: {str(e)}")
         return jsonify({'error': '更新待办事项失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/<todo_id>/complete', methods=['POST'])
 @login_required
@@ -239,18 +247,18 @@ def complete_todo(todo_id):
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 检查待办是否存在
         existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
         if not existing_todo:
             return jsonify({'error': '待办事项不存在', 'success': False}), 404
-        
+
         # 标记为已完成，设置12小时后过期
         result = todo_model.mark_completed(todo_id, user_id)
-        
+
         if result.matched_count > 0:
             current_app.logger.info(f"用户 {user_id} 完成待办事项: {existing_todo.get('title')}，12小时后自动删除")
             return jsonify({
@@ -259,10 +267,11 @@ def complete_todo(todo_id):
             })
         else:
             return jsonify({'error': '更新失败', 'success': False}), 500
-        
+
     except Exception as e:
         current_app.logger.error(f"完成待办事项失败: {str(e)}")
         return jsonify({'error': '完成待办事项失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/<todo_id>/uncomplete', methods=['POST'])
 @login_required
@@ -272,18 +281,18 @@ def uncomplete_todo(todo_id):
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 检查待办是否存在
         existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
         if not existing_todo:
             return jsonify({'error': '待办事项不存在', 'success': False}), 404
-        
+
         # 撤销完成状态，清除过期时间
         result = todo_model.mark_uncompleted(todo_id, user_id)
-        
+
         if result.matched_count > 0:
             current_app.logger.info(f"用户 {user_id} 撤销完成待办事项: {existing_todo.get('title')}")
             return jsonify({
@@ -292,10 +301,11 @@ def uncomplete_todo(todo_id):
             })
         else:
             return jsonify({'error': '更新失败', 'success': False}), 500
-        
+
     except Exception as e:
         current_app.logger.error(f"撤销待办完成状态失败: {str(e)}")
         return jsonify({'error': '撤销完成状态失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/<todo_id>/remind', methods=['POST'])
 @login_required
@@ -305,10 +315,10 @@ def remind_todo(todo_id):
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 检查待办是否存在
         existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
         if not existing_todo:
@@ -464,10 +474,11 @@ def remind_todo(todo_id):
                 'reminder_time': reminder_time_text
             }
         })
-        
+
     except Exception as e:
         current_app.logger.error(f"提醒待办事项失败: {str(e)}")
         return jsonify({'error': '提醒待办事项失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/<todo_id>/delete', methods=['POST'])
 @login_required
@@ -477,21 +488,21 @@ def delete_todo(todo_id):
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         data = request.get_json() or {}
         title = data.get('title', '未知待办')
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 检查待办是否存在
         existing_todo = todo_model.get_todo_by_id(todo_id, user_id)
         if not existing_todo:
             return jsonify({'error': '待办事项不存在', 'success': False}), 404
-        
+
         # 软删除待办事项
         result = todo_model.delete_todo(todo_id, user_id)
-        
+
         if result.matched_count > 0:
             current_app.logger.info(f"用户 {user_id} 删除待办事项: {title}")
             return jsonify({
@@ -500,10 +511,11 @@ def delete_todo(todo_id):
             })
         else:
             return jsonify({'error': '删除失败', 'success': False}), 500
-        
+
     except Exception as e:
         current_app.logger.error(f"删除待办事项失败: {str(e)}")
         return jsonify({'error': '删除待办事项失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/<todo_id>/restore', methods=['POST'])
 @login_required
@@ -513,16 +525,16 @@ def restore_todo(todo_id):
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         data = request.get_json() or {}
         title = data.get('title', '未知待办')
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 恢复待办事项
         result = todo_model.restore_todo(todo_id, user_id)
-        
+
         if result.matched_count > 0:
             current_app.logger.info(f"用户 {user_id} 恢复待办事项: {title}")
             return jsonify({
@@ -531,10 +543,11 @@ def restore_todo(todo_id):
             })
         else:
             return jsonify({'error': '恢复失败，待办事项不存在', 'success': False}), 404
-        
+
     except Exception as e:
         current_app.logger.error(f"恢复待办事项失败: {str(e)}")
         return jsonify({'error': '恢复待办事项失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/<todo_id>/permanent-delete', methods=['DELETE'])
 @login_required
@@ -544,13 +557,13 @@ def permanent_delete_todo(todo_id):
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 永久删除待办事项
         result = todo_model.permanent_delete_todo(todo_id, user_id)
-        
+
         if result.matched_count > 0:
             current_app.logger.info(f"用户 {user_id} 永久删除待办事项 {todo_id}")
             return jsonify({
@@ -559,10 +572,11 @@ def permanent_delete_todo(todo_id):
             })
         else:
             return jsonify({'error': '永久删除失败，待办事项不存在', 'success': False}), 404
-        
+
     except Exception as e:
         current_app.logger.error(f"永久删除待办事项失败: {str(e)}")
         return jsonify({'error': '永久删除待办事项失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/deleted', methods=['GET'])
 @login_required
@@ -572,13 +586,13 @@ def get_deleted_todos():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 获取已删除的待办列表
         deleted_todos = todo_model.get_deleted_todos(user_id)
-        
+
         # 转换ObjectId为字符串
         for todo in deleted_todos:
             todo['_id'] = str(todo['_id'])
@@ -594,16 +608,17 @@ def get_deleted_todos():
                 todo['created_at'] = todo['created_at'].isoformat()
             if todo.get('updated_at'):
                 todo['updated_at'] = todo['updated_at'].isoformat()
-        
+
         return jsonify({
             'success': True,
             'deleted_todos': deleted_todos,
             'count': len(deleted_todos)
         })
-        
+
     except Exception as e:
         current_app.logger.error(f"获取已删除待办列表失败: {str(e)}")
         return jsonify({'error': '获取已删除待办列表失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/clear-deleted', methods=['DELETE'])
 @login_required
@@ -613,24 +628,25 @@ def clear_deleted_todos():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         # 创建待办模型实例
         todo_model = Todo(mongo.db)
-        
+
         # 清空已删除的待办事项
         result = todo_model.clear_deleted_todos(user_id)
-        
+
         current_app.logger.info(f"用户 {user_id} 清空已删除待办事项，共删除 {result.modified_count} 条")
-        
+
         return jsonify({
             'success': True,
             'message': f'已清空 {result.modified_count} 个已删除的待办事项',
             'deleted_count': result.modified_count
         })
-        
+
     except Exception as e:
         current_app.logger.error(f"清空已删除待办事项失败: {str(e)}")
         return jsonify({'error': '清空已删除待办事项失败', 'details': str(e), 'success': False}), 500
+
 
 @todos_bp.route('/stats', methods=['GET'])
 @login_required
@@ -640,7 +656,7 @@ def get_todo_stats():
         user_id = session.get('user_id')
         if not user_id:
             return jsonify({'error': '用户未登录', 'success': False}), 401
-        
+
         # 统计信息（排除已删除和永久删除的）
         total_todos = mongo.db.todos.count_documents({
             'user_id': ObjectId(user_id),
@@ -654,7 +670,7 @@ def get_todo_stats():
             'forever': {'$ne': 0}
         })
         pending_todos = total_todos - completed_todos
-        
+
         # 按优先级统计
         priority_stats = {}
         for priority in ['low', 'medium', 'high']:
@@ -666,12 +682,12 @@ def get_todo_stats():
                 'forever': {'$ne': 0}
             })
             priority_stats[priority] = count
-        
+
         # 今日到期的待办
         beijing_now = get_beijing_time()
         today_start = beijing_now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = beijing_now.replace(hour=23, minute=59, second=59, microsecond=999999)
-        
+
         due_today = mongo.db.todos.count_documents({
             'user_id': ObjectId(user_id),
             'completed': False,
@@ -679,7 +695,7 @@ def get_todo_stats():
             'forever': {'$ne': 0},
             'due_date': {'$gte': today_start, '$lte': today_end}
         })
-        
+
         return jsonify({
             'success': True,
             'stats': {
@@ -690,7 +706,7 @@ def get_todo_stats():
                 'priority_stats': priority_stats
             }
         })
-        
+
     except Exception as e:
         current_app.logger.error(f"获取待办统计失败: {str(e)}")
         return jsonify({'error': '获取待办统计失败', 'details': str(e), 'success': False}), 500

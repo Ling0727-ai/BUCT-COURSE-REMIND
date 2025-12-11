@@ -1,9 +1,10 @@
 <template>
-  <div class="security-indicator" :class="{ 'secure': isSecure, 'loading': isLoading }">
+  <div class="security-indicator" :class="{ 'secure': isSecure, 'loading': isLoading, 'disabled': isDisabled }">
     <div class="security-content">
       <div class="security-icon">
         <i v-if="isLoading" class="fas fa-spinner fa-spin"></i>
         <i v-else-if="isSecure" class="fas fa-shield-alt"></i>
+        <i v-else-if="isDisabled" class="fas fa-info-circle"></i>
         <i v-else class="fas fa-exclamation-triangle"></i>
       </div>
       <div class="security-text">
@@ -27,17 +28,20 @@ export default {
   setup() {
     const isSecure = ref(false)
     const isLoading = ref(true)
+    const isDisabled = ref(false)  // RSA是否被禁用
     const errorMessage = ref('')
 
     const securityTitle = computed(() => {
       if (isLoading.value) return '正在初始化安全连接...'
       if (isSecure.value) return '密码加密已启用'
+      if (isDisabled.value) return '标准安全模式'
       return '安全连接失败'
     })
 
     const securitySubtitle = computed(() => {
       if (isLoading.value) return '请稍候'
       if (isSecure.value) return '您的数据已受到加密保护'
+      if (isDisabled.value) return '使用HTTPS传输保护'
       return errorMessage.value || '请刷新页面重试'
     })
 
@@ -48,16 +52,24 @@ export default {
         // 测试RSA加密功能
         const testResult = await rsaCrypto.testEncryption()
         
-        if (testResult) {
+        if (testResult === true) {
           isSecure.value = true
+          isDisabled.value = false
           console.log('安全连接初始化成功')
+        } else if (testResult === 'disabled') {
+          // RSA被禁用，但系统仍可正常工作
+          isSecure.value = false
+          isDisabled.value = true
+          console.log('RSA加密已禁用，使用标准安全模式')
         } else {
           isSecure.value = false
+          isDisabled.value = false
           errorMessage.value = '加密功能初始化失败'
           console.warn('安全连接初始化失败')
         }
       } catch (error) {
         isSecure.value = false
+        isDisabled.value = false
         errorMessage.value = '网络连接异常'
         console.error('安全连接初始化异常:', error)
       } finally {
@@ -72,6 +84,7 @@ export default {
     return {
       isSecure,
       isLoading,
+      isDisabled,
       securityTitle,
       securitySubtitle
     }
@@ -102,7 +115,13 @@ export default {
   color: #10b981;
 }
 
-.security-indicator:not(.secure):not(.loading) {
+.security-indicator.disabled {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+.security-indicator:not(.secure):not(.loading):not(.disabled) {
   background: rgba(239, 68, 68, 0.1);
   border-color: rgba(239, 68, 68, 0.3);
   color: #ef4444;
