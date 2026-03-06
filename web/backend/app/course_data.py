@@ -281,8 +281,12 @@ def refresh_course_data():
         from .scraper import get_scraper
         scraper = get_scraper()
 
+        # 加载黑名单，传给 scraper 在 lid 层直接跳过
+        from .blacklist import get_user_blacklisted_ids
+        blacklisted_ids = get_user_blacklisted_ids(user_id)
+
         # 获取最新数据
-        result = scraper.get_pending_tasks(user_id)
+        result = scraper.get_pending_tasks(user_id, blacklisted_ids=blacklisted_ids)
 
         if not result.get('success'):
             return jsonify({'success': False, 'error': result.get('error', '获取数据失败')}), 500

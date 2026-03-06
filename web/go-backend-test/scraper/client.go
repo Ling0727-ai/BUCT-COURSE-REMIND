@@ -134,18 +134,32 @@ func (s *BUCTScraper) autoLogin(userID string) error {
 //  时间格式化工具
 // ──────────────────────────────────────────────
 
-// formatDeadline 将 "2025年9月23日 23:59:00" 转为 "2025-09-23 23:59:00"
+// formatDeadline 将中文日期格式转为 "2025-09-23 23:59:00"
+// 支持: "2025年9月23日 23:59:00" 和 "2025年09月23日 23:59:00"
 // 对应 Python: _format_deadline
 func formatDeadline(s string) string {
 	if s == "" {
 		return ""
 	}
-	t, err := time.ParseInLocation("2006年01月02日 15:04:05", s, time.Local)
-	if err != nil {
-		log.Printf("[scraper] 作业时间解析失败: %s, err: %v", s, err)
-		return s
+	// 先尝试双位月日（09月03日）
+	if t, err := time.ParseInLocation("2006年01月02日 15:04:05", s, time.Local); err == nil {
+		return t.Format("2006-01-02 15:04:05")
 	}
-	return t.Format("2006-01-02 15:04:05")
+	// 再尝试单位月日（9月3日）- Go 的格式化数字参考月=1，日=2
+	if t, err := time.ParseInLocation("2006年1月2日 15:04:05", s, time.Local); err == nil {
+		return t.Format("2006-01-02 15:04:05")
+	}
+	// 混合：双位月单位日 / 单位月双位日
+	for _, layout := range []string{
+		"2006年01月2日 15:04:05",
+		"2006年1月02日 15:04:05",
+	} {
+		if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			return t.Format("2006-01-02 15:04:05")
+		}
+	}
+	log.Printf("[scraper] 作业时间解析失败，返回原始值: %q", s)
+	return s
 }
 
 // formatTestDeadline 兼容多种格式，对应 Python: _format_test_deadline
@@ -153,19 +167,21 @@ func formatTestDeadline(s string) string {
 	if s == "" {
 		return ""
 	}
-	formats := []string{
+	cleaned := strings.TrimSuffix(s, "Z")
+	for _, layout := range []string{
 		"2006-01-02 15:04:05",
 		"2006年01月02日 15:04:05",
+		"2006年1月2日 15:04:05",
+		"2006年01月2日 15:04:05",
+		"2006年1月02日 15:04:05",
 		"2006-01-02T15:04:05",
 		"2006-01-02T15:04:05Z",
-	}
-	cleaned := strings.TrimSuffix(s, "Z")
-	for _, layout := range formats {
+	} {
 		if t, err := time.ParseInLocation(layout, cleaned, time.Local); err == nil {
 			return t.Format("2006-01-02 15:04:05")
 		}
 	}
-	log.Printf("[scraper] 测试时间格式无法解析: %s", s)
+	log.Printf("[scraper] 测试时间格式无法解析: %q", s)
 	return s
 }
 
@@ -175,7 +191,8 @@ func formatTestDeadline(s string) string {
 
 // GetPendingTasks 完整执行 login->check->logout 流程，返回任务列表
 // 对应 Python: get_pending_tasks
-func (s *BUCTScraper) GetPendingTasks(userID string) (*ScrapeResult, error) {
+// blacklistedIDs 中的 courseId 将在抓取时直接跳过
+func (s *BUCTScraper) GetPendingTasks(userID string, blacklistedIDs []string) (*ScrapeResult, error) {
 	log.Printf("[scraper] 用户 %s 开始 GetPendingTasks 流程...", userID)
 
 	// 1. LOGIN
@@ -196,13 +213,19 @@ func (s *BUCTScraper) GetPendingTasks(userID string) (*ScrapeResult, error) {
 		log.Printf("[scraper] 用户 %s LOGOUT 完成", userID)
 	}()
 
-	// 2. CHECK - 并行获取作业和测试
-	hwTasks, err := scrapeHomework(c, userID)
+	// 构建黑名单 set，O(1) 查询
+	blacklistSet := make(map[string]bool, len(blacklistedIDs))
+	for _, id := range blacklistedIDs {
+		blacklistSet[id] = true
+	}
+
+	// 2. CHECK - 获取作业和测试（传入黑名单 set）
+	hwTasks, err := scrapeHomework(c, userID, blacklistSet)
 	if err != nil {
 		log.Printf("[scraper] 用户 %s 获取作业异常: %v", userID, err)
 	}
 
-	testTasks, err := scrapeTests(c, userID)
+	testTasks, err := scrapeTests(c, userID, blacklistSet)
 	if err != nil {
 		log.Printf("[scraper] 用户 %s 获取测试异常: %v", userID, err)
 	}

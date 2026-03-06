@@ -7,6 +7,7 @@
       @show-recycle-bin="showRecycleBin"
       @logout="handleLogout"
       @refresh="() => fetchAssignments(true)"
+      @show-blacklist="showBlacklistModal = true"
     />
 
     <!-- 控制面板组件 -->
@@ -35,6 +36,7 @@
       @delete-assignment="deleteAssignment"
       @mark-completed="markCompleted"
       @undo-completed="undoCompleted"
+      @blacklist-subject="confirmBlacklistSubject"
     />
 
     <!-- 浮动添加按钮 -->
@@ -77,6 +79,7 @@
       @delete-assignment="deleteAssignment"
       @mark-completed="markCompleted"
       @undo-completed="undoCompleted"
+      @blacklist-subject="confirmBlacklistSubject"
     />
 
     <!-- 回收站弹窗 -->
@@ -95,6 +98,13 @@
         :show="showReminderModal"
         @close="closeReminderModal"
         @confirm="confirmReminder"
+    />
+
+    <!-- 黑名单管理弹窗 -->
+    <BlacklistModal
+        :show="showBlacklistModal"
+        @close="showBlacklistModal = false"
+        @updated="fetchAssignments(false)"
     />
 
     <!-- 页脚 -->
@@ -126,6 +136,7 @@ import ConfirmModal from './home/modals/ConfirmModal.vue'
 import StatisticsModal from './home/modals/StatisticsModal.vue'
 import RecycleBinModal from './home/modals/RecycleBinModal.vue'
 import ReminderModal from './home/modals/ReminderModal.vue'
+import BlacklistModal from './home/modals/BlacklistModal.vue'
 
 export default {
   name: 'Home',
@@ -139,7 +150,8 @@ export default {
     ConfirmModal,
     StatisticsModal,
     ReminderModal,
-    RecycleBinModal
+    RecycleBinModal,
+    BlacklistModal
   },
   setup() {
     const router = useRouter()
@@ -210,6 +222,10 @@ export default {
     const showReminderModal = ref(false)
     const reminderAssignment = ref(null)
 
+    // 黑名单相关状态
+    const showBlacklistModal = ref(false)
+
+
     // 计算统计信息 - 包含作业和待办
     const allItems = computed(() => {
       const items = []
@@ -262,40 +278,37 @@ export default {
       return Array.from(uniqueSubjects)
     })
 
-    // 计算剩余天数
-    // 获取当前时间（用于比较）
-    const getCurrentTime = () => {
-      return new Date()
+    // 统一日期解析：兼容 ISO、"YYYY-MM-DD HH:mm:ss" 和中文格式
+    const parseDate = (s) => {
+      if (!s) return null
+      if (s.includes('+') || s.endsWith('Z')) return new Date(s)
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) return new Date(s.replace(' ', 'T') + '+08:00')
+      if (s.includes('T')) return new Date(s + '+08:00')
+      // 中文格式兜底：2025年9月23日 23:59:00
+      const cn = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日\s+(\d{2}:\d{2}:\d{2})$/)
+      if (cn) {
+        const [, y, mo, d, t] = cn
+        return new Date(`${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}T${t}+08:00`)
+      }
+      return new Date(s)
     }
+
+    // 计算剩余天数
+    const getCurrentTime = () => new Date()
 
     const getDaysUntilDue = (dueDate) => {
       try {
-        if (!dueDate) {
-          return Infinity
-        }
-        
+        if (!dueDate) return Infinity
         const now = getCurrentTime()
-        
-        // 如果时间字符串没有时区信息，假设是北京时间
-        let due
-        if (dueDate.includes('T') && !dueDate.includes('+') && !dueDate.includes('Z')) {
-          // 没有时区信息的ISO字符串，假设是北京时间
-          due = new Date(dueDate + '+08:00')
-        } else {
-          due = new Date(dueDate)
-        }
-        
-        // 检查日期是否有效
-        if (isNaN(due.getTime())) {
+        const due = parseDate(dueDate)
+        if (!due || isNaN(due.getTime())) {
           console.warn('无效的截止日期:', dueDate)
-          return 7 // 默认7天
+          return 7
         }
-        
-        const diffTime = due - now
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        return Math.ceil((due - now) / (1000 * 60 * 60 * 24))
       } catch (error) {
         console.error('计算剩余天数时出错:', error, '日期:', dueDate)
-        return 7 // 默认7天
+        return 7
       }
     }
 
@@ -761,20 +774,27 @@ export default {
               const assignmentId = item.id
               const taskTitle = item.details?.task || item.title || '未知任务'
               const detailsContent = item.details?.details_content || ''
-              
+
+              // 统一把各种格式的 deadline 转为合法 ISO 字符串
+              const rawDeadline = item.details?.deadline || item.deadline || null
+              const parsedDeadline = rawDeadline ? parseDate(rawDeadline) : null
+              const dueDate = (parsedDeadline && !isNaN(parsedDeadline.getTime()))
+                  ? parsedDeadline.toISOString()
+                  : null
+
               return {
                 id: assignmentId,
                 subject: item.subject || '未知科目',
                 title: taskTitle,
                 content: detailsContent || `${item.subject} - ${taskTitle}`,
-                dueDate: item.details?.deadline || null,
+                dueDate,
                 type: item.type === 'homework' ? '作业' : '测试',
                 completed: item.completed || completedIds.has(assignmentId),
                 completedAt: item.completed ? new Date().toISOString() : null,
-                url: item.details?.url || '',
+                url: item.details?.url || item.url || '',
                 completing: false,
                 undoing: false,
-                details: detailsContent // 添加详情内容字段
+                details: detailsContent
               }
             }).filter(assignment => 
               // !assignment.subject.includes('') &&    //过滤掉特殊字段
@@ -971,6 +991,50 @@ export default {
     const cancelConfirm = () => {
       showConfirmModal.value = false
       confirmCallback.value = null
+    }
+
+    // ── 黑名单 ────────────────────────────────────────────────────
+    // 提取 URL 中的 courseId，对应后端正则 courseId=(\d+)
+    const extractCourseID = (url) => {
+      if (!url) return null
+      const m = url.match(/courseId=(\d+)/)
+      return m ? m[1] : null
+    }
+
+    // 点击卡片上的"拉黑"按钮：先弹确认对话框
+    const confirmBlacklistSubject = (assignment) => {
+      showCustomConfirm(
+          `确定要拉黑科目"${assignment.subject}"吗？\n\n该科目的所有作业/测试将从主界面隐藏，且下次数据刷新时不再抓取。`,
+          () => blacklistSubject(assignment)
+      )
+    }
+
+    // 执行拉黑：调用 POST /api/blacklist
+    const blacklistSubject = async (assignment) => {
+      const courseID = extractCourseID(assignment.url)
+      if (!courseID) {
+        showToast('error', '拉黑失败', '无法从该科目链接解析 courseId，请手动在设置中管理黑名单')
+        return
+      }
+      try {
+        const res = await fetch('/api/blacklist', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({subject_id: courseID})
+        })
+        if (res.ok) {
+          showToast('success', '已拉黑', `科目"${assignment.subject}"已加入黑名单，刷新后不再显示`)
+          // 立即从本地过滤掉，无需等待下一次网络刷新
+          assignments.value = assignments.value.filter(a => extractCourseID(a.url) !== courseID)
+          filterAssignments()
+        } else {
+          const err = await res.json()
+          showToast('error', '拉黑失败', err.error || '请稍后重试')
+        }
+      } catch (e) {
+        showToast('error', '网络错误', '请检查网络连接后重试')
+      }
     }
 
     // 统计弹窗相关方法
@@ -1391,7 +1455,10 @@ export default {
       showReminderModal,
       reminderAssignment,
       closeReminderModal,
-      confirmReminder
+      confirmReminder,
+      showBlacklistModal,
+      confirmBlacklistSubject,
+      blacklistSubject
     }
   }
 }
@@ -1403,78 +1470,91 @@ export default {
 /* 全局容器 */
 .container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
+  background: linear-gradient(160deg, #f0f9ff 0%, #e0f2fe 35%, #ecfdf5 65%, #f0fdfa 100%);
   position: relative;
   overflow-x: hidden;
 }
 
-/* 装饰性浮动元素 */
+/* 点阵纹理 */
 .container::before {
   content: '';
   position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  animation: float 30s linear infinite;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(14, 165, 233, 0.045) 1px, transparent 1px);
+  background-size: 36px 36px;
+  animation: float 35s linear infinite;
   pointer-events: none;
   z-index: 0;
 }
 
+/* 环境光晕 */
 .container::after {
   content: '';
   position: fixed;
-  top: 10%;
-  right: -5%;
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(6, 182, 212, 0.05), transparent 70%);
+  top: 5%;
+  right: -8%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.07) 0%, rgba(14, 165, 233, 0.04) 40%, transparent 70%);
   border-radius: 50%;
-  animation: pulse 6s ease-in-out infinite;
+  animation: pulse 7s ease-in-out infinite;
   pointer-events: none;
   z-index: 0;
 }
 
 @keyframes float {
-  0% { transform: translate(0, 0); }
-  100% { transform: translate(-30px, -30px); }
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-36px, -36px);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 0.4; }
-  50% { transform: scale(1.1); opacity: 0.2; }
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.25;
+  }
 }
 
 /* 页脚样式 */
 .app-footer {
   width: 100%;
-  padding: 16px 20px;
+  padding: 18px 20px;
   text-align: center;
   font-size: 12px;
-  color: #64748b;
+  color: #94a3b8;
   margin-top: 40px;
+  position: relative;
+  z-index: 1;
 }
 
 .app-footer a {
   color: #0ea5e9;
   text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
 }
 
 .app-footer a:hover {
+  color: #0284c7;
   text-decoration: underline;
 }
 
 .app-footer .sep {
   margin: 0 8px;
-  color: #94a3b8;
+  color: #cbd5e1;
 }
 
 @media (max-width: 600px) {
   .app-footer {
     font-size: 11px;
-    padding: 12px 12px;
+    padding: 12px;
   }
 }
 </style>

@@ -50,7 +50,17 @@
       </div>
       
       <div class="actions" @click.stop>
-        <button 
+        <!-- 拉黑按钮（仅作业/测试卡片，不含待办） -->
+        <button
+            v-if="assignment.type !== '待办'"
+            class="btn btn-blacklist"
+            title="拉黑此科目"
+            @click="$emit('blacklist-subject', assignment)"
+        >
+          <i class="fas fa-ban"></i>
+          <span class="btn-text">拉黑</span>
+        </button>
+        <button
           v-if="!assignment.completed"
           class="btn btn-warning"
           @click="$emit('set-reminder', assignment)"
@@ -121,7 +131,7 @@ export default {
       required: true
     }
   },
-  emits: ['open-url', 'show-preview', 'set-reminder', 'delete-assignment', 'mark-completed', 'undo-completed'],
+  emits: ['open-url', 'show-preview', 'set-reminder', 'delete-assignment', 'mark-completed', 'undo-completed', 'blacklist-subject'],
   computed: {
     assignmentStatus() {
       if (this.assignment.completed) return 'completed'
@@ -147,15 +157,9 @@ export default {
     },
     formattedDateOnly() {
       if (!this.assignment.dueDate) return ''
-      
-      let date
-      if (this.assignment.dueDate.includes('T') && !this.assignment.dueDate.includes('+') && !this.assignment.dueDate.includes('Z')) {
-        date = new Date(this.assignment.dueDate + '+08:00')
-      } else {
-        date = new Date(this.assignment.dueDate)
-      }
-      
-      const options = { 
+      const date = this.parseDate(this.assignment.dueDate)
+      if (!date || isNaN(date.getTime())) return ''
+      const options = {
         year: 'numeric',
         month: '2-digit', 
         day: '2-digit', 
@@ -166,15 +170,9 @@ export default {
     },
     remainingTimeText() {
       if (!this.assignment.dueDate) return ''
-      
       const now = this.getCurrentTime()
-      let date
-      if (this.assignment.dueDate.includes('T') && !this.assignment.dueDate.includes('+') && !this.assignment.dueDate.includes('Z')) {
-        date = new Date(this.assignment.dueDate + '+08:00')
-      } else {
-        date = new Date(this.assignment.dueDate)
-      }
-      
+      const date = this.parseDate(this.assignment.dueDate)
+      if (!date || isNaN(date.getTime())) return ''
       const diffMs = date.getTime() - now.getTime()
       
       if (diffMs < 0) {
@@ -207,49 +205,43 @@ export default {
     getCurrentTime() {
       return new Date()
     },
+    // 统一日期解析：兼容 ISO（T分隔）、"YYYY-MM-DD HH:mm:ss"（空格分隔）和中文格式
+    parseDate(s) {
+      if (!s) return null
+      // 已有时区信息，直接解析
+      if (s.includes('+') || s.endsWith('Z')) return new Date(s)
+      // "YYYY-MM-DD HH:mm:ss" 空格分隔 → 转成 ISO + 北京时区
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) return new Date(s.replace(' ', 'T') + '+08:00')
+      // ISO 无时区
+      if (s.includes('T')) return new Date(s + '+08:00')
+      // 中文格式兜底：2025年9月23日 23:59:00 → 2025-09-23T23:59:00+08:00
+      const cn = s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日\s+(\d{2}:\d{2}:\d{2})$/)
+      if (cn) {
+        const [, y, mo, d, t] = cn
+        return new Date(`${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}T${t}+08:00`)
+      }
+      return new Date(s)
+    },
     getDaysUntilDue(dueDate) {
       try {
-        if (!dueDate) {
-          return Infinity
-        }
-        
+        if (!dueDate) return Infinity
         const now = this.getCurrentTime()
-        
-        // 如果时间字符串没有时区信息，假设是北京时间
-        let due
-        if (dueDate.includes('T') && !dueDate.includes('+') && !dueDate.includes('Z')) {
-          // 没有时区信息的ISO字符串，假设是北京时间
-          due = new Date(dueDate + '+08:00')
-        } else {
-          due = new Date(dueDate)
-        }
-        
-        // 检查日期是否有效
-        if (isNaN(due.getTime())) {
+        const due = this.parseDate(dueDate)
+        if (!due || isNaN(due.getTime())) {
           console.warn('无效的截止日期:', dueDate)
-          return 7 // 默认7天
+          return 7
         }
-        
-        const diffTime = due - now
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        return Math.ceil((due - now) / (1000 * 60 * 60 * 24))
       } catch (error) {
         console.error('计算剩余天数时出错:', error, '日期:', dueDate)
-        return 7 // 默认7天
+        return 7
       }
     },
     formatDate(dateString, itemType, estimatedHours) {
       if (!dateString) return ''
-      
-      // 如果时间字符串没有时区信息，假设是北京时间
-      let date
-      if (dateString.includes('T') && !dateString.includes('+') && !dateString.includes('Z')) {
-        // 没有时区信息的ISO字符串，假设是北京时间
-        date = new Date(dateString + '+08:00')
-      } else {
-        date = new Date(dateString)
-      }
-      
-      // 使用当前时间进行计算
+
+      const date = this.parseDate(dateString)
+      if (!date || isNaN(date.getTime())) return ''
       const now = this.getCurrentTime()
       const diffMs = date.getTime() - now.getTime()
       
@@ -331,12 +323,14 @@ export default {
 
 <style scoped>
 .assignment-card {
-  background: white;
-  border-radius: 16px;
-  padding: 25px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-  transition: all 0.3s ease;
-  border-left: 4px solid #0ea5e9;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.28s cubic-bezier(0.34, 1.2, 0.64, 1);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-left: 3px solid #0ea5e9;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -351,24 +345,33 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, transparent, rgba(14, 165, 233, 0.02));
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.6) 0%, rgba(240, 249, 255, 0.2) 100%);
   pointer-events: none;
 }
 
 .assignment-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(14, 165, 233, 0.08);
+  border-color: rgba(14, 165, 233, 0.25);
+  background: rgba(255, 255, 255, 0.97);
 }
 
 .assignment-card.urgent {
   border-left-color: #ef4444;
-  animation: pulse 2s infinite;
+  background: rgba(255, 255, 255, 0.94);
+  animation: pulse 2.2s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0% { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-  50% { box-shadow: 0 8px 24px rgba(239, 68, 68, 0.2); }
-  100% { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+  0% {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  }
+  50% {
+    box-shadow: 0 6px 24px rgba(239, 68, 68, 0.18);
+  }
+  100% {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  }
 }
 
 .assignment-card.warning {
@@ -413,41 +416,44 @@ export default {
 }
 
 .type-tag {
-  background: rgba(14, 165, 233, 0.08);
+  background: rgba(14, 165, 233, 0.07);
   color: #0284c7;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.75em;
-  font-weight: 500;
+  padding: 4px 11px;
+  border-radius: 10px;
+  font-size: 0.73em;
+  font-weight: 600;
   border: 1px solid rgba(14, 165, 233, 0.15);
   white-space: nowrap;
+  letter-spacing: 0.2px;
 }
 
 .subject-tag {
-  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+  background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
   color: white;
-  padding: 5px 14px;
+  padding: 5px 13px;
   border-radius: 20px;
-  font-size: 0.8em;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
+  font-size: 0.78em;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(14, 165, 233, 0.28);
+  letter-spacing: 0.2px;
 }
 
 .card-title {
-  font-size: 1.25em;
-  color: #1e293b;
-  margin-bottom: 12px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-size: 1.15em;
+  color: #0f172a;
+  margin-bottom: 10px;
+  font-weight: 700;
+  line-height: 1.45;
   position: relative;
   z-index: 1;
+  letter-spacing: -0.1px;
 }
 
 .card-content {
   color: #64748b;
-  font-size: 0.92em;
-  line-height: 1.6;
-  margin-bottom: 16px;
+  font-size: 0.9em;
+  line-height: 1.65;
+  margin-bottom: 14px;
   position: relative;
   z-index: 1;
   flex: 1;
@@ -531,9 +537,9 @@ export default {
   align-items: center;
   position: relative;
   z-index: 1;
-  padding-top: 16px;
+  padding-top: 14px;
   margin-top: auto;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-top: 1px solid rgba(14, 165, 233, 0.08);
   gap: 20px;
 }
 
@@ -575,6 +581,21 @@ export default {
   background: linear-gradient(135deg, #d97706, #ea580c);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
+/* 拉黑按钮 */
+.btn-blacklist {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.btn-blacklist:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 /* 新增：绿色完成按钮样式 */
@@ -698,15 +719,13 @@ export default {
   color: #4b5563;
 }
 
-/* 已完成卡片的特殊样式 */
+/* 已完成卡片 */
 .assignment-card.completed {
-  position: relative;
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(22, 163, 74, 0.08));
-  border-left-color: #22c55e !important;
-  border-left-width: 4px !important;
-  opacity: 0.85;
-  transform: scale(0.98);
-  box-shadow: 0 8px 25px rgba(39, 174, 96, 0.2) !important;
+  background: linear-gradient(145deg, rgba(240, 253, 244, 0.95), rgba(220, 252, 231, 0.85));
+  border-left-color: #22c55e;
+  border-left-width: 3px;
+  opacity: 0.88;
+  box-shadow: 0 2px 12px rgba(34, 197, 94, 0.1) !important;
 }
 
 .assignment-card.completed::after {
@@ -716,63 +735,41 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, transparent, rgba(39, 174, 96, 0.1));
+  background: linear-gradient(135deg, transparent, rgba(34, 197, 94, 0.04));
   pointer-events: none;
 }
 
 .assignment-card.completed .card-title {
-  color: #27ae60 !important;
+  color: #15803d !important;
   text-decoration: line-through;
-  text-decoration-color: #27ae60;
-  text-decoration-thickness: 2px;
-  opacity: 0.8;
-  font-weight: 500;
+  text-decoration-color: rgba(21, 128, 61, 0.5);
+  text-decoration-thickness: 1.5px;
+  opacity: 0.85;
 }
 
 .assignment-card.completed .card-content {
-  color: #6c757d;
+  color: #86a890;
 }
 
-/* 待办卡片特殊样式 */
+/* 待办卡片 */
 .assignment-card[data-type="待办"] {
-  border-left-color: #9b59b6;
-  background: white;
-}
-
-.assignment-card[data-type="待办"] .card-title {
-  color: #2c3e50;
-  font-weight: 600;
-}
-
-.assignment-card[data-type="待办"] .card-content {
-  color: #4a5568;
+  border-left-color: #8b5cf6;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .assignment-card[data-type="待办"] .subject-tag {
-  background: linear-gradient(135deg, #9b59b6, #8e44ad);
-  color: white;
-  font-weight: 500;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  box-shadow: 0 3px 10px rgba(139, 92, 246, 0.28);
 }
 
 .assignment-card[data-type="待办"]:hover {
-  box-shadow: 0 20px 40px rgba(155, 89, 182, 0.15);
+  box-shadow: 0 16px 40px rgba(139, 92, 246, 0.12), 0 4px 12px rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.25);
 }
 
-/* 待办事项完成时的样式 - 覆盖默认完成样式 */
 .assignment-card[data-type="待办"].completed {
-  background: linear-gradient(135deg, rgba(39, 174, 96, 0.05), rgba(46, 204, 113, 0.05));
-  border-left-color: #27ae60;
-  opacity: 0.9;
-}
-
-.assignment-card[data-type="待办"].completed .card-title {
-  color: #27ae60;
-  text-decoration: line-through;
-  text-decoration-color: rgba(39, 174, 96, 0.5);
-}
-
-.assignment-card[data-type="待办"].completed .card-content {
-  color: #6c757d;
+  background: linear-gradient(145deg, rgba(240, 253, 244, 0.95), rgba(220, 252, 231, 0.85));
+  border-left-color: #22c55e;
 }
 
 /* 优先级指示器 */
@@ -995,6 +992,11 @@ export default {
     width: 36px !important;
   }
 
+  .btn-blacklist {
+    min-width: 36px !important;
+    width: 36px !important;
+  }
+
   .btn-success {
     min-width: 36px !important;
     width: 36px !important;
@@ -1074,6 +1076,11 @@ export default {
   }
 
   .btn-danger {
+    min-width: 38px !important;
+    width: 38px !important;
+  }
+
+  .btn-blacklist {
     min-width: 38px !important;
     width: 38px !important;
   }
@@ -1196,6 +1203,11 @@ export default {
   }
 
   .btn-danger {
+    min-width: 32px !important;
+    width: 32px !important;
+  }
+
+  .btn-blacklist {
     min-width: 32px !important;
     width: 32px !important;
   }
@@ -1349,6 +1361,13 @@ export default {
   /* 删除按钮 */
   .btn-danger,
   .delete-btn {
+    min-width: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  /* 拉黑按钮 */
+  .btn-blacklist {
     min-width: 32px !important;
     width: 32px !important;
     height: 32px !important;

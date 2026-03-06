@@ -98,7 +98,7 @@ def create_app():
 
     with app.app_context():
         from . import auth, assignments, webhooks, settings, utils, test_routes, health, admin, todos, crypto_routes, \
-            course_data
+            course_data, blacklist
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(assignments.assignments_bp)
         app.register_blueprint(webhooks.webhooks_bp)
@@ -110,6 +110,7 @@ def create_app():
         app.register_blueprint(todos.todos_bp)
         app.register_blueprint(crypto_routes.crypto_bp)
         app.register_blueprint(course_data.course_data_bp)
+        app.register_blueprint(blacklist.blacklist_bp)
 
         # 后台任务只在主进程中启动，防止 reloader 导致重复初始化
         if _is_main_process():

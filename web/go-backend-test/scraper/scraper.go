@@ -29,7 +29,8 @@ type ScrapeResult struct {
 // Scraper 爬虫接口
 type Scraper interface {
 	// GetPendingTasks 完整执行 login->check->logout 流程，返回任务列表
-	GetPendingTasks(userID string) (*ScrapeResult, error)
+	// blacklistedIDs 为用户黑名单中的 subjectID（courseId），scraper 内部直接跳过这些课程
+	GetPendingTasks(userID string, blacklistedIDs []string) (*ScrapeResult, error)
 	// Logout 登出并清理指定用户的客户端缓存
 	Logout(userID string) bool
 }

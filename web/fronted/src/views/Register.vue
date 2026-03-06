@@ -1,14 +1,5 @@
 <template>
   <div class="register-container">
-    <!-- 浮动装饰元素 -->
-    <div class="floating-shapes">
-      <div class="shape shape-1"></div>
-      <div class="shape shape-2"></div>
-      <div class="shape shape-3"></div>
-      <div class="shape shape-4"></div>
-      <div class="shape shape-5"></div>
-    </div>
-
     <!-- 左侧表单区域 -->
     <div class="form-section">
       <div class="form-content">
@@ -24,48 +15,36 @@
             <p>填写信息，创建您的专属账号</p>
           </div>
 
-          <!-- 安全指示器 -->
-          <SecurityIndicator />
-
           <div class="form-row">
             <div class="form-group">
-              <label>用户名</label>
+              <label class="form-label">用户名</label>
               <div class="input-wrapper">
-                <i class="fas fa-user input-icon"></i>
-                <input 
+                <input
                   type="text" 
                   v-model="formData.username" 
                   placeholder="请输入3-20位用户名"
                   class="form-input"
                 >
-                <span class="input-status success" v-if="formData.username.length >= 3">
-                  <i class="fas fa-check"></i>
-                </span>
               </div>
             </div>
 
             <div class="form-group">
-              <label>邮箱地址</label>
+              <label class="form-label">邮箱地址</label>
               <div class="input-wrapper">
-                <i class="fas fa-envelope input-icon"></i>
-                <input 
+                <input
                   type="email" 
                   v-model="formData.email" 
                   placeholder="请输入邮箱地址"
                   class="form-input"
                 >
-                <span class="input-status success" v-if="isValidEmail">
-                  <i class="fas fa-check"></i>
-                </span>
               </div>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label>密码</label>
+              <label class="form-label">密码</label>
               <div class="input-wrapper has-eye">
-                <i class="fas fa-lock input-icon"></i>
                 <input
                     v-model="formData.password"
                     :type="showPassword ? 'text' : 'password'"
@@ -81,9 +60,6 @@
                 >
                   <i :class="['fas', showPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
                 </button>
-                <span class="input-status success" v-if="formData.password.length >= 6">
-                  <i class="fas fa-check"></i>
-                </span>
               </div>
               <div class="password-strength" v-if="formData.password.length > 0">
                 <div class="strength-bar">
@@ -94,9 +70,8 @@
             </div>
 
             <div class="form-group">
-              <label>确认密码</label>
+              <label class="form-label">确认密码</label>
               <div class="input-wrapper has-eye">
-                <i class="fas fa-lock input-icon"></i>
                 <input
                     v-model="formData.confirmPassword"
                     :type="showConfirmPassword ? 'text' : 'password'"
@@ -112,34 +87,26 @@
                 >
                   <i :class="['fas', showConfirmPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
                 </button>
-                <span class="input-status success" v-if="formData.confirmPassword && formData.password === formData.confirmPassword">
-                  <i class="fas fa-check"></i>
-                </span>
               </div>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label>学号 <span class="optional"></span></label>
+              <label class="form-label">学号 <span class="optional">(选填)</span></label>
               <div class="input-wrapper">
-                <i class="fas fa-id-card input-icon"></i>
-                <input 
+                <input
                   type="text" 
                   v-model="formData.studentId" 
                   placeholder="请输入学号"
                   class="form-input"
                 >
-                <span class="input-status success" v-if="formData.studentId.length > 0">
-                  <i class="fas fa-check"></i>
-                </span>
               </div>
             </div>
 
             <div class="form-group">
-              <label>外部系统密码 <span class="optional"></span></label>
+              <label class="form-label">外部系统密码 <span class="optional">(选填)</span></label>
               <div class="input-wrapper has-eye">
-                <i class="fas fa-key input-icon"></i>
                 <input
                     v-model="formData.sPassword"
                     :type="showSPassword ? 'text' : 'password'"
@@ -155,9 +122,6 @@
                 >
                   <i :class="['fas', showSPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
                 </button>
-                <span class="input-status success" v-if="formData.sPassword.length > 0">
-                  <i class="fas fa-check"></i>
-                </span>
               </div>
               <div class="field-hint">
                 <i class="fas fa-info-circle"></i>
@@ -167,20 +131,16 @@
           </div>
 
           <div class="form-group captcha-group">
-            <label>邮箱验证码</label>
+            <label class="form-label">邮箱验证码</label>
             <div class="captcha-container">
               <div class="input-wrapper captcha-input">
-                <i class="fas fa-shield-alt input-icon"></i>
-                <input 
+                <input
                   type="text" 
-                  v-model="formData.captcha" 
-                  placeholder="请输入6位验证码"
+                  v-model="formData.captcha"
+                  placeholder="6位验证码"
                   maxlength="6"
                   class="form-input"
                 >
-                <span class="input-status success" v-if="formData.captcha.length === 6">
-                  <i class="fas fa-check"></i>
-                </span>
               </div>
               <button 
                 class="captcha-btn" 
@@ -194,16 +154,14 @@
             </div>
             <div class="captcha-success" v-if="captchaSent">
               <i class="fas fa-check-circle"></i>
-              验证码已发送至邮箱，请查收
+              验证码已发送
             </div>
           </div>
 
           <div class="terms-agreement">
             <label class="custom-checkbox">
               <input type="checkbox" v-model="agreeTerms">
-              <span class="checkmark">
-                <i class="fas fa-check"></i>
-              </span>
+              <span class="checkmark"><i class="fas fa-check"></i></span>
               <span class="checkbox-text">
                 我已阅读并同意
                 <router-link class="terms-link" to="/terms">服务条款</router-link>
@@ -219,10 +177,7 @@
             :disabled="loading || !isFormValid"
             :class="{ 'btn-loading': loading, 'btn-disabled': !isFormValid }"
           >
-            <span v-if="!loading" class="btn-content">
-              <i class="fas fa-user-plus"></i>
-              创建账号
-            </span>
+            <span v-if="!loading">创建账号</span>
             <span v-else class="btn-loading-content">
               <i class="fas fa-spinner fa-spin"></i>
               注册中...
@@ -230,7 +185,7 @@
           </button>
 
           <div class="form-footer">
-            <p>已有账号？ 
+            <p>已有账号？
               <router-link to="/login" class="login-link">立即登录</router-link>
             </p>
           </div>
@@ -238,105 +193,24 @@
       </div>
     </div>
 
-    <!-- 右侧插图区域 - 优化版本 -->
+    <!-- 右侧说明区域 -->
     <div class="illustration-section">
       <div class="illustration-content">
-
-
-        <!-- 主要插图 -->
-        <div class="main-illustration">
-          <div class="central-icon">
-            <i class="fas fa-rocket"></i>
-            <div class="pulse-ring"></div>
-            <div class="pulse-ring pulse-ring-2"></div>
-          </div>
-          
-          <!-- 重新设计的浮动功能图标 -->
-          <div class="floating-icons-grid">
-            <div class="floating-icon-item" data-tooltip="任务管理">
-              <div class="icon-wrapper">
-                <i class="fas fa-tasks"></i>
-              </div>
-            </div>
-            <div class="floating-icon-item" data-tooltip="智能提醒">
-              <div class="icon-wrapper">
-                <i class="fas fa-bell"></i>
-              </div>
-            </div>
-            <div class="floating-icon-item" data-tooltip="数据分析">
-              <div class="icon-wrapper">
-                <i class="fas fa-chart-line"></i>
-              </div>
-            </div>
-            <div class="floating-icon-item" data-tooltip="学习管理">
-              <div class="icon-wrapper">
-                <i class="fas fa-graduation-cap"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 文字内容 -->
-        <div class="illustration-text">
-          <h3>开启学习管理之旅</h3>
-          <p>注册账号，开始高效管理您的学习任务和作业进度</p>
-          
-          <!-- 重新设计的功能亮点 -->
-          <div class="feature-highlights">
-            <div class="feature-card">
-              <div class="feature-card-icon">
-                <i class="fas fa-brain"></i>
-              </div>
-              <div class="feature-card-content">
-                <h4>智能作业提醒</h4>
-                <p>AI驱动的智能提醒系统</p>
-              </div>
-            </div>
-            <div class="feature-card">
-              <div class="feature-card-icon">
-                <i class="fas fa-list-alt"></i>
-              </div>
-              <div class="feature-card-content">
-                <h4>多科目管理</h4>
-                <p>统一管理所有学科任务</p>
-              </div>
-            </div>
-            <div class="feature-card">
-              <div class="feature-card-icon">
-                <i class="fas fa-chart-line"></i>
-              </div>
-              <div class="feature-card-content">
-                <h4>进度跟踪分析</h4>
-                <p>可视化学习进度报告</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <h3>开启智能学习之旅</h3>
+        <p>注册即可享受全方位的课程与作业管理服务</p>
+        <ul class="feature-list">
+          <li>多平台数据自动同步</li>
+          <li>智能提醒，科学规划时间</li>
+          <li>数据加密，安全可靠</li>
+        </ul>
       </div>
     </div>
 
     <!-- 消息提示 -->
     <transition name="toast-slide">
-      <div v-if="showSuccess" class="toast-notification success">
-        <div class="toast-icon">
-          <i class="fas fa-check-circle"></i>
-        </div>
-        <div class="toast-content">
-          <div class="toast-title">注册成功！</div>
-          <div class="toast-message">正在跳转到登录页面...</div>
-        </div>
-      </div>
-    </transition>
-
-    <transition name="toast-slide">
-      <div v-if="errorMessage" class="toast-notification error">
-        <div class="toast-icon">
-          <i class="fas fa-exclamation-circle"></i>
-        </div>
-        <div class="toast-content">
-          <div class="toast-title">注册失败</div>
-          <div class="toast-message">{{ errorMessage }}</div>
-        </div>
+      <div v-if="showSuccess" class="toast">
+        <div class="toast-title">注册成功！</div>
+        <div class="toast-message">正在跳转到登录页面...</div>
       </div>
     </transition>
   </div>
@@ -346,13 +220,9 @@
 import {computed, onMounted, onUnmounted, reactive, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import rsaCrypto from '@/utils/rsa-crypto'
-import SecurityIndicator from '@/components/SecurityIndicator.vue'
 
 export default {
   name: 'RegisterOptimized',
-  components: {
-    SecurityIndicator
-  },
   setup() {
     const router = useRouter()
     const formData = reactive({
@@ -654,201 +524,142 @@ export default {
 </script>
 
 <style scoped>
-/* 基础样式保持不变 */
 .register-container {
-  height: 100vh;
-  max-width: 100vw;
+  min-height: 100vh;
+  background: linear-gradient(160deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
   display: flex;
-  position: relative;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
-  overflow: hidden;
-}
-
-.floating-shapes {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.shape {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(14, 165, 233, 0.08);
-  animation: float 8s ease-in-out infinite;
-}
-
-.shape-1 {
-  width: 80px;
-  height: 80px;
-  top: 10%;
-  left: 10%;
-  animation-delay: 0s;
-}
-
-.shape-2 {
-  width: 120px;
-  height: 120px;
-  top: 20%;
-  right: 15%;
-  animation-delay: 1s;
-}
-
-.shape-3 {
-  width: 60px;
-  height: 60px;
-  bottom: 30%;
-  left: 5%;
-  animation-delay: 2s;
-}
-
-.shape-4 {
-  width: 100px;
-  height: 100px;
-  bottom: 10%;
-  right: 10%;
-  animation-delay: 3s;
-}
-
-.shape-5 {
-  width: 140px;
-  height: 140px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation-delay: 4s;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(180deg); }
-}
-
-/* 左侧表单区域样式保持不变 */
-.form-section {
-  flex: 1;
-  display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 20px;
-  position: relative;
-  z-index: 2;
+  padding: 40px 20px;
+  gap: 60px;
   overflow-y: auto;
 }
 
-.form-content {
+/* ── 表单区域 ── */
+.form-section {
+  flex: 0 0 auto;
   width: 100%;
   max-width: 480px;
+  z-index: 2;
+}
+
+.form-card {
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 36px 32px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(14, 165, 233, 0.1);
+}
+
+/* 品牌 */
+.form-content {
+  width: 100%;
 }
 
 .brand-logo {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .brand-title {
-  font-size: 28px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0 0 6px 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px;
+  letter-spacing: -0.3px;
 }
 
 .brand-subtitle {
-  color: #475569;
-  font-size: 14px;
+  font-size: 13px;
+  color: #94a3b8;
   margin: 0;
 }
 
-.form-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  padding: 28px;
-  box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
+/* 头部 */
 .form-header {
-  text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .form-header h2 {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
-  color: #1f2937;
-  margin: 0 0 6px 0;
+  color: #0f172a;
+  margin: 0 0 4px;
 }
 
 .form-header p {
-  color: #6b7280;
-  font-size: 14px;
+  font-size: 13px;
+  color: #64748b;
   margin: 0;
 }
 
+/* 表单布局 */
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
 .form-group {
-  display: flex;
-  flex-direction: column;
+  margin-bottom: 0;
 }
 
-.form-group label {
+.form-label {
+  display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #1f2937;
+  color: #374151;
   margin-bottom: 6px;
 }
 
 .optional {
-  color: #9ca3af;
+  color: #94a3b8;
   font-weight: 400;
-  font-size: 12px;
+  font-size: 11px;
+  margin-left: 2px;
 }
 
+/* 输入框 */
 .input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.input-icon {
-  position: absolute;
-  left: 14px;
-  color: #6b7280;
-  font-size: 14px;
-  z-index: 1;
-  transition: color 0.3s ease;
+.input-wrapper.has-eye .form-input {
+  padding-right: 40px;
 }
 
 .form-input {
   width: 100%;
-  padding: 12px 16px 12px 40px;
-  border: 2px solid #e5e7eb;
+  padding: 11px 13px;
+  border: 1.5px solid #e5e7eb;
   border-radius: 10px;
-  font-size: 14px;
-  background: #ffffff;
-  color: #1f2937;
-  transition: all 0.3s ease;
-  outline: none;
+  font-size: 13.5px;
+  background: #fff;
+  color: #1e293b;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
 }
 
-/* 给带小眼睛的输入框留出右侧空间 */
-.input-wrapper.has-eye .form-input {
-  padding-right: 52px;
+.form-input::placeholder {
+  color: #9ca3af;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  color: #9ca3af;
+  font-size: 13px;
+  pointer-events: none;
 }
 
 .toggle-visibility {
@@ -860,50 +671,34 @@ export default {
   background: transparent;
   color: #9ca3af;
   cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
+  padding: 4px;
+  transition: color 0.2s;
 }
 
 .toggle-visibility:hover {
-  color: #6b7280;
-  background: rgba(0, 0, 0, 0.05);
+  color: #475569;
 }
 
-.form-input:focus {
-  border-color: #0ea5e9;
-  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
-}
-
-.form-input:focus + .input-icon {
-  color: #0ea5e9;
-}
-
-.input-status {
-  position: absolute;
-  right: 16px;
-  color: #22c55e;
-  font-size: 14px;
-}
-
+/* 密码强度 */
 .password-strength {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 5px;
 }
 
 .strength-bar {
   flex: 1;
-  height: 4px;
-  background: #e5e7eb;
+  height: 3px;
+  background: #e2e8f0;
   border-radius: 2px;
   overflow: hidden;
 }
 
 .strength-fill {
   height: 100%;
-  transition: all 0.3s ease;
   border-radius: 2px;
+  transition: all 0.3s;
 }
 
 .strength-fill.weak {
@@ -922,29 +717,30 @@ export default {
 }
 
 .strength-text {
-  font-size: 12px;
+  font-size: 11px;
+  color: #64748b;
   font-weight: 600;
-  color: #6b7280;
+  white-space: nowrap;
 }
 
+/* 字段提示 */
 .field-hint {
-  font-size: 12px;
-  color: #6b7280;
-  margin-top: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
+/* 验证码 */
 .captcha-group {
-  grid-column: 1 / -1;
-  margin-bottom: 16px;
+  margin-top: 4px;
 }
 
 .captcha-container {
   display: flex;
-  gap: 12px;
-  align-items: stretch;
+  gap: 10px;
 }
 
 .captcha-input {
@@ -952,67 +748,71 @@ export default {
 }
 
 .captcha-btn {
-  padding: 0 24px;
-  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 14px;
+  flex-shrink: 0;
+  padding: 0 14px;
+  background: #f8fafc;
+  color: #475569;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
   white-space: nowrap;
-  min-width: 120px;
+  height: 40px;
 }
 
-.captcha-btn:hover:not(.btn-disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.4);
+.captcha-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
 }
 
-.captcha-btn.btn-disabled {
-  background: #9ca3af;
+.captcha-btn.btn-disabled, .captcha-btn:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
-  transform: none;
 }
 
 .captcha-success {
   font-size: 12px;
   color: #22c55e;
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  margin-top: 5px;
+  font-weight: 500;
 }
 
+/* 协议勾选 */
 .terms-agreement {
-  margin: 20px 0;
+  margin: 16px 0;
 }
 
 .custom-checkbox {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
   cursor: pointer;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 13px;
 }
 
 .custom-checkbox input {
   display: none;
 }
-
 .checkmark {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #d1d5db;
-  border-radius: 6px;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
-  flex-shrink: 0;
   margin-top: 2px;
+  transition: all 0.2s;
+}
+
+.checkmark i {
+  font-size: 9px;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 
 .custom-checkbox input:checked + .checkmark {
@@ -1020,89 +820,74 @@ export default {
   border-color: #0ea5e9;
 }
 
-.checkmark i {
-  color: white;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
 .custom-checkbox input:checked + .checkmark i {
   opacity: 1;
 }
 
 .checkbox-text {
-  color: #6b7280;
+  color: #64748b;
+  line-height: 1.5;
 }
 
 .terms-link {
   color: #0ea5e9;
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .terms-link:hover {
   text-decoration: underline;
 }
 
+/* 注册按钮 */
 .register-btn {
   width: 100%;
-  padding: 14px;
-  background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+  padding: 13px;
+  background: #0ea5e9;
   color: white;
   border: none;
   border-radius: 10px;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14.5px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  margin-bottom: 16px;
-  position: relative;
-  overflow: hidden;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  margin-bottom: 14px;
 }
 
-.register-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
+.register-btn:hover:not(:disabled) {
+  background: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 16px rgba(14, 165, 233, 0.28);
 }
 
-.register-btn:hover:not(.btn-disabled):not(.btn-loading)::before {
-  left: 100%;
-}
-
-.register-btn:hover:not(.btn-disabled):not(.btn-loading) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(14, 165, 233, 0.4);
-}
-
-.register-btn.btn-disabled {
-  opacity: 0.6;
+.register-btn.btn-disabled, .register-btn:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
-.btn-content,
 .btn-loading-content {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
 }
 
-.form-footer {
-  text-align: center;
+.btn-loading-content i {
+  animation: spin 1s linear infinite;
 }
 
-.form-footer p {
-  color: #6b7280;
-  font-size: 14px;
-  margin: 0;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 底部 */
+.form-footer {
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
 }
 
 .login-link {
@@ -1115,566 +900,109 @@ export default {
   text-decoration: underline;
 }
 
-/* 优化后的右侧插图区域 */
+/* 右侧说明区域 */
 .illustration-section {
-  flex: 0 0 40%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-  position: relative;
-  z-index: 2;
+  display: none;
+  flex: 1;
+  max-width: 360px;
+  align-self: center;
 }
 
-.illustration-content {
-  text-align: center;
-  color: white;
-  max-width: 320px;
-  width: 100%;
-  position: relative;
-  z-index: 10;
-}
-
-/* 主要插图优化 */
-.main-illustration {
-  position: relative;
-  margin: 60px 0 40px 0;
-}
-
-.central-icon {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100px;
-  height: 100px;
-  background: rgba(14, 165, 233, 0.15);
-  border-radius: 50%;
-  backdrop-filter: blur(15px);
-  border: 2px solid rgba(14, 165, 233, 0.3);
-  z-index: 10;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-}
-
-.central-icon i {
-  font-size: 40px;
-  color: #0ea5e9;
-}
-
-.pulse-ring {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100px;
-  height: 100px;
-  border: 2px solid rgba(14, 165, 233, 0.3);
-  border-radius: 50%;
-  animation: pulse 3s ease-in-out infinite;
-  z-index: 1;
-}
-
-.pulse-ring-2 {
-  width: 130px;
-  height: 130px;
-  animation-delay: 1.5s;
-  border: 1px solid rgba(14, 165, 233, 0.2);
-}
-
-@keyframes pulse {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.8;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.3);
-    opacity: 0;
-  }
-}
-
-/* 重新设计的浮动图标网格 */
-.floating-icons-grid {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 240px;
-  height: 240px;
-  z-index: 1;
-}
-
-.floating-icon-item {
-  position: absolute;
-  transition: all 0.3s ease;
-}
-
-.floating-icon-item:nth-child(1) {
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  animation: floatUp 4s ease-in-out infinite;
-}
-
-.floating-icon-item:nth-child(2) {
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  animation: floatRight 4s ease-in-out infinite 1s;
-}
-
-.floating-icon-item:nth-child(3) {
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  animation: floatDown 4s ease-in-out infinite 2s;
-}
-
-.floating-icon-item:nth-child(4) {
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  animation: floatLeft 4s ease-in-out infinite 3s;
-}
-
-.icon-wrapper {
-  width: 48px;
-  height: 48px;
-  background: rgba(14, 165, 233, 0.15);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(14, 165, 233, 0.25);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-}
-
-.icon-wrapper:hover {
-  transform: translateY(-4px) scale(1.1);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-
-.icon-wrapper i {
-  font-size: 20px;
-  color: #0ea5e9;
-}
-
-@keyframes floatUp {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-8px); }
-}
-
-@keyframes floatRight {
-  0%, 100% { transform: translateY(-50%) translateX(0); }
-  50% { transform: translateY(-50%) translateX(8px); }
-}
-
-@keyframes floatDown {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(8px); }
-}
-
-@keyframes floatLeft {
-  0%, 100% { transform: translateY(-50%) translateX(0); }
-  50% { transform: translateY(-50%) translateX(-8px); }
-}
-
-/* 插图文字优化 */
-.illustration-text {
-  position: relative;
-  z-index: 10;
-}
-
-.illustration-text h3 {
-  font-size: 28px;
-  font-weight: 700;
-  margin: 0 0 16px 0;
+.illustration-content h3 {
+  font-size: 26px;
+  font-weight: 800;
   color: #0f172a;
+  margin: 0 0 12px;
+  letter-spacing: -0.5px;
+  line-height: 1.3;
 }
 
-.illustration-text p {
-  font-size: 16px;
-  line-height: 1.6;
-  color: #475569;
-  margin: 0 0 32px 0;
+.illustration-content > p {
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0 0 24px;
 }
 
-/* 重新设计的功能亮点卡片 */
-.feature-highlights {
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.feature-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
-  border-radius: 16px;
-  backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.feature-card:hover {
-  transform: translateY(-2px);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-}
-
-.feature-card-icon {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2));
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.feature-card-icon i {
-  font-size: 20px;
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.feature-card-content {
-  flex: 1;
-  text-align: left;
-}
-
-.feature-card-content h4 {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
-  color: white;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-}
-
-.feature-card-content p {
-  font-size: 13px;
-  margin: 0;
-  opacity: 0.8;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* 消息提示样式保持不变 */
-.toast-notification {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  max-width: 400px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  border: 1px solid #e5e7eb;
-  overflow: hidden;
-  z-index: 1000;
-}
-
-.toast-notification.success {
-  border-left: 4px solid #10b981;
-}
-
-.toast-notification.error {
-  border-left: 4px solid #ef4444;
-}
-
-.toast-notification {
-  display: flex;
-  align-items: flex-start;
-  padding: 16px;
   gap: 12px;
 }
 
-.toast-icon {
-  flex-shrink: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.feature-list li {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.68);
+  border-radius: 12px;
+  font-size: 14px;
+  color: #475569;
+  font-weight: 500;
+  border-left: 3px solid #0ea5e9;
 }
 
-.toast-notification.success .toast-icon {
-  color: #10b981;
-}
-
-.toast-notification.error .toast-icon {
-  color: #ef4444;
-}
-
-.toast-content {
-  flex: 1;
+/* Toast */
+.toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  border-left: 4px solid #22c55e;
+  min-width: 240px;
 }
 
 .toast-title {
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 4px;
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 14px;
 }
 
 .toast-message {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 3px;
 }
 
-.toast-slide-enter-active,
-.toast-slide-leave-active {
+.toast-slide-enter-active, .toast-slide-leave-active {
   transition: all 0.3s ease;
 }
 
-.toast-slide-enter-from {
-  transform: translateX(100%);
+.toast-slide-enter-from, .toast-slide-leave-to {
   opacity: 0;
+  transform: translateX(30px);
 }
 
-.toast-slide-leave-to {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-/* 响应式设计 */
-@media (max-width: 1200px) {
-  .register-container {
+/* 响应式 */
+@media (min-width: 1024px) {
+  .illustration-section {
+    display: flex;
     flex-direction: column;
+    justify-content: center;
   }
-  
-  .illustration-section {
-    order: -1;
-    flex: 0 0 auto;
-    min-height: 320px;
-    padding: 24px 20px;
-  }
-  
-  .form-section {
-    flex: 1;
-    min-height: auto;
-  }
-  
-  .main-illustration {
-    margin: 40px 0 32px 0;
-  }
-  
-  .central-icon {
-    width: 80px;
-    height: 80px;
-  }
-  
-  .central-icon i {
-    font-size: 32px;
-  }
-  
-  .floating-icons-grid {
-    width: 200px;
-    height: 200px;
-  }
-  
-  .icon-wrapper {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .icon-wrapper i {
-    font-size: 16px;
-  }
-  
-  .illustration-text h3 {
-    font-size: 24px;
-  }
-  
-  .illustration-text p {
-    font-size: 14px;
-  }
-  
-  .feature-card {
-    padding: 14px 16px;
-  }
-  
-  .feature-card-icon {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .feature-card-icon i {
-    font-size: 16px;
-  }
-  
-  .feature-card-content h4 {
-    font-size: 14px;
-  }
-  
-  .feature-card-content p {
-    font-size: 12px;
+
+  .register-container {
+    align-items: center;
   }
 }
 
-@media (max-width: 768px) {
-  .register-container {
-    height: auto;
-    min-height: 100vh;
-  }
-  
-  .illustration-section {
-    min-height: 240px;
-    padding: 20px 16px;
-  }
-  
-  .form-section {
-    padding: 16px;
-  }
-  
-  .form-content {
-    max-width: 100%;
-  }
-  
+@media (max-width: 640px) {
   .form-row {
     grid-template-columns: 1fr;
-    gap: 14px;
-    margin-bottom: 16px;
   }
-  
+
   .form-card {
-    padding: 24px 20px;
+    padding: 24px 18px;
     border-radius: 16px;
   }
-  
-  .main-illustration {
-    margin: 20px 0 24px 0;
-  }
-  
-  .central-icon {
-    width: 70px;
-    height: 70px;
-  }
-  
-  .central-icon i {
-    font-size: 28px;
-  }
-  
-  .floating-icons-grid {
-    width: 160px;
-    height: 160px;
-  }
-  
-  .icon-wrapper {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .icon-wrapper i {
-    font-size: 14px;
-  }
-  
-  .illustration-text h3 {
-    font-size: 20px;
-    margin-bottom: 12px;
-  }
-  
-  .illustration-text p {
-    font-size: 13px;
-    margin-bottom: 24px;
-  }
-  
-  .feature-highlights {
-    gap: 12px;
-  }
-  
-  .feature-card {
-    padding: 12px 14px;
-  }
-  
-  .feature-card-icon {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .feature-card-icon i {
-    font-size: 14px;
-  }
-  
-  .feature-card-content h4 {
-    font-size: 13px;
-  }
-  
-  .feature-card-content p {
-    font-size: 11px;
-  }
-}
 
-@media (max-width: 480px) {
-  .illustration-section {
-    min-height: 200px;
-    padding: 16px 12px;
-  }
-  
-  .main-illustration {
-    margin: 16px 0 20px 0;
-  }
-  
-  .central-icon {
-    width: 60px;
-    height: 60px;
-  }
-  
-  .central-icon i {
-    font-size: 24px;
-  }
-  
-  .floating-icons-grid {
-    width: 140px;
-    height: 140px;
-  }
-  
-  .icon-wrapper {
-    width: 32px;
-    height: 32px;
-  }
-  
-  .icon-wrapper i {
-    font-size: 12px;
-  }
-  
-  .illustration-text h3 {
-    font-size: 18px;
-    margin-bottom: 10px;
-  }
-  
-  .illustration-text p {
-    font-size: 12px;
-    margin-bottom: 20px;
-  }
-  
-  .feature-highlights {
-    gap: 10px;
-  }
-  
-  .feature-card {
-    padding: 10px 12px;
-  }
-  
-  .feature-card-icon {
-    width: 32px;
-    height: 32px;
-  }
-  
-  .feature-card-icon i {
-    font-size: 12px;
-  }
-  
-  .feature-card-content h4 {
-    font-size: 12px;
-  }
-  
-  .feature-card-content p {
-    font-size: 10px;
+  .register-container {
+    padding: 20px 14px;
   }
 }
 </style>

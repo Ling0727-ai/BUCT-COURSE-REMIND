@@ -8,6 +8,7 @@ import (
 	"github.com/Ling0727-ai/go-buct-course-backend/middleware"
 	"github.com/Ling0727-ai/go-buct-course-backend/models"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/AssignmentStatus"
+	"github.com/Ling0727-ai/go-buct-course-backend/models/Blacklist"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/CourseData"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/Reminder"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/Todo"
@@ -57,6 +58,7 @@ func Start(cfg *config.Config) {
 	User.Init(db)
 	CourseData.Init(db)
 	AssignmentStatus.Init(db)
+	Blacklist.Init(db)
 	Todo.Init(db)
 	Reminder.Init(db)
 	log.Println("[app] 所有 Repository 已初始化")

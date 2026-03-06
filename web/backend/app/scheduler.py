@@ -151,8 +151,12 @@ class CourseDataScheduler:
             from .scraper import get_scraper
             scraper = get_scraper()
 
+            # 加载黑名单，传给 scraper 在 lid 层直接跳过
+            from .blacklist import get_user_blacklisted_ids
+            blacklisted_ids = get_user_blacklisted_ids(user_id)
+
             # 获取最新数据
-            result = scraper.get_pending_tasks(user_id)
+            result = scraper.get_pending_tasks(user_id, blacklisted_ids=blacklisted_ids)
 
             if not result.get('success'):
                 logger.error(f"获取用户 {user_id} 数据失败: {result.get('error')}")

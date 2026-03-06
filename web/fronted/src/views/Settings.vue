@@ -1,21 +1,14 @@
 <template>
   <div class="container">
     <div class="header">
-      <button class="back-btn" @click="goBack">
-        <i class="fas fa-arrow-left"></i>
-        返回
-      </button>
-      <h1><i class="fas fa-cog"></i> 系统设置</h1>
+      <button class="back-btn" @click="goBack">← 返回</button>
+      <h1>系统设置</h1>
     </div>
 
     <div class="content">
-      <!-- 基础设置 -->
       <!-- 学生信息设置 -->
       <div class="section">
-        <h2 class="section-title">
-          <i class="fas fa-user-graduate"></i>
-          学生信息配置
-        </h2>
+        <h2 class="section-title">学生信息配置</h2>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">学号</label>
@@ -37,21 +30,16 @@
           </div>
         </div>
         <div class="info-tip">
-          <i class="fas fa-info-circle"></i>
           此信息用于自动登录教务系统获取作业和考试信息，请确保信息准确
         </div>
         <button class="btn btn-primary" @click="saveStudentInfo" style="margin-top: 15px;">
-          <i class="fas fa-save"></i>
           保存学生信息
         </button>
       </div>
 
       <!-- 邮箱设置 -->
       <div class="section">
-        <h2 class="section-title">
-          <i class="fas fa-envelope"></i>
-          邮箱设置
-        </h2>
+        <h2 class="section-title">邮箱设置</h2>
         <div class="form-group">
           <label class="form-label">账号邮箱</label>
           <input
@@ -62,21 +50,16 @@
           >
         </div>
         <div class="info-tip">
-          <i class="fas fa-info-circle"></i>
           修改邮箱将同时更新账号恢复邮箱和作业提醒接收邮箱。系统默认使用注册邮箱发送提醒。
         </div>
         <button class="btn btn-primary" @click="saveEmailSettings" style="margin-top: 15px;">
-          <i class="fas fa-save"></i>
           修改邮箱
         </button>
       </div>
 
       <!-- 数据管理设置 -->
       <div class="section">
-        <h2 class="section-title">
-          <i class="fas fa-database"></i>
-          数据管理
-        </h2>
+        <h2 class="section-title">数据管理</h2>
         <div class="data-status-card">
           <div class="status-info">
             <div class="status-item">
@@ -101,12 +84,106 @@
               :disabled="refreshing"
               :class="{ 'refreshing': refreshing }"
             >
-              <i :class="['fas', refreshing ? 'fa-spinner fa-spin' : 'fa-sync-alt']"></i>
+              <i v-if="refreshing" class="fas fa-spinner fa-spin"></i>
               {{ refreshing ? '刷新中...' : '手动刷新数据' }}
             </button>
-            <div class="refresh-tip">
-              <i class="fas fa-info-circle"></i>
-              数据每12小时自动刷新一次，也可手动刷新
+            <div class="refresh-tip">数据每12小时自动刷新一次，也可手动刷新</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 鼠标拖尾颜色设置 -->
+      <div class="section">
+        <h2 class="section-title">
+          鼠标拖尾颜色
+          <span class="beta-badge">测试版</span>
+        </h2>
+
+        <div class="color-picker-wrap">
+          <!-- 色环 Canvas -->
+          <div class="wheel-area">
+            <canvas
+                ref="wheelCanvas"
+                class="color-wheel"
+                height="200" width="200"
+                @mousedown="onWheelDown"
+                @touchstart.prevent="onWheelTouch"
+            ></canvas>
+            <!-- 色相环指示点 -->
+            <div
+                :style="{
+                left: wheelCursorPos.x + 'px',
+                top:  wheelCursorPos.y + 'px',
+                background: `hsl(${trailColor.h},100%,50%)`
+              }"
+                class="wheel-cursor"
+            ></div>
+
+            <canvas
+                ref="svCanvas"
+                class="sv-square"
+                height="120" width="120"
+                @mousedown="onSVDown"
+                @touchstart.prevent="onSVTouch"
+            ></canvas>
+            <!-- SV 方块指示点 -->
+            <div
+                :style="{
+                left: svCursorPos.x + 'px',
+                top:  svCursorPos.y + 'px'
+              }"
+                class="sv-cursor"
+            ></div>
+          </div>
+
+          <!-- 右侧控制区 -->
+          <div class="color-controls">
+            <!-- 颜色预览 -->
+            <div class="color-preview-row">
+              <div :style="{ background: previewHex }" class="color-swatch"></div>
+              <span class="color-hex-label">{{ previewHex.toUpperCase() }}</span>
+            </div>
+
+            <!-- RGB 输入 -->
+            <div class="rgb-inputs">
+              <div class="rgb-input-item">
+                <label>R</label>
+                <input v-model.number="trailColor.r" class="rgb-input" max="255" min="0" type="number"
+                       @input="onRGBInput"/>
+              </div>
+              <div class="rgb-input-item">
+                <label>G</label>
+                <input v-model.number="trailColor.g" class="rgb-input" max="255" min="0" type="number"
+                       @input="onRGBInput"/>
+              </div>
+              <div class="rgb-input-item">
+                <label>B</label>
+                <input v-model.number="trailColor.b" class="rgb-input" max="255" min="0" type="number"
+                       @input="onRGBInput"/>
+              </div>
+            </div>
+
+            <!-- HEX 输入 -->
+            <div class="hex-input-row">
+              <span class="hex-prefix">#</span>
+              <input
+                  v-model="hexInput" class="hex-input"
+                  maxlength="6"
+                  placeholder="00BBCC"
+                  type="text"
+                  @blur="syncHexInput"
+                  @input="onHexInput"
+              />
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="color-btn-row">
+              <button class="btn btn-primary" @click="applyTrailColor">应用</button>
+              <button class="btn btn-outline" @click="resetTrailColor">重置默认</button>
+            </div>
+
+            <div class="info-tip" style="margin-top:14px;">
+              颜色偏好存储于浏览器本地，清除缓存后将恢复默认
             </div>
           </div>
         </div>
@@ -114,10 +191,6 @@
 
 
     </div>
-
-
-
-    <!-- Toast消息 -->
     <div v-if="toast.show" :class="['toast', toast.type]">
       <div style="display: flex; align-items: center; gap: 10px;">
         <i :class="toastIcon"></i>
@@ -128,7 +201,7 @@
 </template>
 
 <script>
-import {computed, reactive, ref} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, reactive, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {useToast} from './home/composables/useToast.js'
 import './home/styles/toast.css'
@@ -386,6 +459,323 @@ export default {
     loadUserInfo()
     loadDataStatus()
 
+    // ── 鼠标拖尾颜色设置 ──────────────────────────────────────────
+    const CUSTOM_COLOR_KEY = 'mouse_trail_custom_color'
+    const wheelCanvas = ref(null)
+    const svCanvas = ref(null)
+
+    // 从 localStorage 读取初始颜色，否则用默认青色
+    function loadInitColor() {
+      try {
+        const raw = localStorage.getItem(CUSTOM_COLOR_KEY)
+        if (raw) {
+          const {r, g, b} = JSON.parse(raw)
+          if ([r, g, b].every(v => Number.isInteger(v) && v >= 0 && v <= 255)) {
+            return rgbToHsv(r, g, b)
+          }
+        }
+      } catch {
+      }
+      return {h: 188, s: 0.86, v: 0.93} // 默认青色
+    }
+
+    const initHsv = loadInitColor()
+    const trailColor = reactive({
+      h: initHsv.h, s: initHsv.s, v: initHsv.v,
+      ...hsvToRgb(initHsv.h, initHsv.s, initHsv.v)
+    })
+    const hexInput = ref(rgbToHex(trailColor.r, trailColor.g, trailColor.b))
+
+    // ── HSV ↔ RGB ↔ HEX 工具函数 ──
+    function hsvToRgb(h, s, v) {
+      const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c
+      let r = 0, g = 0, b = 0
+      if (h < 60) {
+        r = c;
+        g = x;
+        b = 0
+      } else if (h < 120) {
+        r = x;
+        g = c;
+        b = 0
+      } else if (h < 180) {
+        r = 0;
+        g = c;
+        b = x
+      } else if (h < 240) {
+        r = 0;
+        g = x;
+        b = c
+      } else if (h < 300) {
+        r = x;
+        g = 0;
+        b = c
+      } else {
+        r = c;
+        g = 0;
+        b = x
+      }
+      return {r: Math.round((r + m) * 255), g: Math.round((g + m) * 255), b: Math.round((b + m) * 255)}
+    }
+
+    function rgbToHsv(r, g, b) {
+      r /= 255;
+      g /= 255;
+      b /= 255
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+      let h = 0, s = max === 0 ? 0 : d / max, v = max
+      if (d !== 0) {
+        if (max === r) h = ((g - b) / d + 6) % 6
+        else if (max === g) h = (b - r) / d + 2
+        else h = (r - g) / d + 4
+        h = h * 60
+      }
+      return {h, s, v}
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')
+    }
+
+    function hexToRgb(hex) {
+      hex = hex.replace(/^#/, '')
+      if (hex.length === 3) hex = hex.split('').map(c => c + c).join('')
+      if (hex.length !== 6) return null
+      const n = parseInt(hex, 16)
+      if (isNaN(n)) return null
+      return {r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255}
+    }
+
+    const previewHex = computed(() => rgbToHex(trailColor.r, trailColor.g, trailColor.b))
+
+    // ── Canvas 绘制 ──
+    const WHEEL_SIZE = 200
+    const WHEEL_RADIUS = 90    // 色环外径
+    const WHEEL_INNER = 62    // 色环内径（中心空心）
+    const SV_SIZE = 120
+
+    function drawWheel() {
+      const canvas = wheelCanvas.value;
+      if (!canvas) return
+      const ctx = canvas.getContext('2d')
+      const cx = WHEEL_SIZE / 2, cy = WHEEL_SIZE / 2
+      ctx.clearRect(0, 0, WHEEL_SIZE, WHEEL_SIZE)
+      // 绘制色相环（一圈扇形段）
+      const steps = 360
+      for (let i = 0; i < steps; i++) {
+        const start = (i / steps) * Math.PI * 2 - Math.PI / 2
+        const end = ((i + 1) / steps) * Math.PI * 2 - Math.PI / 2
+        ctx.beginPath()
+        ctx.moveTo(cx, cy)
+        ctx.arc(cx, cy, WHEEL_RADIUS, start, end)
+        ctx.closePath()
+        ctx.fillStyle = `hsl(${i},100%,50%)`
+        ctx.fill()
+      }
+      // 挖空中心
+      ctx.save()
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.beginPath()
+      ctx.arc(cx, cy, WHEEL_INNER, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    }
+
+    function drawSV() {
+      const canvas = svCanvas.value;
+      if (!canvas) return
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, SV_SIZE, SV_SIZE)
+      // 底色：纯色 hue
+      ctx.fillStyle = `hsl(${trailColor.h},100%,50%)`
+      ctx.fillRect(0, 0, SV_SIZE, SV_SIZE)
+      // 白色横向渐变（S轴）
+      const wGrd = ctx.createLinearGradient(0, 0, SV_SIZE, 0)
+      wGrd.addColorStop(0, 'rgba(255,255,255,1)')
+      wGrd.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = wGrd
+      ctx.fillRect(0, 0, SV_SIZE, SV_SIZE)
+      // 黑色纵向渐变（V轴）
+      const bGrd = ctx.createLinearGradient(0, 0, 0, SV_SIZE)
+      bGrd.addColorStop(0, 'rgba(0,0,0,0)')
+      bGrd.addColorStop(1, 'rgba(0,0,0,1)')
+      ctx.fillStyle = bGrd
+      ctx.fillRect(0, 0, SV_SIZE, SV_SIZE)
+    }
+
+    // ── 指示点位置 ──
+    const wheelCursorPos = computed(() => {
+      const cx = WHEEL_SIZE / 2, cy = WHEEL_SIZE / 2
+      const r = (WHEEL_INNER + WHEEL_RADIUS) / 2
+      const a = (trailColor.h - 90) * Math.PI / 180
+      return {x: cx + r * Math.cos(a) - 7, y: cy + r * Math.sin(a) - 7}
+    })
+    const svCursorPos = computed(() => {
+      // SV 方块在 wheel canvas 正中心
+      const offset = (WHEEL_SIZE - SV_SIZE) / 2
+      return {
+        x: offset + trailColor.s * SV_SIZE - 6,
+        y: offset + (1 - trailColor.v) * SV_SIZE - 6
+      }
+    })
+
+    // ── 色环拖拽 ──
+    function pickHue(e, canvas) {
+      const rect = canvas.getBoundingClientRect()
+      const cx = WHEEL_SIZE / 2, cy = WHEEL_SIZE / 2
+      const x = (e.clientX - rect.left) - cx, y = (e.clientY - rect.top) - cy
+      let h = Math.atan2(y, x) * 180 / Math.PI + 90
+      if (h < 0) h += 360
+      trailColor.h = h % 360
+      const rgb = hsvToRgb(trailColor.h, trailColor.s, trailColor.v)
+      Object.assign(trailColor, rgb)
+      hexInput.value = rgbToHex(trailColor.r, trailColor.g, trailColor.b).replace('#', '')
+      drawSV()
+    }
+
+    let wheelDragging = false
+
+    function onWheelDown(e) {
+      wheelDragging = true;
+      pickHue(e, wheelCanvas.value)
+    }
+
+    function onWheelMove(e) {
+      if (wheelDragging) pickHue(e, wheelCanvas.value)
+    }
+
+    function onWheelUp() {
+      wheelDragging = false
+    }
+
+    function onWheelTouch(e) {
+      pickHue(e.touches[0], wheelCanvas.value)
+    }
+
+    // ── SV 方块拖拽 ──
+    function pickSV(e, canvas) {
+      const rect = canvas.getBoundingClientRect()
+      let s = (e.clientX - rect.left) / SV_SIZE
+      let v = 1 - (e.clientY - rect.top) / SV_SIZE
+      s = Math.max(0, Math.min(1, s))
+      v = Math.max(0, Math.min(1, v))
+      trailColor.s = s;
+      trailColor.v = v
+      const rgb = hsvToRgb(trailColor.h, s, v)
+      Object.assign(trailColor, rgb)
+      hexInput.value = rgbToHex(trailColor.r, trailColor.g, trailColor.b).replace('#', '')
+    }
+
+    let svDragging = false
+
+    function onSVDown(e) {
+      svDragging = true;
+      pickSV(e, svCanvas.value)
+    }
+
+    function onSVMove(e) {
+      if (svDragging) pickSV(e, svCanvas.value)
+    }
+
+    function onSVUp() {
+      svDragging = false
+    }
+
+    function onSVTouch(e) {
+      pickSV(e.touches[0], svCanvas.value)
+    }
+
+    // ── RGB 输入同步 ──
+    function onRGBInput() {
+      trailColor.r = Math.max(0, Math.min(255, trailColor.r || 0))
+      trailColor.g = Math.max(0, Math.min(255, trailColor.g || 0))
+      trailColor.b = Math.max(0, Math.min(255, trailColor.b || 0))
+      const hsv = rgbToHsv(trailColor.r, trailColor.g, trailColor.b)
+      trailColor.h = hsv.h;
+      trailColor.s = hsv.s;
+      trailColor.v = hsv.v
+      hexInput.value = rgbToHex(trailColor.r, trailColor.g, trailColor.b).replace('#', '')
+      drawSV()
+    }
+
+    // ── HEX 输入同步 ──
+    function onHexInput() {
+      const rgb = hexToRgb(hexInput.value)
+      if (!rgb) return
+      Object.assign(trailColor, rgb)
+      const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b)
+      trailColor.h = hsv.h;
+      trailColor.s = hsv.s;
+      trailColor.v = hsv.v
+      drawSV()
+    }
+
+    function syncHexInput() {
+      hexInput.value = rgbToHex(trailColor.r, trailColor.g, trailColor.b).replace('#', '')
+    }
+
+    // ── 应用 / 重置 ──
+    function applyTrailColor() {
+      const mgr = window.__MOUSE_TRAIL_MANAGER
+      if (mgr && mgr.setCustomColor) mgr.setCustomColor(trailColor.r, trailColor.g, trailColor.b)
+      else {
+        // manager 不存在时直接写 localStorage，下次刷新生效
+        try {
+          localStorage.setItem(CUSTOM_COLOR_KEY, JSON.stringify({r: trailColor.r, g: trailColor.g, b: trailColor.b}))
+        } catch {
+        }
+      }
+      showToast('拖尾颜色已应用', 'success')
+    }
+
+    function resetTrailColor() {
+      const mgr = window.__MOUSE_TRAIL_MANAGER
+      if (mgr && mgr.resetColor) mgr.resetColor()
+      else {
+        try {
+          localStorage.removeItem(CUSTOM_COLOR_KEY)
+        } catch {
+        }
+      }
+      // 恢复默认青色
+      const hsv = {h: 188, s: 0.86, v: 0.93}
+      trailColor.h = hsv.h;
+      trailColor.s = hsv.s;
+      trailColor.v = hsv.v
+      const rgb = hsvToRgb(hsv.h, hsv.s, hsv.v)
+      Object.assign(trailColor, rgb)
+      hexInput.value = rgbToHex(rgb.r, rgb.g, rgb.b).replace('#', '')
+      drawSV()
+      showToast('已恢复默认颜色', 'info')
+    }
+
+    // ── 全局鼠标抬起（拖拽结束）──
+    function onGlobalMouseUp() {
+      wheelDragging = false;
+      svDragging = false
+    }
+
+    function onGlobalMouseMove(e) {
+      if (wheelDragging) pickHue(e, wheelCanvas.value)
+      if (svDragging) pickSV(e, svCanvas.value)
+    }
+
+    // 锁定 body 滚动，防止双滚动条
+    onMounted(() => {
+      document.body.style.overflow = 'hidden'
+      window.addEventListener('mousemove', onGlobalMouseMove)
+      window.addEventListener('mouseup', onGlobalMouseUp)
+      nextTick(() => {
+        drawWheel();
+        drawSV()
+      })
+    })
+    onUnmounted(() => {
+      document.body.style.overflow = ''
+      window.removeEventListener('mousemove', onGlobalMouseMove)
+      window.removeEventListener('mouseup', onGlobalMouseUp)
+    })
+
     return {
       settings,
       studentInfo,
@@ -401,7 +791,24 @@ export default {
       formatDateTime,
       formatNextRefresh,
       loadDataStatus,
-      refreshCourseData
+      refreshCourseData,
+      // 颜色选择器
+      wheelCanvas,
+      svCanvas,
+      trailColor,
+      hexInput,
+      previewHex,
+      wheelCursorPos,
+      svCursorPos,
+      onWheelDown,
+      onWheelTouch,
+      onSVDown,
+      onSVTouch,
+      onRGBInput,
+      onHexInput,
+      syncHexInput,
+      applyTrailColor,
+      resetTrailColor,
     }
   }
 }
@@ -410,10 +817,11 @@ export default {
 <style scoped>
 /* 全局容器 */
 .container {
-  min-height: 100vh;
+  height: 100vh;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
   position: relative;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* 装饰性浮动元素 */
@@ -471,61 +879,35 @@ export default {
   z-index: 1;
 }
 
-.header::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(14, 165, 233, 0.05), transparent);
-  animation: shimmer 8s infinite;
-  z-index: 0;
-}
-
-@keyframes shimmer {
-  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
-}
 
 .header h1 {
-  font-size: 2em;
+  font-size: 1.6em;
   margin: 0;
   font-weight: 700;
   color: #0f172a;
   position: relative;
   z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header h1 i {
-  color: #0ea5e9;
+  letter-spacing: -0.3px;
 }
 
 .back-btn {
-  background: rgba(14, 165, 233, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(14, 165, 233, 0.2);
-  color: #0ea5e9;
-  padding: 12px 18px;
-  border-radius: 15px;
+  background: transparent;
+  border: 1.5px solid #e5e7eb;
+  color: #475569;
+  padding: 9px 16px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  transition: all 0.2s ease;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  font-size: 14px;
   position: relative;
   z-index: 2;
 }
 
 .back-btn:hover {
-  background: rgba(14, 165, 233, 0.15);
-  transform: translateX(-3px) translateY(-2px);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
 .content {
@@ -560,20 +942,16 @@ export default {
 }
 
 .section-title {
-  font-size: 1.4em;
+  font-size: 1.1em;
   color: #0f172a;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-weight: 600;
+  gap: 10px;
+  font-weight: 700;
   position: relative;
   z-index: 1;
-}
-
-.section-title i {
-  color: #0ea5e9;
-  text-shadow: 0 2px 10px rgba(14, 165, 233, 0.2);
+  letter-spacing: -0.1px;
 }
 
 .form-group {
@@ -1193,6 +1571,218 @@ export default {
   .form-input {
     padding: 12px 16px;
     font-size: 14px;
+  }
+}
+
+/* ── 测试版徽标 ── */
+.beta-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  color: #fff;
+  margin-left: 10px;
+  vertical-align: middle;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.35);
+  text-transform: uppercase;
+}
+
+/* ── 颜色选择器整体布局 ── */
+.color-picker-wrap {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* ── 色环 + SV 方块区域 ── */
+.wheel-area {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  flex-shrink: 0;
+}
+
+.color-wheel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.sv-square {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120px;
+  height: 120px;
+  transform: translate(-50%, -50%);
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* 色环指示点 */
+.wheel-cursor {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* SV 方块指示点 */
+.sv-cursor {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* ── 右侧控制区 ── */
+.color-controls {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.color-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.color-swatch {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+
+.color-hex-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: 1px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+
+/* RGB 输入 */
+.rgb-inputs {
+  display: flex;
+  gap: 10px;
+}
+
+.rgb-input-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.rgb-input-item label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+
+.rgb-input {
+  width: 100%;
+  padding: 8px 6px;
+  border: 2px solid rgba(229, 231, 235, 0.8);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1f2937;
+  transition: border-color 0.2s;
+}
+
+.rgb-input:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+/* HEX 输入 */
+.hex-input-row {
+  display: flex;
+  align-items: center;
+  border: 2px solid rgba(229, 231, 235, 0.8);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.9);
+  transition: border-color 0.2s;
+}
+
+.hex-input-row:focus-within {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+.hex-prefix {
+  padding: 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #94a3b8;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  background: rgba(241, 245, 249, 0.8);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+.hex-input {
+  flex: 1;
+  padding: 10px 10px;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  font-weight: 600;
+  background: transparent;
+  color: #1f2937;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.color-btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .color-picker-wrap {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .color-controls {
+    width: 100%;
   }
 }
 </style>

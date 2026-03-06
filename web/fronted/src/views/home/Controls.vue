@@ -43,41 +43,34 @@
         @click="resetFilters"
         title="重置筛选"
       >
-        <i class="fas fa-redo"></i>
         <span>重置</span>
       </button>
     </div>
     
     <div v-if="searchTerm || subjectFilter || statusFilter" class="filter-info">
-      <i class="fas fa-filter"></i>
       <span>当前筛选结果</span>
     </div>
     
     <div class="stats">
       <div class="stat-card urgent" @click="$emit('show-stat-modal', 'urgent')">
-        <i class="fas fa-exclamation-triangle"></i>
         <h3>{{ urgentCount }}</h3>
-        <p>紧急作业</p>
+        <p>紧急</p>
       </div>
       <div class="stat-card soon" @click="$emit('show-stat-modal', 'warning')">
-        <i class="fas fa-clock"></i>
         <h3>{{ soonCount }}</h3>
         <p>即将到期</p>
       </div>
       <div class="stat-card total" @click="$emit('show-stat-modal', 'all')">
-        <i class="fas fa-tasks"></i>
         <h3>{{ totalCount }}</h3>
-        <p>总作业数</p>
+        <p>全部作业</p>
       </div>
       <div class="stat-card completed hide-mobile" @click="$emit('show-stat-modal', 'completed')">
-        <i class="fas fa-check-circle"></i>
         <h3>{{ completedCount }}</h3>
         <p>已完成</p>
       </div>
       <div class="stat-card todos" @click="$emit('show-stat-modal', 'todos')">
-        <i class="fas fa-list-check"></i>
         <h3>{{ todoCount }}</h3>
-        <p>待办事项</p>
+        <p>待办</p>
       </div>
     </div>
   </div>
@@ -137,106 +130,152 @@ export default {
 
 <style scoped>
 .controls {
-  padding: 30px 40px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
+  padding: 24px 35px 28px;
+  background: transparent;
+  position: relative;
+  z-index: 1;
 }
 
 .controls-row {
   display: flex;
-  gap: 20px;
+  gap: 14px;
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 20px;
 }
 
+/* ── 搜索框 ── */
 .search-box {
   flex: 1;
-  min-width: 300px;
+  min-width: 260px;
   position: relative;
 }
 
 .search-box input {
   width: 100%;
-  padding: 15px 20px 15px 50px;
-  border: 2px solid #ddd;
-  border-radius: 25px;
-  font-size: 16px;
-  transition: all 0.3s ease;
+  padding: 13px 44px 13px 46px;
+  border: 1.5px solid rgba(14, 165, 233, 0.18);
+  border-radius: 16px;
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  color: #1e293b;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.search-box input::placeholder {
+  color: #94a3b8;
 }
 
 .search-box input:focus {
   outline: none;
   border-color: #0ea5e9;
-  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1), 0 4px 16px rgba(0, 0, 0, 0.07);
 }
 
-.search-box i {
+.search-box > i {
   position: absolute;
-  left: 18px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: #64748b;
-  transition: color 0.3s ease;
+  color: #94a3b8;
+  font-size: 15px;
+  pointer-events: none;
+  transition: color 0.25s;
 }
 
-.search-box input:focus ~ i {
+.search-box:focus-within > i {
   color: #0ea5e9;
 }
 
 .clear-search {
   position: absolute;
-  right: 15px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  background: transparent;
+  background: rgba(148, 163, 184, 0.12);
   border: none;
-  color: #64748b;
+  color: #94a3b8;
   cursor: pointer;
-  padding: 5px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .clear-search:hover {
-  background: rgba(14, 165, 233, 0.1);
+  background: rgba(14, 165, 233, 0.12);
   color: #0ea5e9;
 }
 
 .clear-search i {
-  font-size: 14px;
+  font-size: 12px;
 }
 
+/* ── 下拉筛选 ── */
+.filter-select {
+  padding: 13px 18px;
+  border: 1.5px solid rgba(14, 165, 233, 0.18);
+  border-radius: 16px;
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  color: #334155;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2394a3b8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 38px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  background-color: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
+}
+
+.filter-select:hover {
+  border-color: #38bdf8;
+}
+
+/* ── 重置按钮 ── */
 .reset-filters {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: rgba(14, 165, 233, 0.1);
-  border: 2px solid rgba(14, 165, 233, 0.2);
-  border-radius: 25px;
+  gap: 7px;
+  padding: 13px 20px;
+  background: rgba(14, 165, 233, 0.08);
+  border: 1.5px solid rgba(14, 165, 233, 0.2);
+  border-radius: 16px;
   color: #0ea5e9;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
   white-space: nowrap;
 }
 
 .reset-filters:hover {
-  background: rgba(14, 165, 233, 0.15);
+  background: rgba(14, 165, 233, 0.14);
   border-color: #0ea5e9;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+  box-shadow: 0 6px 16px rgba(14, 165, 233, 0.18);
 }
 
 .reset-filters i {
-  font-size: 14px;
+  font-size: 13px;
   transition: transform 0.3s ease;
 }
 
@@ -244,29 +283,27 @@ export default {
   transform: rotate(180deg);
 }
 
+/* ── 筛选提示栏 ── */
 .filter-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px;
-  background: rgba(14, 165, 233, 0.08);
-  border-radius: 16px;
-  color: #0ea5e9;
-  font-size: 14px;
+  padding: 10px 18px;
+  background: rgba(14, 165, 233, 0.07);
+  border: 1px solid rgba(14, 165, 233, 0.15);
+  border-radius: 12px;
+  color: #0284c7;
+  font-size: 13px;
   font-weight: 600;
-  margin-top: 12px;
-  margin-bottom: 12px;
+  margin-top: 10px;
+  margin-bottom: 10px;
   animation: fadeIn 0.3s ease;
-}
-
-.filter-info i {
-  font-size: 14px;
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
@@ -274,139 +311,139 @@ export default {
   }
 }
 
-.filter-select {
-  padding: 15px 20px;
-  border: 2px solid #ddd;
-  border-radius: 25px;
-  font-size: 16px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  color: #334155;
-  font-weight: 500;
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: #0ea5e9;
-  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
-}
-
-.filter-select:hover {
-  border-color: #0ea5e9;
-}
-
+/* ── 统计卡片 ── */
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
 }
 
 .stat-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(20px);
-  padding: 25px 20px;
-  border-radius: 20px;
+  padding: 20px 16px 16px;
+  border-radius: 18px;
   text-align: center;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   overflow: hidden;
   cursor: pointer;
   user-select: none;
 }
 
+/* 彩色顶部细线 */
 .stat-card::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, transparent, rgba(14, 165, 233, 0.03));
-  pointer-events: none;
+  height: 3px;
+  border-radius: 18px 18px 0 0;
+}
+
+.stat-card.urgent::before {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.stat-card.soon::before {
+  background: linear-gradient(90deg, #f97316, #fb923c);
+}
+
+.stat-card.total::before {
+  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+}
+
+.stat-card.completed::before {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.stat-card.todos::before {
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
 }
 
 .stat-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+  transform: translateY(-5px) scale(1.02);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.stat-card.urgent:hover {
+  box-shadow: 0 14px 32px rgba(239, 68, 68, 0.14);
+}
+
+.stat-card.soon:hover {
+  box-shadow: 0 14px 32px rgba(249, 115, 22, 0.14);
+}
+
+.stat-card.total:hover {
+  box-shadow: 0 14px 32px rgba(14, 165, 233, 0.14);
+}
+
+.stat-card.completed:hover {
+  box-shadow: 0 14px 32px rgba(34, 197, 94, 0.14);
+}
+
+.stat-card.todos:hover {
+  box-shadow: 0 14px 32px rgba(139, 92, 246, 0.14);
 }
 
 .stat-card:active {
-  transform: translateY(-6px) scale(1.01);
-}
-
-.stat-card i {
-  font-size: 2.2em;
-  margin-bottom: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-.stat-card.urgent i { 
-  color: #ef4444;
-  text-shadow: 0 2px 10px rgba(239, 68, 68, 0.2);
-}
-.stat-card.soon i { 
-  color: #f97316;
-  text-shadow: 0 2px 10px rgba(249, 115, 22, 0.2);
-}
-.stat-card.total i { 
-  color: #0ea5e9;
-  text-shadow: 0 2px 10px rgba(14, 165, 233, 0.2);
-}
-.stat-card.completed i { 
-  color: #22c55e;
-  text-shadow: 0 2px 10px rgba(34, 197, 94, 0.2);
-}
-.stat-card.todos i { 
-  color: #8b5cf6;
-  text-shadow: 0 2px 10px rgba(139, 92, 246, 0.2);
+  transform: translateY(-3px) scale(1.01);
 }
 
 .stat-card h3 {
   font-size: 2.2em;
-  margin-bottom: 8px;
-  color: #1f2937;
-  font-weight: 700;
-  position: relative;
-  z-index: 1;
+  margin: 0 0 4px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.stat-card.urgent h3 {
+  color: #ef4444;
+}
+
+.stat-card.soon h3 {
+  color: #f97316;
+}
+
+.stat-card.total h3 {
+  color: #0ea5e9;
+}
+
+.stat-card.completed h3 {
+  color: #22c55e;
+}
+
+.stat-card.todos h3 {
+  color: #8b5cf6;
 }
 
 .stat-card p {
-  color: #6b7280;
+  color: #64748b;
   font-weight: 500;
-  font-size: 0.95em;
-  position: relative;
-  z-index: 1;
+  font-size: 0.82em;
   margin: 0;
+  letter-spacing: 0.2px;
 }
 
-/* 移动端隐藏"已完成"卡片 */
+/* ── 响应式 ── */
 @media (max-width: 768px) {
   .stat-card.hide-mobile {
     display: none;
   }
-}
 
-/* 中等屏幕优化布局 (340-768px) */
-@media (min-width: 340px) and (max-width: 768px) {
-  .stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
   .controls {
-    margin: 0 15px 15px 15px;
-    padding: 20px 25px;
+    margin: 0 15px 15px;
+    padding: 18px 20px;
   }
 
   .controls-row {
     flex-direction: column;
     align-items: stretch;
-    gap: 15px;
+    gap: 12px;
   }
 
   .search-box {
@@ -414,19 +451,22 @@ export default {
   }
 
   .search-box input {
-    padding: 12px 16px 12px 45px;
+    padding: 12px 40px 12px 42px;
     font-size: 14px;
+    border-radius: 14px;
   }
-  
+
   .filter-select {
-    padding: 12px 16px;
+    padding: 12px 36px 12px 14px;
     font-size: 14px;
+    border-radius: 14px;
   }
-  
+
   .reset-filters {
-    padding: 10px 16px;
-    font-size: 14px;
+    padding: 11px 16px;
+    font-size: 13px;
     justify-content: center;
+    border-radius: 14px;
   }
 
   .stats {
@@ -435,66 +475,65 @@ export default {
   }
 
   .stat-card {
-    padding: 18px 12px;
+    padding: 16px 12px 14px;
+    border-radius: 16px;
   }
 
   .stat-card i {
-    font-size: 1.8em;
-    margin-bottom: 10px;
+    font-size: 1.7em;
+    margin-bottom: 8px;
   }
 
   .stat-card h3 {
     font-size: 1.6em;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
   .stat-card p {
-    font-size: 0.85em;
+    font-size: 0.82em;
   }
-  
-  .filter-info {
-    font-size: 13px;
-    padding: 10px 16px;
-    justify-content: center;
+}
+
+@media (min-width: 340px) and (max-width: 768px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 480px) {
   .controls {
     margin: 10px;
-    padding: 15px 20px;
+    padding: 14px 16px;
   }
 
   .stats {
-    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
 
   .stat-card {
-    padding: 16px 10px;
+    padding: 14px 10px 12px;
   }
 
   .stat-card i {
-    font-size: 1.6em;
-    margin-bottom: 8px;
+    font-size: 1.5em;
   }
 
   .stat-card h3 {
-    font-size: 1.5em;
-    margin-bottom: 4px;
+    font-size: 1.4em;
   }
 
   .stat-card p {
-    font-size: 0.8em;
+    font-size: 0.78em;
   }
-  
+
   .reset-filters span {
     display: none;
   }
-  
+
   .reset-filters {
-    padding: 10px;
-    min-width: 40px;
+    padding: 11px;
+    min-width: 42px;
+    border-radius: 12px;
   }
 }
 </style>

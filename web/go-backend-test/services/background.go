@@ -3,6 +3,7 @@ package services
 import (
 	"log"
 
+	"github.com/Ling0727-ai/go-buct-course-backend/models/Blacklist"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/CourseData"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/User"
 	"github.com/Ling0727-ai/go-buct-course-backend/scraper"
@@ -40,8 +41,15 @@ func refreshUserData(userID string) (int, error) {
 		return 0, nil
 	}
 
+	// 加载黑名单，传给 scraper 以在抓取时直接跳过对应课程
+	blacklistedIDs, err := Blacklist.Repository.GetBlacklistedIDs(userID)
+	if err != nil {
+		log.Printf("[background] 用户 %s 获取黑名单失败，将不过滤: %v", userID, err)
+		blacklistedIDs = nil
+	}
+
 	s := scraper.GetScraper()
-	result, err := s.GetPendingTasks(userID)
+	result, err := s.GetPendingTasks(userID, blacklistedIDs)
 	if err != nil {
 		return 0, err
 	}

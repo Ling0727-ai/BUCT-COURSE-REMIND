@@ -11,7 +11,8 @@ import (
 )
 
 // scrapeTests 获取用户所有待进行测试，对应 Python get_pending_tasks 中 2.2 部分
-func scrapeTests(c *buct.BUCTClient, userID string) ([]TaskInfo, error) {
+// blacklistSet: courseId → true，在 lid 层面直接跳过整个课程
+func scrapeTests(c *buct.BUCTClient, userID string, blacklistSet map[string]bool) ([]TaskInfo, error) {
 	log.Printf("[scraper] 用户 %s 开始获取测试...", userID)
 
 	testLids, err := c.ExamMgr.GetPendingTests()
@@ -33,6 +34,12 @@ func scrapeTests(c *buct.BUCTClient, userID string) ([]TaskInfo, error) {
 
 		if lid == "" {
 			log.Printf("[scraper] 课程 %s 没有 LID，跳过", courseName)
+			continue
+		}
+
+		// 黑名单过滤
+		if blacklistSet[lid] {
+			log.Printf("[scraper] 跳过黑名单课程(测试): %s (lid=%s)", courseName, lid)
 			continue
 		}
 

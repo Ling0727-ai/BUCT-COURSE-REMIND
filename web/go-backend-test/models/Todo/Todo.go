@@ -7,7 +7,7 @@ import (
 )
 
 type Todo struct {
-	ID          string     `bson:"_id,omitempty" json:"id,omitempty"`
+	ID          string     `bson:"_id,omitempty" json:"_id,omitempty"`
 	UserID      string     `bson:"user_id" json:"user_id"`
 	Title       string     `bson:"title" json:"title"`
 	Description string     `bson:"description,omitempty" json:"description,omitempty"`

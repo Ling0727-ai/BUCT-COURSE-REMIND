@@ -59,7 +59,11 @@ def refresh_user_data_async(user_id, app_context):
                     logger.error(f"无法获取scraper实例，用户 {user_id} 数据刷新失败")
                     return
 
-                result = scraper.get_pending_tasks(user_id)
+                # 加载黑名单，传给 scraper 在 lid 层直接跳过
+                from .blacklist import get_user_blacklisted_ids
+                blacklisted_ids = get_user_blacklisted_ids(user_id)
+
+                result = scraper.get_pending_tasks(user_id, blacklisted_ids=blacklisted_ids)
 
                 if not result.get('success'):
                     logger.warning(f"用户 {user_id} 异步刷新失败: {result.get('error', '获取数据失败')}")

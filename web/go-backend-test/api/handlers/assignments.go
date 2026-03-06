@@ -3,15 +3,29 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/models/AssignmentStatus"
+	"github.com/Ling0727-ai/go-buct-course-backend/models/Blacklist"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/CourseData"
 	"github.com/Ling0727-ai/go-buct-course-backend/services"
 	"github.com/gin-gonic/gin"
 )
 
-// GetAssignments 获取用户作业列表（过滤已删除）
+// reCourseID 从课程 URL 提取 courseId 参数
+var reCourseID = regexp.MustCompile(`courseId=(\d+)`)
+
+// extractCourseID 从 URL 字符串中解析 courseId，提取不到则返回空字符串
+func extractCourseID(url string) string {
+	m := reCourseID.FindStringSubmatch(url)
+	if len(m) < 2 {
+		return ""
+	}
+	return m[1]
+}
+
+// GetAssignments 获取用户作业列表（过滤已删除、过滤黑名单）
 // 对应 Python GET /api/assignments/standard 和 GET /api/assignments/enhanced
 func GetAssignments(c *gin.Context) {
 	userID, ok := getUserID(c)
@@ -28,21 +42,38 @@ func GetAssignments(c *gin.Context) {
 	completedIDs := toStringSet(AssignmentStatus.Repository.GetCompletedIDs(userID))
 	deletedIDs := toStringSet(AssignmentStatus.Repository.GetDeletedIDs(userID))
 
+	// 加载黑名单 set
+	blacklistedIDs, _ := Blacklist.Repository.GetBlacklistedIDs(userID)
+	blacklistSet := make(map[string]bool, len(blacklistedIDs))
+	for _, id := range blacklistedIDs {
+		blacklistSet[id] = true
+	}
+
 	var formatted []gin.H
 	homeworkCount, testCount := 0, 0
 	for _, t := range tasks {
 		if deletedIDs[t.TaskID] {
 			continue
 		}
+		// 黑名单过滤：通过 URL 提取 courseId
+		if courseID := extractCourseID(t.Url); courseID != "" && blacklistSet[courseID] {
+			continue
+		}
 		entry := gin.H{
-			"id":              t.TaskID,
-			"subject":         t.Subject,
-			"type":            t.Type,
-			"title":           t.Title,
-			"deadline":        t.Deadline,
-			"url":             t.Url,
-			"details_content": t.Details,
-			"completed":       completedIDs[t.TaskID],
+			"id":      t.TaskID,
+			"subject": t.Subject,
+			"type":    t.Type,
+			"details": gin.H{
+				"task":            t.Title,
+				"deadline":        t.Deadline,
+				"url":             t.Url,
+				"can_submit":      true,
+				"is_group":        false,
+				"details_content": t.Details,
+			},
+			"completed":   completedIDs[t.TaskID],
+			"has_tasks":   true,
+			"tasks_count": 1,
 		}
 		formatted = append(formatted, entry)
 		if t.Type == "homework" {

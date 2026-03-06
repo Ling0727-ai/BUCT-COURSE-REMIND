@@ -9,7 +9,8 @@ import (
 )
 
 // scrapeHomework 获取用户所有待提交作业，对应 Python get_pending_tasks 中 2.1 部分
-func scrapeHomework(c *buct.BUCTClient, userID string) ([]TaskInfo, error) {
+// blacklistSet: courseId → true，在 lid 层面直接跳过整个课程
+func scrapeHomework(c *buct.BUCTClient, userID string, blacklistSet map[string]bool) ([]TaskInfo, error) {
 	log.Printf("[scraper] 用户 %s 开始获取作业...", userID)
 
 	hwDetails, err := c.CourseMgr.GetAllPendingHomeworkDetails()
@@ -24,29 +25,15 @@ func scrapeHomework(c *buct.BUCTClient, userID string) ([]TaskInfo, error) {
 		lid := courseDetail.LID
 		courseName := courseDetail.CourseName
 
+		// 黑名单过滤：lid 即为 courseId
+		if blacklistSet[lid] {
+			log.Printf("[scraper] 跳过黑名单课程(作业): %s (lid=%s)", courseName, lid)
+			continue
+		}
+
 		for _, hw := range courseDetail.HomeworkList {
 			if !hw.CanSubmit {
 				continue
-			}
-
-			// 获取作业详情文本
-			detailsText := ""
-			if hw.HwTID != "" {
-				hwDetail, err := c.CourseMgr.GetHomeworkDetail(hw.HwTID)
-				if err != nil {
-					log.Printf("[scraper] 获取作业详情失败 (hwtid=%s): %v", hw.HwTID, err)
-					detailsText = hw.Title
-				} else if hwDetail != nil {
-					// 拼接描述和任务内容，对应 Python: ''.join(tasks)
-					parts := []string{}
-					if hwDetail.Description != "" {
-						parts = append(parts, hwDetail.Description)
-					}
-					for _, t := range hwDetail.Tasks {
-						parts = append(parts, t)
-					}
-					detailsText = strings.Join(parts, "")
-				}
 			}
 
 			// 格式化截止时间，对应 Python: _format_deadline
@@ -57,6 +44,23 @@ func scrapeHomework(c *buct.BUCTClient, userID string) ([]TaskInfo, error) {
 				"https://course.buct.edu.cn/meol/jpk/course/layout/newpage/index.jsp?courseId=%s",
 				lid,
 			)
+
+			// 存入DetailHref，方便前端直接跳转
+			if hw.DetailHref == "" {
+				hw.DetailHref = hwURL
+				log.Printf("[scraper] 作业 %s - %s 没有 DetailHref，使用课程链接替代: %s", courseName, hw.Title, hwURL)
+			}
+
+			// 获取作业详情文本
+			var detailsText string
+			if hw.HwTID != "" {
+				tasksList, err2 := c.CourseMgr.GetHomeworkTasks(hw.DetailHref)
+				if err2 != nil {
+					log.Printf("[scraper] 获取作业任务列表失败 (href=%s): %v", hw.DetailHref, err2)
+				} else {
+					detailsText = strings.Join(tasksList, "\n")
+				}
+			}
 
 			tasks = append(tasks, TaskInfo{
 				Subject:  courseName,

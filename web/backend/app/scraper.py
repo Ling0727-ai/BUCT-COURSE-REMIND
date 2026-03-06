@@ -189,10 +189,14 @@ class BUCTScraperEnhanced:
             logger.error(f"用户 {user_id} 登录时发生异常: {e}", exc_info=True)
             return False, f"登录异常: {e}"
 
-    def get_pending_tasks(self, user_id):
+    def get_pending_tasks(self, user_id, blacklisted_ids=None):
         """
         获取指定用户的待办作业和测试列表。
         采用 login->check->logout 的完整流程。
+
+        :param user_id: 用户 ID
+        :param blacklisted_ids: 可选，黑名单 courseId（lid）列表；不为 None 时 scraper
+                                在 lid 层直接跳过，减少无效网络请求
         返回格式：
         {
           subject: '',  # 科目
@@ -203,6 +207,11 @@ class BUCTScraperEnhanced:
         }
         """
         logger.info(f"开始为用户 {user_id} 获取待办任务 (login->check->logout 流程)...")
+
+        # 构建黑名单 set，O(1) 查询
+        blacklist_set = set(blacklisted_ids) if blacklisted_ids else set()
+        if blacklist_set:
+            logger.info(f"用户 {user_id} 黑名单课程 ID: {blacklist_set}")
 
         # 1. LOGIN - 登录阶段
         login_ok, message = self.auto_login(user_id)
@@ -230,6 +239,11 @@ class BUCTScraperEnhanced:
                 lid = course.get('lid')
                 course_name = course.get('course_name', '未知课程')
                 if not lid: continue
+
+                # 黑名单过滤：lid 即为 courseId
+                if lid in blacklist_set:
+                    logger.info(f"跳过黑名单课程(作业): {course_name} (lid={lid})")
+                    continue
 
                 try:
                     course_details = client.course_utils.get_course_details(lid)
@@ -283,6 +297,11 @@ class BUCTScraperEnhanced:
 
                     if not lid:
                         logger.warning(f"课程 {course_name} 没有LID，跳过")
+                        continue
+
+                    # 黑名单过滤
+                    if lid in blacklist_set:
+                        logger.info(f"跳过黑名单课程(测试): {course_name} (lid={lid})")
                         continue
 
                     try:

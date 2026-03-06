@@ -26,6 +26,7 @@
             @delete-assignment="$emit('delete-assignment', $event)"
             @mark-completed="$emit('mark-completed', $event)"
             @undo-completed="$emit('undo-completed', $event)"
+            @blacklist-subject="$emit('blacklist-subject', $event)"
           />
         </div>
       </div>
@@ -58,7 +59,7 @@ export default {
       default: () => []
     }
   },
-  emits: ['close', 'open-url', 'show-preview', 'set-reminder', 'delete-assignment', 'mark-completed', 'undo-completed'],
+  emits: ['close', 'open-url', 'show-preview', 'set-reminder', 'delete-assignment', 'mark-completed', 'undo-completed', 'blacklist-subject'],
   methods: {
     getStatTitle(type) {
       const titles = {

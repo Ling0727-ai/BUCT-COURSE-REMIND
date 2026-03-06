@@ -328,7 +328,17 @@ func GetDeletedTodos(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "deleted_todos": todos, "count": len(todos)})
+	// 与 Python 保持一致：在每条记录上附加 todo_id 字段（前端回收站依赖此字段）
+	type deletedTodoItem struct {
+		*Todo.Todo
+		TodoID string `json:"todo_id"`
+	}
+	items := make([]deletedTodoItem, 0, len(todos))
+	for _, t := range todos {
+		items = append(items, deletedTodoItem{Todo: t, TodoID: t.ID})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "deleted_todos": items, "count": len(items)})
 }
 
 // ClearDeletedTodos 清空已删除的待办

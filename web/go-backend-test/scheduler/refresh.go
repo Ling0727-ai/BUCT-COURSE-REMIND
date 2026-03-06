@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/models"
+	"github.com/Ling0727-ai/go-buct-course-backend/models/Blacklist"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/CourseData"
 	"github.com/Ling0727-ai/go-buct-course-backend/scraper"
 	"go.mongodb.org/mongo-driver/bson"
@@ -157,8 +158,15 @@ func getUsersNeedRefresh() ([]string, error) {
 func refreshUserData(userID string) error {
 	log.Printf("[scheduler] 开始自动刷新用户 %s 的课程数据", userID)
 
+	// 加载黑名单，在 scraper 层直接跳过被屏蔽的课程
+	blacklistedIDs, err := Blacklist.Repository.GetBlacklistedIDs(userID)
+	if err != nil {
+		log.Printf("[scheduler] 用户 %s 获取黑名单失败，将不过滤: %v", userID, err)
+		blacklistedIDs = nil
+	}
+
 	s := scraper.GetScraper()
-	result, err := s.GetPendingTasks(userID)
+	result, err := s.GetPendingTasks(userID, blacklistedIDs)
 	if err != nil {
 		return err
 	}

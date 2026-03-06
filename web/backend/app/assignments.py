@@ -58,6 +58,10 @@ def get_standard_assignments():
         completed_set = set(str(aid) for aid in completed_ids)
         deleted_set = set(str(aid) for aid in deleted_ids)
 
+        # 获取黑名单 courseId set
+        from .blacklist import get_user_blacklisted_ids, extract_course_id
+        blacklisted_set = set(get_user_blacklisted_ids(user_id))
+
         # 转换数据格式（过滤掉已删除的任务）
         formatted_tasks = []
         homework_count = 0
@@ -69,6 +73,12 @@ def get_standard_assignments():
 
             # 跳过已删除的任务
             if task_id in deleted_set:
+                continue
+
+            # 跳过黑名单科目（通过 URL 提取 courseId 判断）
+            task_url = task.get('url', '')
+            course_id = extract_course_id(task_url)
+            if course_id and course_id in blacklisted_set:
                 continue
 
             formatted_task = {
@@ -423,6 +433,10 @@ def get_enhanced_assignments():
         completed_set = set(str(aid) for aid in completed_ids)
         deleted_set = set(str(aid) for aid in deleted_ids)
 
+        # 获取黑名单 courseId set
+        from .blacklist import get_user_blacklisted_ids, extract_course_id
+        blacklisted_set = set(get_user_blacklisted_ids(user_id))
+
         # 处理增强数据（过滤掉已删除的任务）
         enhanced_assignments = []
         homework_count = 0
@@ -434,6 +448,12 @@ def get_enhanced_assignments():
 
             # 跳过已删除的任务
             if task_id in deleted_set:
+                continue
+
+            # 跳过黑名单科目
+            task_url = task.get('url', '')
+            course_id = extract_course_id(task_url)
+            if course_id and course_id in blacklisted_set:
                 continue
 
             enhanced_assignment = {

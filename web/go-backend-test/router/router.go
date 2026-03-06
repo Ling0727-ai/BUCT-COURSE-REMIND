@@ -105,6 +105,15 @@ func SetupRoutes(r *gin.Engine) {
 			crypto.GET("/status", handlers.GetCryptoStatus)
 		}
 
+		// ── 黑名单，对应 GET/POST/DELETE /api/blacklist ──────────────
+		blacklist := api.Group("/blacklist")
+		{
+			blacklist.GET("", handlers.GetBlacklist)
+			blacklist.POST("", handlers.AddBlacklist)
+			blacklist.DELETE("", handlers.ClearBlacklist)
+			blacklist.DELETE("/:subject_id", handlers.RemoveBlacklist)
+		}
+
 		// ── 测试调试，对应 Python /api/test ──────────────────────────
 		test := api.Group("/test")
 		{
