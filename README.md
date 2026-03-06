@@ -379,6 +379,7 @@ Go 后端使用 `goroutine + time.Ticker` 实现三个并发定时任务：
 - [ ] JWT 鉴权中间件完善（当前 handler 内手动判断）
 - [ ] Go 后端单元测试覆盖
 - [ ] 前端适配 Go 后端 `/api/v1` 前缀
+- [ ] Python 后端：生产环境使用 `gunicorn` 启动，避免 Flask reloader 导致调度器重复初始化（`"调度器已经在运行中"` 日志的根因）
 
 ## 许可证
 

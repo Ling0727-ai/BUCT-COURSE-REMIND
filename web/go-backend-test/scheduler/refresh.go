@@ -22,8 +22,16 @@ func (s *CourseDataScheduler) run() {
 	defer autoReminderTicker.Stop()
 	defer refreshTicker.Stop()
 
-	// 启动后立即执行一次全量刷新
+	// 启动时先检查一次：只刷新"从未更新过"或"距上次超12h"的用户
+	// 不无条件强制刷新，对应 Python _get_users_need_refresh 的判断逻辑
 	s.runRefreshCycle()
+
+	// 启动时先检查一次自动提醒（对应 Python 调度器启动后首轮循环）
+	go func() {
+		if err := checkAndCreateAutoReminders(); err != nil {
+			log.Printf("[scheduler] 启动时检查自动提醒异常: %v", err)
+		}
+	}()
 
 	for {
 		select {
