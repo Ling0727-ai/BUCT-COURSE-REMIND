@@ -58,21 +58,12 @@ func generateTaskID(taskType, subject, title, deadline, details string) string {
 	return fmt.Sprintf("%s_%s", taskType, contentHash)
 }
 
-// nowUnix 返回当前 Unix 时间戳（秒）
-func nowUnix() int64 {
-	return time.Now().Unix()
-}
-
-// ──────────────────────────────────────────────
-//  CRUD 基础操作
-// ──────────────────────────────────────────────
-
 // CreateCourseData 插入单条课程数据
 func (r *MongoCourseDataRepository) CreateCourseData(courseData *CourseData) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	now := nowUnix()
+	now := time.Now()
 	courseData.ID = config.Snowflake.GenerateID()
 	courseData.CreatedAt = now
 	courseData.UpdatedAt = now
@@ -118,7 +109,7 @@ func (r *MongoCourseDataRepository) UpdateCourseData(courseData *CourseData) err
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	courseData.UpdatedAt = nowUnix()
+	courseData.UpdatedAt = time.Now()
 	_, err := r.collection.ReplaceOne(ctx,
 		bson.M{"_id": courseData.ID},
 		courseData,
@@ -135,9 +126,9 @@ func (r *MongoCourseDataRepository) DeleteCourseData(id string) error {
 	return err
 }
 
-// GetLastUpdateTimeByUserID 获取用户数据的最后更新时间戳（Unix 秒）
+// GetLastUpdateTimeByUserID 获取用户数据的最后更新时间
 // 对应 Python: get_last_update_time
-func (r *MongoCourseDataRepository) GetLastUpdateTimeByUserID(userID string) (int64, error) {
+func (r *MongoCourseDataRepository) GetLastUpdateTimeByUserID(userID string) (time.Time, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -145,10 +136,10 @@ func (r *MongoCourseDataRepository) GetLastUpdateTimeByUserID(userID string) (in
 	var result CourseData
 	err := r.collection.FindOne(ctx, bson.M{"user_id": userID}, opts).Decode(&result)
 	if err == mongo.ErrNoDocuments {
-		return 0, nil
+		return time.Time{}, nil
 	}
 	if err != nil {
-		return 0, err
+		return time.Time{}, err
 	}
 	return result.UpdatedAt, nil
 }
@@ -171,7 +162,7 @@ func (r *MongoCourseDataRepository) SaveUserCourseData(userID string, tasks []Ta
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	now := nowUnix()
+	now := time.Now()
 
 	// 构建待插入文档
 	docs := make([]interface{}, 0, len(tasks))

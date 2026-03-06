@@ -171,7 +171,7 @@ func GetDeletedAssignments(c *gin.Context) {
 			"details":     t.Details,
 			"url":         t.Url,
 			"type":        t.Type,
-			"delete_time": time.Unix(s.StatusTime, 0).Format(time.RFC3339),
+			"delete_time": s.StatusTime.Format(time.RFC3339),
 		}
 		result = append(result, entry)
 	}

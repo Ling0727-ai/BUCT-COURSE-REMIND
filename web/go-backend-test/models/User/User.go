@@ -1,20 +1,23 @@
 package User
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // User 用户表结构
 type User struct {
-	ID           string `bson:"_id,omitempty" json:"id,omitempty"`
-	Username     string `bson:"username" json:"username"`
-	Email        string `bson:"email" json:"email"`
-	PasswordHash string `bson:"passwordHash" json:"-"`
-	StudentID    string `bson:"studentId" json:"studentId"`
-	SPassword    string `bson:"sPassword" json:"-"` // ECC 加密后的外部网站密码
-	IsAdmin      bool   `bson:"isAdmin" json:"isAdmin"`
-	CreatedAt    int64  `bson:"createdAt" json:"createdAt"`
-	UpdatedAt    int64  `bson:"updatedAt" json:"updatedAt"`
+	ID           string    `bson:"_id,omitempty"    json:"id,omitempty"`
+	Username     string    `bson:"username"         json:"username"`
+	Email        string    `bson:"email"            json:"email"`
+	PasswordHash string    `bson:"password_hash"    json:"-"`
+	StudentID    string    `bson:"student_id"       json:"student_id"`
+	SPassword    string    `bson:"s_password"       json:"-"`
+	SPasswordLen *int      `bson:"s_password_len"   json:"-"`
+	IsAdmin      bool      `bson:"is_admin"         json:"is_admin"`
+	CreatedAt    time.Time `bson:"created_at"       json:"created_at"`
+	UpdatedAt    time.Time `bson:"updated_at"       json:"updated_at"`
 }
 
 // UserRepository 定义用户数据库操作接口

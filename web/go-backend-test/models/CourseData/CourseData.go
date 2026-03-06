@@ -1,21 +1,23 @@
 package CourseData
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type CourseData struct {
-	ID        string `bson:"_id,omitempty" json:"id,omitempty"`
-	UserID    string `bson:"user_id" json:"user_id"`
-	TaskID    string `bson:"task_id" json:"task_id"`
-	Subject   string `bson:"subject" json:"subject"`
-	Title     string `bson:"title" json:"title"`
-	Deadline  string `bson:"deadline" json:"deadline"`
-	Details   string `bson:"details" json:"details"`
-	Url       string `bson:"url" json:"url"`
-	Type      string `bson:"type" json:"type"` // 课程类型，如作业、考试等
-	CreatedAt int64  `bson:"created_at" json:"created_at"`
-	UpdatedAt int64  `bson:"updated_at" json:"updated_at"`
+	ID        string    `bson:"_id,omitempty" json:"id,omitempty"`
+	UserID    string    `bson:"user_id"       json:"user_id"`
+	TaskID    string    `bson:"task_id"       json:"task_id"`
+	Subject   string    `bson:"subject"       json:"subject"`
+	Title     string    `bson:"title"         json:"title"`
+	Deadline  string    `bson:"deadline"      json:"deadline"`
+	Details   string    `bson:"details"       json:"details"`
+	Url       string    `bson:"url"           json:"url"`
+	Type      string    `bson:"type"          json:"type"`
+	CreatedAt time.Time `bson:"created_at"    json:"created_at"`
+	UpdatedAt time.Time `bson:"updated_at"    json:"updated_at"`
 }
 
 // TaskInput 用于批量保存时的输入格式
@@ -37,7 +39,7 @@ type CourseDataRepository interface {
 	UpdateCourseData(courseData *CourseData) error
 	DeleteCourseData(id string) error
 
-	GetLastUpdateTimeByUserID(userID string) (int64, error)
+	GetLastUpdateTimeByUserID(userID string) (time.Time, error)
 
 	ClearCourseDataByUserID(userID string) error
 

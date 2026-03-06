@@ -53,7 +53,7 @@ func Start(cfg *config.Config) {
 	defer models.DisconnectDB()
 
 	// 3. 初始化所有 model 包（绑定 collection，避免 nil pointer panic）
-	db := client.Database("REDACTED_MONGO_USER")
+	db := client.Database("buct-course")
 	User.Init(db)
 	CourseData.Init(db)
 	AssignmentStatus.Init(db)

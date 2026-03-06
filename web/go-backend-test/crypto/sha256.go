@@ -3,23 +3,33 @@ package crypto
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/pbkdf2"
+	goscrypt "golang.org/x/crypto/scrypt"
 )
 
 const (
-	DefaultMethod     = "pbkdf2:sha256"
-	DefaultIterations = 600000
-	SaltLength        = 16
-	KeyLength         = 32 // SHA256 输出长度
-	SaltChars         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	SaltLength = 16
+	SaltChars  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	// scrypt 参数，与 Werkzeug 2.x 默认值一致
+	scryptN     = 32768 // 2^15
+	scryptR     = 8
+	scryptP     = 1
+	scryptDKLen = 32
+
+	// pbkdf2 参数（旧版 Werkzeug 兼容）
+	pbkdf2Iterations = 600000
+	pbkdf2KeyLen     = 32
 )
 
-// generateSalt 生成指定长度的随机 Salt，类似 Werkzeug 的 gen_salt
+// generateSalt 生成随机 Salt，与 Werkzeug gen_salt 一致
 func generateSalt(length int) string {
 	var result strings.Builder
 	charLen := big.NewInt(int64(len(SaltChars)))
@@ -30,48 +40,68 @@ func generateSalt(length int) string {
 	return result.String()
 }
 
-// HashPassword 模拟 Werkzeug 的 generate_password_hash
-// 输出格式: pbkdf2:sha256:600000$salt$hash_hex
+// HashPassword 使用 scrypt 生成密码 hash，与 Werkzeug 2.x generate_password_hash 一致
+// 输出格式: scrypt:32768:8:1$salt$hash_hex
 func (s *BasicCryptoService) HashPassword(password string) (string, error) {
 	salt := generateSalt(SaltLength)
 
-	// 计算 Hash
-	dk := pbkdf2.Key([]byte(password), []byte(salt), DefaultIterations, KeyLength, sha256.New)
-	hashHex := hex.EncodeToString(dk)
+	dk, err := goscrypt.Key([]byte(password), []byte(salt), scryptN, scryptR, scryptP, scryptDKLen)
+	if err != nil {
+		return "", err
+	}
 
-	// 拼接: method:iterations$salt$hash
-	return fmt.Sprintf("%s:%d$%s$%s", DefaultMethod, DefaultIterations, salt, hashHex), nil
+	return fmt.Sprintf("scrypt:%d:%d:%d$%s$%s", scryptN, scryptR, scryptP, salt, hex.EncodeToString(dk)), nil
 }
 
-// CheckPassword 模拟 Werkzeug 的 check_password_hash
-// 验证输入密码是否与 Werkzeug 生成的 hash 字符串匹配
+// CheckPassword 验证密码，自动识别 scrypt（Werkzeug 2.x）和 pbkdf2（旧版）
+// 对应 Werkzeug check_password_hash
 func (s *BasicCryptoService) CheckPassword(password, pwhash string) bool {
-	// 1. 分割字符串: method$salt$hash
-	parts := strings.Split(pwhash, "$")
+	parts := strings.SplitN(pwhash, "$", 3)
 	if len(parts) != 3 {
 		return false
 	}
 
-	methodStr := parts[0]
+	method := parts[0]
 	salt := parts[1]
-	targetHash := parts[2]
+	targetHex := parts[2]
 
-	// 2. 解析 method 部分，例如 "pbkdf2:sha256:600000"
-	methodParts := strings.Split(methodStr, ":")
-	if len(methodParts) != 3 || methodParts[0] != "pbkdf2" || methodParts[1] != "sha256" {
-		// 这里仅支持 pbkdf2:sha256，如需支持 map scrypt 可扩展
+	target, err := hex.DecodeString(targetHex)
+	if err != nil {
 		return false
 	}
 
-	var iterations int
-	fmt.Sscanf(methodParts[2], "%d", &iterations)
+	methodParts := strings.Split(method, ":")
+	switch methodParts[0] {
+	case "scrypt":
+		// scrypt:N:r:p
+		if len(methodParts) != 4 {
+			return false
+		}
+		n, _ := strconv.Atoi(methodParts[1])
+		r, _ := strconv.Atoi(methodParts[2])
+		p, _ := strconv.Atoi(methodParts[3])
+		if n == 0 || r == 0 || p == 0 {
+			return false
+		}
+		dk, err := goscrypt.Key([]byte(password), []byte(salt), n, r, p, len(target))
+		if err != nil {
+			return false
+		}
+		return subtle.ConstantTimeCompare(dk, target) == 1
 
-	// 3. 使用相同的参数重新计算 Hash
-	dk := pbkdf2.Key([]byte(password), []byte(salt), iterations, KeyLength, sha256.New)
-	newHash := hex.EncodeToString(dk)
+	case "pbkdf2":
+		// pbkdf2:sha256:iterations
+		if len(methodParts) != 3 || methodParts[1] != "sha256" {
+			return false
+		}
+		iterations, _ := strconv.Atoi(methodParts[2])
+		if iterations == 0 {
+			return false
+		}
+		dk := pbkdf2.Key([]byte(password), []byte(salt), iterations, len(target), sha256.New)
+		return subtle.ConstantTimeCompare(dk, target) == 1
 
-	// 4. 比较 (使用 ConstantTimeCompare 防止时序攻击)
-	// 注意：ConstantTimeCompare 比较的是 []byte，需要先转换或使用 subtle 库
-	// 这里简单比对字符串，为了安全性建议用 subtle.ConstantTimeCompare
-	return newHash == targetHash
+	default:
+		return false
+	}
 }

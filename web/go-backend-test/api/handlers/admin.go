@@ -70,7 +70,7 @@ func AdminGetCompletedAssignments(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	col := client.Database("REDACTED_MONGO_USER").Collection("assignment_status")
+	col := client.Database("buct-course").Collection("assignment_status")
 	filter := bson.M{"status": "completed"}
 	total, _ := col.CountDocuments(ctx, filter)
 
@@ -139,7 +139,7 @@ func AdminGetSystemStatus(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	db := client.Database("REDACTED_MONGO_USER")
+	db := client.Database("buct-course")
 	users, _ := db.Collection("users").CountDocuments(ctx, bson.M{})
 	completedAssignments, _ := db.Collection("assignment_status").CountDocuments(ctx, bson.M{"status": "completed"})
 	verificationCodes, _ := db.Collection("verification_codes").CountDocuments(ctx, bson.M{})

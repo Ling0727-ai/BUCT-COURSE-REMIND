@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -37,7 +38,7 @@ type Claims struct {
 // IssueSessionCookie 登录成功后签发 JWT，写入 HttpOnly Cookie
 // 对应 Python session['user_id'] = user_id
 func IssueSessionCookie(c *gin.Context, userID, username string, isAdmin bool) {
-	expiry := 6 * time.Hour // 对应 Python 6小时无操作自动登出
+	expiry := 6 * time.Hour
 	claims := &Claims{
 		UserID:   userID,
 		Username: username,
@@ -53,16 +54,13 @@ func IssueSessionCookie(c *gin.Context, userID, username string, isAdmin bool) {
 		return
 	}
 
-	// 写入 HttpOnly Cookie，SameSite=Lax，与 Python 的 session cookie 行为一致
-	c.SetCookie(
-		sessionCookieName,
-		signed,
-		int(expiry.Seconds()),
-		"/",
-		"",    // domain：空 = 当前域
-		false, // secure：本地开发不强制 HTTPS
-		true,  // httpOnly
+	// 手动写 Set-Cookie，明确指定 SameSite=Lax，确保 nginx 反代下 Cookie 正常传递
+	maxAge := int(expiry.Seconds())
+	cookieVal := fmt.Sprintf(
+		"%s=%s; Max-Age=%d; Path=/; HttpOnly; SameSite=Lax",
+		sessionCookieName, signed, maxAge,
 	)
+	c.Header("Set-Cookie", cookieVal)
 }
 
 // ClearSessionCookie 登出时清除 cookie

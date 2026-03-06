@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -32,4 +33,25 @@ func LoadConfig() *Config {
 	}
 
 	return AppConfig
+}
+
+// GetDBName 从 MONGODB_URI 解析数据库名，与 Python 保持一致
+// URI 格式: mongodb://user:pass@host:port/dbname?authSource=admin
+// 默认返回 "buct-course"（与 Python 后端一致）
+func GetDBName() string {
+	uri := os.Getenv("MONGODB_URI")
+	if uri == "" {
+		return "buct-course"
+	}
+	// 找最后一个 / 之后、? 之前的部分
+	if idx := strings.LastIndex(uri, "/"); idx != -1 {
+		dbPart := uri[idx+1:]
+		if q := strings.Index(dbPart, "?"); q != -1 {
+			dbPart = dbPart[:q]
+		}
+		if dbPart != "" {
+			return dbPart
+		}
+	}
+	return "buct-course"
 }

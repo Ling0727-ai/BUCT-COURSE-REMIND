@@ -119,10 +119,10 @@ func getUsersNeedRefresh() ([]string, error) {
 	defer cancel()
 
 	// 查询有学号和密码的用户，对应 Python users.find({student_id, s_password exist})
-	col := client.Database("REDACTED_MONGO_USER").Collection("users")
+	col := client.Database("buct-course").Collection("users")
 	cursor, err := col.Find(ctx, bson.M{
-		"studentId": bson.M{"$exists": true, "$nin": bson.A{nil, ""}},
-		"sPassword": bson.M{"$exists": true, "$nin": bson.A{nil, ""}},
+		"student_id": bson.M{"$exists": true, "$nin": bson.A{nil, ""}},
+		"s_password": bson.M{"$exists": true, "$nin": bson.A{nil, ""}},
 	})
 	if err != nil {
 		return nil, err
@@ -130,8 +130,7 @@ func getUsersNeedRefresh() ([]string, error) {
 	defer cursor.Close(ctx)
 
 	courseRepo := CourseData.Repository
-	now := time.Now().Unix()
-	threshold := int64(RefreshInterval.Seconds())
+	threshold := RefreshInterval
 
 	var needRefresh []string
 	for cursor.Next(ctx) {
@@ -142,14 +141,12 @@ func getUsersNeedRefresh() ([]string, error) {
 			continue
 		}
 
-		// 检查最后更新时间，对应 Python get_last_update_time
 		lastUpdate, err := courseRepo.GetLastUpdateTimeByUserID(user.ID)
-		if err != nil || lastUpdate == 0 {
-			// 从未更新过
+		if err != nil || lastUpdate.IsZero() {
 			needRefresh = append(needRefresh, user.ID)
 			continue
 		}
-		if now-lastUpdate >= threshold {
+		if time.Since(lastUpdate) >= threshold {
 			needRefresh = append(needRefresh, user.ID)
 		}
 	}

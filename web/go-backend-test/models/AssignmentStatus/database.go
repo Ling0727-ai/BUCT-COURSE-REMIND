@@ -19,7 +19,7 @@ func NewMongoAssignmentStatusRepository() *MongoAssignmentStatusRepository {
 		panic(err)
 	}
 
-	col := client.Database("REDACTED_MONGO_USER").Collection("assignment_status")
+	col := client.Database("buct-course").Collection("assignment_status")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -47,12 +47,7 @@ func NewMongoAssignmentStatusRepository() *MongoAssignmentStatusRepository {
 	return &MongoAssignmentStatusRepository{collection: col}
 }
 
-// nowUnix 返回当前 Unix 时间戳（秒）
-func nowUnix() int64 {
-	return time.Now().Unix()
-}
-
-func int64Ptr(v int64) *int64 { return &v }
+func timePtr(v time.Time) *time.Time { return &v }
 
 // ──────────────────────────────────────────────
 //  核心写操作
@@ -77,19 +72,19 @@ func (r *MongoAssignmentStatusRepository) UpdateStatus(
 		return err
 	}
 
-	now := nowUnix()
-	var expiresAt *int64
-	var todoExpiresAt *int64
+	now := time.Now()
+	var expiresAt *time.Time
+	var todoExpiresAt *time.Time
 
 	if autoExpireHours != nil {
-		v := now + int64(*autoExpireHours)*3600
-		expiresAt = &v
+		t := now.Add(time.Duration(*autoExpireHours) * time.Hour)
+		expiresAt = timePtr(t)
 	}
 
 	// 待办类型软删除：12h 后 TTL 自动删除
 	if status == StatusDeleted && assignmentType == "todo" {
-		v := now + 12*3600
-		todoExpiresAt = &v
+		t := now.Add(12 * time.Hour)
+		todoExpiresAt = timePtr(t)
 	}
 
 	forever := 1
@@ -306,7 +301,7 @@ func (r *MongoAssignmentStatusRepository) ClearUserStatus(userID string, status 
 		"$set": bson.M{
 			"forever":    0,
 			"status":     StatusPermanentDeleted,
-			"updated_at": nowUnix(),
+			"updated_at": time.Now(),
 		},
 	})
 	if err != nil {
@@ -342,7 +337,7 @@ func (r *MongoAssignmentStatusRepository) CleanupExpired() (int64, error) {
 	defer cancel()
 
 	result, err := r.collection.DeleteMany(ctx, bson.M{
-		"expires_at": bson.M{"$lt": nowUnix()},
+		"expires_at": bson.M{"$lt": time.Now()},
 	})
 	if err != nil {
 		return 0, err

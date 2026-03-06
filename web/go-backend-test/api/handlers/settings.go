@@ -24,7 +24,7 @@ func GetSettings(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	cursor, err := client.Database("REDACTED_MONGO_USER").Collection(settingsCollection).Find(ctx, map[string]interface{}{})
+	cursor, err := client.Database("buct-course").Collection(settingsCollection).Find(ctx, map[string]interface{}{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取设置失败"})
 		return
@@ -59,7 +59,7 @@ func SaveSettings(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	col := client.Database("REDACTED_MONGO_USER").Collection(settingsCollection)
+	col := client.Database("buct-course").Collection(settingsCollection)
 	for key, val := range body {
 		if key != "notification_email" {
 			continue
@@ -86,7 +86,7 @@ func GetEmailSettings(c *gin.Context) {
 	var doc struct {
 		Value string `bson:"value"`
 	}
-	_ = client.Database("REDACTED_MONGO_USER").Collection(settingsCollection).FindOne(ctx,
+	_ = client.Database("buct-course").Collection(settingsCollection).FindOne(ctx,
 		map[string]interface{}{"key": "notification_email"},
 	).Decode(&doc)
 
@@ -114,7 +114,7 @@ func SaveEmailSettings(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err = client.Database("REDACTED_MONGO_USER").Collection(settingsCollection).UpdateOne(ctx,
+	_, err = client.Database("buct-course").Collection(settingsCollection).UpdateOne(ctx,
 		map[string]interface{}{"key": "notification_email"},
 		map[string]interface{}{"$set": map[string]interface{}{"value": body.ToEmail, "updated_at": time.Now()}},
 		options.Update().SetUpsert(true),
@@ -169,7 +169,7 @@ func GetStats(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	db := client.Database("REDACTED_MONGO_USER")
+	db := client.Database("buct-course")
 	now := time.Now()
 
 	totalAssignments, _ := db.Collection("course_data").CountDocuments(ctx,

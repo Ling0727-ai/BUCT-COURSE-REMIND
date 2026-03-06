@@ -35,7 +35,6 @@ func RefreshCourseData(c *gin.Context) {
 }
 
 // GetCourseDataList 从数据库获取课程数据列表
-// 对应 Python GET /api/course-data/list
 func GetCourseDataList(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -51,8 +50,8 @@ func GetCourseDataList(c *gin.Context) {
 	lastUpdate, _ := CourseData.Repository.GetLastUpdateTimeByUserID(userID)
 
 	var lastUpdateStr interface{} = nil
-	if lastUpdate > 0 {
-		lastUpdateStr = time.Unix(lastUpdate, 0).Format(time.RFC3339)
+	if !lastUpdate.IsZero() {
+		lastUpdateStr = lastUpdate.Format(time.RFC3339)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -65,7 +64,6 @@ func GetCourseDataList(c *gin.Context) {
 }
 
 // GetCourseDataStatus 获取数据状态（最后更新时间、下次刷新时间）
-// 对应 Python GET /api/course-data/status
 func GetCourseDataStatus(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
@@ -73,14 +71,14 @@ func GetCourseDataStatus(c *gin.Context) {
 	}
 
 	lastUpdate, _ := CourseData.Repository.GetLastUpdateTimeByUserID(userID)
-	hasData := lastUpdate > 0
+	hasData := !lastUpdate.IsZero()
 
 	var lastUpdateStr, nextRefreshStr interface{} = nil, nil
 	var hoursUntilRefresh interface{} = nil
 
 	if hasData {
-		lastUpdateStr = time.Unix(lastUpdate, 0).Format(time.RFC3339)
-		nextRefresh := time.Unix(lastUpdate, 0).Add(12 * time.Hour)
+		lastUpdateStr = lastUpdate.Format(time.RFC3339)
+		nextRefresh := lastUpdate.Add(12 * time.Hour)
 		nextRefreshStr = nextRefresh.Format(time.RFC3339)
 		h := time.Until(nextRefresh).Hours()
 		if h < 0 {

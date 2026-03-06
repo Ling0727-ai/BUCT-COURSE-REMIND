@@ -43,7 +43,7 @@ func (s *UserServiceImpl) RegisterUser(username, email, password, studentId, sPa
 	}
 
 	// 4. 生成唯一 ID 并构造用户对象
-	now := time.Now().Unix()
+	now := time.Now()
 	user := &User{
 		ID:           config.Snowflake.GenerateID(),
 		Username:     username,
@@ -65,18 +65,23 @@ func (s *UserServiceImpl) RegisterUser(username, email, password, studentId, sPa
 }
 
 func (s *UserServiceImpl) LoginUser(username, password string) (*User, error) {
-	// 1. 根据用户名查询用户
+	// 先用用户名查，查不到再用邮箱查，对应 Python 逻辑
 	user, err := s.repo.GetUserByUsername(username)
 	if err != nil {
 		return nil, err
 	}
 	if user == nil {
-		return nil, errors.New("invalid username or password")
+		user, err = s.repo.GetUserByEmail(username)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if user == nil {
+		return nil, errors.New("账号不存在，请检查用户名或邮箱")
 	}
 
-	// 2. 验证密码
 	if !crypto.Crypto.CheckPassword(password, user.PasswordHash) {
-		return nil, errors.New("invalid username or password")
+		return nil, errors.New("密码错误")
 	}
 
 	// 3. 登录成功，返回用户信息

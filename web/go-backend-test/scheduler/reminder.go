@@ -32,7 +32,7 @@ func processDueReminders() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	col := client.Database("REDACTED_MONGO_USER").Collection(RemindersCollection)
+	col := client.Database("buct-course").Collection(RemindersCollection)
 	now := time.Now()
 
 	// 查询到期未发送的提醒，limit 50，对应 Python .limit(50)
@@ -152,7 +152,7 @@ func checkAndCreateAutoReminders() error {
 	log.Println("[scheduler] 开始检查即将到期的作业（DDL前24小时内自动提醒）")
 
 	// 遍历所有用户
-	userCol := client.Database("REDACTED_MONGO_USER").Collection("users")
+	userCol := client.Database("buct-course").Collection("users")
 	cursor, err := userCol.Find(ctx, bson.M{}, options.Find().SetProjection(
 		bson.M{"_id": 1, "email": 1, "username": 1},
 	))
@@ -161,7 +161,7 @@ func checkAndCreateAutoReminders() error {
 	}
 	defer cursor.Close(ctx)
 
-	remCol := client.Database("REDACTED_MONGO_USER").Collection(RemindersCollection)
+	remCol := client.Database("buct-course").Collection(RemindersCollection)
 	courseRepo := CourseData.Repository
 	statusRepo := AssignmentStatus.Repository
 

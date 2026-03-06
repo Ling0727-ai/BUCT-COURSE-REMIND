@@ -7,8 +7,61 @@ import (
 
 	"github.com/Ling0727-ai/go-buct-course-backend/models"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+// decodeUser 从 mongo.SingleResult 解码用户，兼容 ObjectID 和 string 两种 _id 类型
+func decodeUser(sr *mongo.SingleResult) (*User, error) {
+	var raw bson.M
+	if err := sr.Decode(&raw); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	user := &User{}
+	switch v := raw["_id"].(type) {
+	case primitive.ObjectID:
+		user.ID = v.Hex()
+	case string:
+		user.ID = v
+	}
+	if v, ok := raw["username"].(string); ok {
+		user.Username = v
+	}
+	if v, ok := raw["email"].(string); ok {
+		user.Email = v
+	}
+	if v, ok := raw["student_id"].(string); ok {
+		user.StudentID = v
+	}
+	if v, ok := raw["password_hash"].(string); ok {
+		user.PasswordHash = v
+	}
+	if v, ok := raw["s_password"].(string); ok {
+		user.SPassword = v
+	}
+	if v, ok := raw["is_admin"].(bool); ok {
+		user.IsAdmin = v
+	}
+	if v, ok := raw["created_at"].(primitive.DateTime); ok {
+		user.CreatedAt = v.Time()
+	}
+	if v, ok := raw["updated_at"].(primitive.DateTime); ok {
+		user.UpdatedAt = v.Time()
+	}
+	return user, nil
+}
+
+// idFilter 根据 ID 字符串返回正确的 bson filter，兼容 ObjectID 和 string
+func idFilter(id string) bson.M {
+	if objID, err := primitive.ObjectIDFromHex(id); err == nil {
+		return bson.M{"_id": objID}
+	}
+	return bson.M{"_id": id}
+}
 
 // NewMongoUserRepository 创建一个新的 Repository 实例
 func NewMongoUserRepository() (UserRepository, error) {
@@ -16,70 +69,49 @@ func NewMongoUserRepository() (UserRepository, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	db := client.Database("REDACTED_MONGO_USER")
-
-	return &MongoUserRepository{
-		collection: db.Collection("users"),
-	}, nil
+	db := client.Database("buct-course")
+	return &MongoUserRepository{collection: db.Collection("users")}, nil
 }
 
 // CreateUser 创建用户
 func (r *MongoUserRepository) CreateUser(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	// ID 已由 Snowflake 在 service 层生成，直接插入，不回填 MongoDB ObjectID
 	_, err := r.collection.InsertOne(ctx, user)
 	return err
 }
 
-// GetUserByID 根据 Snowflake ID 查询用户
+// GetUserByID 根据 ID 查询用户（兼容 ObjectID 和 Snowflake string）
 func (r *MongoUserRepository) GetUserByID(id string) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var user User
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&user)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, nil
+	// 先尝试 ObjectID（Python 老数据）
+	if objID, err := primitive.ObjectIDFromHex(id); err == nil {
+		user, err2 := decodeUser(r.collection.FindOne(ctx, bson.M{"_id": objID}))
+		if err2 != nil {
+			return nil, err2
 		}
-		return nil, err
+		if user != nil {
+			return user, nil
+		}
 	}
-	return &user, nil
+	// 再按字符串匹配（Go Snowflake ID）
+	return decodeUser(r.collection.FindOne(ctx, bson.M{"_id": id}))
 }
 
 // GetUserByUsername 根据用户名查询用户
 func (r *MongoUserRepository) GetUserByUsername(username string) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	var user User
-	err := r.collection.FindOne(ctx, bson.M{"username": username}).Decode(&user)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &user, nil
+	return decodeUser(r.collection.FindOne(ctx, bson.M{"username": username}))
 }
 
 // GetUserByEmail 根据邮箱查询用户
 func (r *MongoUserRepository) GetUserByEmail(email string) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	var user User
-	err := r.collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &user, nil
+	return decodeUser(r.collection.FindOne(ctx, bson.M{"email": email}))
 }
 
 // UpdateUser 更新用户信息
@@ -87,20 +119,18 @@ func (r *MongoUserRepository) UpdateUser(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	user.UpdatedAt = time.Now().Unix()
-
+	user.UpdatedAt = time.Now()
 	update := bson.M{
 		"$set": bson.M{
-			"email":        user.Email,
-			"studentId":    user.StudentID,
-			"passwordHash": user.PasswordHash,
-			"sPassword":    user.SPassword,
-			"isAdmin":      user.IsAdmin,
-			"updatedAt":    user.UpdatedAt,
+			"email":         user.Email,
+			"student_id":    user.StudentID,
+			"password_hash": user.PasswordHash,
+			"s_password":    user.SPassword,
+			"is_admin":      user.IsAdmin,
+			"updated_at":    user.UpdatedAt,
 		},
 	}
-
-	_, err := r.collection.UpdateOne(ctx, bson.M{"_id": user.ID}, update)
+	_, err := r.collection.UpdateOne(ctx, idFilter(user.ID), update)
 	return err
 }
 
@@ -108,7 +138,6 @@ func (r *MongoUserRepository) UpdateUser(user *User) error {
 func (r *MongoUserRepository) DeleteUser(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
+	_, err := r.collection.DeleteOne(ctx, idFilter(id))
 	return err
 }

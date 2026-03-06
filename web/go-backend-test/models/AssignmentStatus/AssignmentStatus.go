@@ -1,6 +1,10 @@
 package AssignmentStatus
 
-import "go.mongodb.org/mongo-driver/mongo"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/mongo"
+)
 
 // Status 作业状态枚举
 type Status = string
@@ -9,28 +13,23 @@ const (
 	StatusCompleted        Status = "completed"
 	StatusDeleted          Status = "deleted"
 	StatusPermanentDeleted Status = "permanent_deleted"
-	StatusActive           Status = "active" // 仅用于恢复操作，不实际存储
+	StatusActive           Status = "active"
 )
 
 // AssignmentStatus 对应 Python assignment_status 集合
-// 统一管理作业完成、软删除、永久删除状态，替代原来分离的
-// completed_assignments 和 deleted_assignments 两张表
 type AssignmentStatus struct {
-	ID                string `bson:"_id,omitempty" json:"id,omitempty"`
-	UserID            string `bson:"user_id" json:"user_id"`
-	AssignmentID      string `bson:"assignment_id" json:"assignment_id"`
-	AssignmentTitle   string `bson:"assignment_title" json:"assignment_title"`
-	AssignmentSubject string `bson:"assignment_subject" json:"assignment_subject"`
-	AssignmentType    string `bson:"assignment_type" json:"assignment_type"` // "todo" | "homework" | "test"
-	Status            Status `bson:"status" json:"status"`
-	StatusTime        int64  `bson:"status_time" json:"status_time"`
-	// ExpiresAt TTL 字段：completed 状态 12h 后自动删除
-	ExpiresAt *int64 `bson:"expires_at,omitempty" json:"expires_at,omitempty"`
-	// TodoExpiresAt 待办类型软删除的 TTL：12h 后自动删除
-	TodoExpiresAt *int64 `bson:"todo_expires_at,omitempty" json:"todo_expires_at,omitempty"`
-	// Forever 永久删除标记：1=正常，0=永久删除
-	Forever   int   `bson:"forever" json:"forever"`
-	UpdatedAt int64 `bson:"updated_at" json:"updated_at"`
+	ID                string     `bson:"_id,omitempty"              json:"id,omitempty"`
+	UserID            string     `bson:"user_id"                    json:"user_id"`
+	AssignmentID      string     `bson:"assignment_id"              json:"assignment_id"`
+	AssignmentTitle   string     `bson:"assignment_title"           json:"assignment_title"`
+	AssignmentSubject string     `bson:"assignment_subject"         json:"assignment_subject"`
+	AssignmentType    string     `bson:"assignment_type"            json:"assignment_type"`
+	Status            Status     `bson:"status"                     json:"status"`
+	StatusTime        time.Time  `bson:"status_time"                json:"status_time"`
+	ExpiresAt         *time.Time `bson:"expires_at,omitempty"       json:"expires_at,omitempty"`
+	TodoExpiresAt     *time.Time `bson:"todo_expires_at,omitempty"  json:"todo_expires_at,omitempty"`
+	Forever           int        `bson:"forever"                    json:"forever"`
+	UpdatedAt         time.Time  `bson:"updated_at"                 json:"updated_at"`
 }
 
 // StatusStats 状态统计
