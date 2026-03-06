@@ -53,3 +53,9 @@ var Repository = &MongoCourseDataRepository{}
 
 type CourseDataService interface {
 }
+
+// Init 在服务启动时绑定 MongoDB collection，同时建立索引
+func Init(db *mongo.Database) {
+	col := db.Collection("course_data")
+	Repository = NewMongoCourseDataRepository(col)
+}

@@ -5,123 +5,120 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRoutes(router *gin.Engine) {
-	// 健康检查路由（含 DB + 邮件状态检查）
-	router.GET("/health", handlers.HealthCheck)
+func SetupRoutes(r *gin.Engine) {
+	// 健康检查：前端和 Docker 都用 /api/health，同时保留 /health
+	r.GET("/health", handlers.HealthCheck)
+	r.GET("/api/health", handlers.HealthCheck)
 
-	// API v1 路由组
-	v1 := router.Group("/api/v1")
+	api := r.Group("/api")
 	{
-		v1.GET("/ping", handlers.Ping)
-
-		// ── 认证路由，对应 Python /api/auth ──
-		authRoutes := v1.Group("/auth")
+		// ── 认证，对应 Python /api/auth ──────────────────────────────
+		auth := api.Group("/auth")
 		{
-			authRoutes.POST("/login", handlers.Login)
-			authRoutes.POST("/logout", handlers.Logout)
-			authRoutes.POST("/register", handlers.Register)
-			authRoutes.GET("/status", handlers.AuthStatus)
-			authRoutes.GET("/user-info", handlers.GetUserInfo)
-			authRoutes.POST("/update-email", handlers.UpdateEmail)
-			authRoutes.POST("/update-student-info", handlers.UpdateStudentInfo)
-			authRoutes.POST("/check-email", handlers.CheckEmail)
-			authRoutes.POST("/reset-password", handlers.ResetPassword)
-			authRoutes.POST("/send-verification-code", handlers.SendVerificationCode)
-			authRoutes.POST("/verify-code", handlers.VerifyCode)
+			auth.POST("/login", handlers.Login)
+			auth.POST("/logout", handlers.Logout)
+			auth.POST("/register", handlers.Register)
+			auth.GET("/status", handlers.AuthStatus)
+			auth.GET("/user-info", handlers.GetUserInfo)
+			auth.POST("/update-email", handlers.UpdateEmail)
+			auth.POST("/update-student-info", handlers.UpdateStudentInfo)
+			auth.POST("/check-email", handlers.CheckEmail)
+			auth.POST("/reset-password", handlers.ResetPassword)
+			auth.POST("/send-verification-code", handlers.SendVerificationCode)
+			auth.POST("/verify-code", handlers.VerifyCode)
 		}
 
-		// ── 用户路由 ──
-		userRoutes := v1.Group("/users")
+		// ── 作业，对应 Python /api/assignments ───────────────────────
+		assign := api.Group("/assignments")
 		{
-			userRoutes.GET("", handlers.GetUsers)
-			userRoutes.GET("/:id", handlers.GetUser)
-			userRoutes.POST("", handlers.CreateUser)
-			userRoutes.PUT("/:id", handlers.UpdateUser)
-			userRoutes.DELETE("/:id", handlers.DeleteUser)
+			// 前端用 /api/assignments/standard 和 /api/assignments/enhanced，都返回作业列表
+			assign.GET("/standard", handlers.GetAssignments)
+			assign.GET("/enhanced", handlers.GetAssignments)
+			assign.GET("/stats", handlers.GetAssignmentStats)
+			assign.GET("/completed", handlers.GetCompletedAssignments)
+			assign.GET("/deleted", handlers.GetDeletedAssignments)
+			assign.DELETE("/clear-deleted", handlers.ClearDeletedAssignments)
+			assign.POST("/:id/complete", handlers.MarkAssignmentComplete)
+			assign.POST("/:id/uncomplete", handlers.MarkAssignmentUncomplete)
+			assign.POST("/:id/delete", handlers.DeleteAssignment)
+			assign.POST("/:id/restore", handlers.RestoreAssignment)
+			assign.DELETE("/:id/permanent-delete", handlers.PermanentDeleteAssignment)
+			assign.POST("/:id/remind", handlers.RemindAssignment)
 		}
 
-		// ── 作业路由，对应 Python /api/assignments ──
-		assignRoutes := v1.Group("/assignments")
+		// ── 课程数据，对应 Python /api/course-data ───────────────────
+		course := api.Group("/course-data")
 		{
-			assignRoutes.GET("", handlers.GetAssignments)
-			assignRoutes.GET("/stats", handlers.GetAssignmentStats)
-			assignRoutes.GET("/completed", handlers.GetCompletedAssignments)
-			assignRoutes.GET("/deleted", handlers.GetDeletedAssignments)
-			assignRoutes.DELETE("/clear-deleted", handlers.ClearDeletedAssignments)
-			assignRoutes.POST("/:id/complete", handlers.MarkAssignmentComplete)
-			assignRoutes.POST("/:id/uncomplete", handlers.MarkAssignmentUncomplete)
-			assignRoutes.POST("/:id/delete", handlers.DeleteAssignment)
-			assignRoutes.POST("/:id/restore", handlers.RestoreAssignment)
-			assignRoutes.DELETE("/:id/permanent-delete", handlers.PermanentDeleteAssignment)
-			assignRoutes.POST("/:id/remind", handlers.RemindAssignment)
+			course.GET("/list", handlers.GetCourseDataList)
+			course.GET("/status", handlers.GetCourseDataStatus)
+			course.POST("/refresh", handlers.RefreshCourseData)
 		}
 
-		// ── 课程数据路由，对应 Python /api/course-data ──
-		courseRoutes := v1.Group("/course-data")
+		// ── 待办，对应 Python /api/todos ─────────────────────────────
+		todos := api.Group("/todos")
 		{
-			courseRoutes.GET("/list", handlers.GetCourseDataList)
-			courseRoutes.GET("/status", handlers.GetCourseDataStatus)
-			courseRoutes.POST("/refresh", handlers.RefreshCourseData)
+			todos.GET("/", handlers.GetTodos)
+			todos.POST("/", handlers.CreateTodo)
+			todos.GET("/stats", handlers.GetTodoStats)
+			todos.GET("/deleted", handlers.GetDeletedTodos)
+			todos.DELETE("/clear-deleted", handlers.ClearDeletedTodos)
+			todos.PUT("/:id", handlers.UpdateTodo)
+			todos.POST("/:id/complete", handlers.CompleteTodo)
+			todos.POST("/:id/uncomplete", handlers.UncompleteTodo)
+			todos.POST("/:id/remind", handlers.RemindTodo)
+			todos.POST("/:id/delete", handlers.DeleteTodo)
+			todos.POST("/:id/restore", handlers.RestoreTodo)
+			todos.DELETE("/:id/permanent-delete", handlers.PermanentDeleteTodo)
 		}
 
-		// ── 待办路由，对应 Python /api/todos ──
-		todoRoutes := v1.Group("/todos")
+		// ── 提醒，对应 Python /api/webhooks ──────────────────────────
+		reminders := api.Group("/reminders")
 		{
-			todoRoutes.GET("", handlers.GetTodos)
-			todoRoutes.POST("", handlers.CreateTodo)
-			todoRoutes.GET("/stats", handlers.GetTodoStats)
-			todoRoutes.GET("/deleted", handlers.GetDeletedTodos)
-			todoRoutes.DELETE("/clear-deleted", handlers.ClearDeletedTodos)
-			todoRoutes.PUT("/:id", handlers.UpdateTodo)
-			todoRoutes.POST("/:id/complete", handlers.CompleteTodo)
-			todoRoutes.POST("/:id/uncomplete", handlers.UncompleteTodo)
-			todoRoutes.POST("/:id/remind", handlers.RemindTodo)
-			todoRoutes.POST("/:id/delete", handlers.DeleteTodo)
-			todoRoutes.POST("/:id/restore", handlers.RestoreTodo)
-			todoRoutes.DELETE("/:id/permanent-delete", handlers.PermanentDeleteTodo)
+			reminders.GET("", handlers.GetReminders)
+			reminders.POST("", handlers.CreateReminder)
+			reminders.DELETE("/:id", handlers.DeleteReminder)
+			reminders.POST("/manual", handlers.ManualReminder)
+			reminders.POST("/test", handlers.TestReminder)
+		}
+		// webhooks 路由别名，和 Python 蓝图前缀一致
+		webhooks := api.Group("/webhooks")
+		{
+			webhooks.POST("/scan_due_soon", handlers.ManualReminder)
+			webhooks.POST("/manual", handlers.ManualReminder)
+			webhooks.POST("/test", handlers.TestReminder)
 		}
 
-		// ── 提醒路由，对应 Python /api/webhooks ──
-		reminderRoutes := v1.Group("/reminders")
+		// ── 设置，对应 Python /api/settings ──────────────────────────
+		api.GET("/settings", handlers.GetSettings)
+		api.POST("/settings", handlers.SaveSettings)
+		api.GET("/settings/email", handlers.GetEmailSettings)
+		api.POST("/settings/email", handlers.SaveEmailSettings)
+
+		// ── 统计，对应 Python /api/stats ─────────────────────────────
+		api.GET("/stats", handlers.GetStats)
+
+		// ── 加密，对应 Python /api/crypto ────────────────────────────
+		crypto := api.Group("/crypto")
 		{
-			reminderRoutes.GET("", handlers.GetReminders)
-			reminderRoutes.POST("", handlers.CreateReminder)
-			reminderRoutes.DELETE("/:id", handlers.DeleteReminder)
-			reminderRoutes.POST("/manual", handlers.ManualReminder)
-			reminderRoutes.POST("/test", handlers.TestReminder)
+			crypto.GET("/public-key", handlers.GetPublicKey)
+			crypto.GET("/challenge", handlers.GetChallenge)
+			crypto.GET("/status", handlers.GetCryptoStatus)
 		}
 
-		// ── 设置路由，对应 Python /api/settings ──
-		v1.GET("/settings", handlers.GetSettings)
-		v1.POST("/settings", handlers.SaveSettings)
-		v1.GET("/settings/email", handlers.GetEmailSettings)
-		v1.POST("/settings/email", handlers.SaveEmailSettings)
-
-		// ── 全局统计，对应 Python GET /api/stats ──
-		v1.GET("/stats", handlers.GetStats)
-
-		// ── 测试路由，对应 Python /api/test（无需登录，调试用）──
-		testRoutes := v1.Group("/test")
+		// ── 测试调试，对应 Python /api/test ──────────────────────────
+		test := api.Group("/test")
 		{
-			testRoutes.POST("/send-test-email", handlers.SendTestEmail)
-			testRoutes.POST("/verify-test-code", handlers.VerifyTestCode)
-			testRoutes.GET("/config", handlers.GetTestConfig)
+			test.POST("/send-test-email", handlers.SendTestEmail)
+			test.POST("/verify-test-code", handlers.VerifyTestCode)
+			test.GET("/config", handlers.GetTestConfig)
 		}
 
-		// ── 管理员路由，对应 Python /api/admin ──
-		adminRoutes := v1.Group("/admin")
+		// ── 管理员，对应 Python /api/admin ───────────────────────────
+		admin := api.Group("/admin")
 		{
-			adminRoutes.POST("/cleanup/trigger", handlers.AdminTriggerCleanup)
-			adminRoutes.GET("/completed-assignments", handlers.AdminGetCompletedAssignments)
-			adminRoutes.GET("/system/status", handlers.AdminGetSystemStatus)
-		}
-
-		// ── 加密路由，对应 Python /api/crypto ──
-		cryptoRoutes := v1.Group("/crypto")
-		{
-			cryptoRoutes.GET("/public-key", handlers.GetPublicKey)
-			cryptoRoutes.GET("/challenge", handlers.GetChallenge)
-			cryptoRoutes.GET("/status", handlers.GetCryptoStatus)
+			admin.POST("/cleanup/trigger", handlers.AdminTriggerCleanup)
+			admin.GET("/completed-assignments", handlers.AdminGetCompletedAssignments)
+			admin.GET("/system/status", handlers.AdminGetSystemStatus)
 		}
 	}
 }

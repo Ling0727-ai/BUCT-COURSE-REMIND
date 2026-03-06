@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -9,19 +10,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RefreshCourseData 手动刷新课程数据
-// 对应 Python POST /api/course-data/refresh
+// RefreshCourseData 手动刷新课程数据（同步），对应 Python POST /api/course-data/refresh
 func RefreshCourseData(c *gin.Context) {
 	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	services.RefreshUserDataAsync(userID)
+	count, err := services.RefreshUserDataSync(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "刷新数据失败: " + err.Error(),
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
-		"message":    "数据刷新已在后台启动",
+		"message":    fmt.Sprintf("数据刷新成功，共更新 %d 条记录", count),
+		"count":      count,
 		"updated_at": time.Now().Format(time.RFC3339),
 	})
 }

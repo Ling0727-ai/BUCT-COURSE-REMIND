@@ -1,6 +1,8 @@
 package User
 
-import "go.mongodb.org/mongo-driver/mongo"
+import (
+	"go.mongodb.org/mongo-driver/mongo"
+)
 
 // User 用户表结构
 type User struct {
@@ -51,3 +53,9 @@ type UserServiceImpl struct {
 }
 
 var Service = &UserServiceImpl{}
+
+// Init 在服务启动时绑定 MongoDB collection，必须在接收任何请求前调用
+func Init(db *mongo.Database) {
+	Repository.collection = db.Collection("users")
+	Service.repo = Repository
+}

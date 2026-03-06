@@ -36,11 +36,12 @@ services:
       dockerfile: Dockerfile
     container_name: buct-backend-go
     ports:
-      - "${GO_PORT:-8080}:8080"
+      - "${GO_PORT:-5000}:5000"
     environment:
       # 运行环境
       - ENV=production
-      - PORT=:8080
+      # 统一监听 5000，与 Python 后端保持一致，nginx 无需改动即可切换
+      - PORT=:5000
 
       # MongoDB 连接，对应 Python 的 MONGO_URI
       - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-REDACTED_MONGO_USER}:${MONGO_INITDB_ROOT_PASSWORD:-REDACTED_MONGO_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE:-REDACTED_MONGO_USER}?authSource=admin
@@ -55,8 +56,9 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - VERIFY_CODE_EXPIRE=${VERIFY_CODE_EXPIRE:-180}
 
-      # 加密配置
+      # ECC 私钥：十进制整数，对应 Python ec.derive_private_key(int(ECC_PRIVATE_KEY), ec.SECP256R1())
       - ECC_PRIVATE_KEY=${ECC_PRIVATE_KEY:-REDACTED_ECC_PRIVATE_KEY}
+      - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:-10000000667}
       - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:-10000000667}
       - RSA_KEY_SIZE=${RSA_KEY_SIZE:-2048}
       - RSA_KEY_EXPIRE_MINUTES=${RSA_KEY_EXPIRE_MINUTES:-30}
@@ -73,7 +75,7 @@ services:
     networks:
       - buct-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -15,7 +15,7 @@ var AppConfig *Config
 func LoadConfig() *Config {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = ":8080"
+		port = ":5000"
 	}
 
 	env := os.Getenv("ENV")

@@ -7,130 +7,189 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
+	"errors"
 	"io"
+	"math/big"
 	"os"
+
+	"golang.org/x/crypto/hkdf"
 )
 
-func (s *BasicCryptoService) EncryptECC(plainText string) (string, error) {
-	// 这里可以使用 ECC 加密算法来实现加密
-	// 这只是一个示例，实际实现需要使用 ECC 库
-	privateKey := os.Getenv("ECC_PRIVATE_KEY")
-	publicKey := os.Getenv("ECC_PUBLIC_KEY")
+// ──────────────────────────────────────────────
+// ECC / ECDH + AES-GCM 加密，完全对齐 Python 实现
+//
+// Python 存储格式（Base64编码）：
+//   ephemeral_public_bytes(65 字节，未压缩点) + iv(16) + tag(16) + ciphertext
+//
+// AES key 派生：HKDF-SHA256，info=b'password encryption'，length=32
+// ──────────────────────────────────────────────
 
-	pubKeyBytes, err := hex.DecodeString(publicKey)
-	if err != nil {
-		return "", err
+const hkdfInfo = "password encryption"
+
+// deriveAESKey 用 HKDF-SHA256 从 ECDH 共享密钥派生 32 字节 AES key，对应 Python HKDF
+func deriveAESKey(sharedKey []byte) ([]byte, error) {
+	reader := hkdf.New(sha256.New, sharedKey, nil, []byte(hkdfInfo))
+	key := make([]byte, 32)
+	if _, err := io.ReadFull(reader, key); err != nil {
+		return nil, err
 	}
-
-	priKeyBytes, err := hex.DecodeString(privateKey)
-	if err != nil {
-		return "", err
-	}
-
-	// 解析P-256曲线的公钥和私钥
-	curve := ecdh.P256()
-	recipentPubKey, err := curve.NewPublicKey(pubKeyBytes)
-	if err != nil {
-		return "", err
-	}
-
-	ephemeralPrivKey, err := curve.NewPrivateKey(priKeyBytes)
-	if err != nil {
-		return "", err
-	}
-
-	// ECDH生成共享密钥
-	sharedKey, err := ephemeralPrivKey.ECDH(recipentPubKey)
-	if err != nil {
-		return "", err
-	}
-
-	// sha-256派生AES密钥
-	aesKey := sha256.Sum256(sharedKey)
-
-	// AES-GCM加密
-	block, err := aes.NewCipher(aesKey[:])
-	if err != nil {
-		return "", err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
-	}
-
-	cipherText := gcm.Seal(nil, nonce, []byte(plainText), nil)
-
-	// 打包临时公钥（65B）+nonce（12B）+密文+tag (16B) -> Base64
-	ephemeralPubKeyBytes := ephemeralPrivKey.Bytes()
-	result := make([]byte, 0, len(ephemeralPubKeyBytes)+len(nonce)+len(cipherText))
-	result = append(result, ephemeralPubKeyBytes...)
-	result = append(result, nonce...)
-	result = append(result, cipherText...)
-
-	return hex.EncodeToString(result), nil
+	return key, nil
 }
 
-func (s *BasicCryptoService) DecryptECC(encryptedText string) (string, error) {
-	// 这里可以使用 ECC 加密算法来实现解密
-	// 这只是一个示例，实际实现需要使用 ECC 库
-	privateKey := os.Getenv("ECC_PRIVATE_KEY")
-
-	priKeyBytes, err := hex.DecodeString(privateKey)
-	if err != nil {
-		return "", err
+// getECCPrivateKey 对应 Python ec.derive_private_key(int(ECC_PRIVATE_KEY), ec.SECP256R1())
+// ECC_PRIVATE_KEY 是十进制整数字符串，转为 32 字节大端序再构造私钥
+func getECCPrivateKey() (*ecdh.PrivateKey, error) {
+	privKeyStr := os.Getenv("ECC_PRIVATE_KEY")
+	if privKeyStr == "" {
+		// 和 Python 一样的默认值
+		privKeyStr = "REDACTED_ECC_PRIVATE_KEY"
 	}
+
+	n := new(big.Int)
+	if _, ok := n.SetString(privKeyStr, 10); !ok {
+		return nil, errors.New("ECC_PRIVATE_KEY 不是合法的十进制整数")
+	}
+
+	// 转为 32 字节大端序（P-256 私钥固定 32 字节）
+	privBytes := make([]byte, 32)
+	nBytes := n.Bytes()
+	if len(nBytes) > 32 {
+		return nil, errors.New("ECC_PRIVATE_KEY 超出 P-256 私钥范围")
+	}
+	copy(privBytes[32-len(nBytes):], nBytes)
 
 	curve := ecdh.P256()
-	recentPriKey, err := curve.NewPrivateKey(priKeyBytes)
+	return curve.NewPrivateKey(privBytes)
+}
+
+// EncryptECC 加密 sPassword，对应 Python _encrypt_password
+// 输出：Base64(ephemeral_pub(65) + iv(16) + tag(16) + ciphertext)
+func (s *BasicCryptoService) EncryptECC(plainText string) (string, error) {
+	if plainText == "" {
+		return "", nil
+	}
+
+	privKey, err := getECCPrivateKey()
+	if err != nil {
+		return "", err
+	}
+	recipientPubKey := privKey.PublicKey() // 收件方公钥 = 自己的公钥（对称场景）
+
+	// 生成临时密钥对
+	curve := ecdh.P256()
+	ephemeralPriv, err := curve.GenerateKey(rand.Reader)
+	if err != nil {
+		return "", err
+	}
+	ephemeralPub := ephemeralPriv.PublicKey()
+
+	// ECDH
+	sharedKey, err := ephemeralPriv.ECDH(recipientPubKey)
 	if err != nil {
 		return "", err
 	}
 
-	// base64解码
+	// HKDF 派生 AES key
+	aesKey, err := deriveAESKey(sharedKey)
+	if err != nil {
+		return "", err
+	}
+
+	// AES-GCM 加密，使用 16 字节 IV（对应 Python os.urandom(16)）
+	block, err := aes.NewCipher(aesKey)
+	if err != nil {
+		return "", err
+	}
+	iv := make([]byte, 16)
+	if _, err = io.ReadFull(rand.Reader, iv); err != nil {
+		return "", err
+	}
+	// 使用 NonceSize=16 的 GCM
+	gcm, err := cipher.NewGCMWithNonceSize(block, 16)
+	if err != nil {
+		return "", err
+	}
+	// Seal 将 tag 附在密文尾部，需要手动拆分
+	sealed := gcm.Seal(nil, iv, []byte(plainText), nil)
+	// sealed = ciphertext + tag(16)
+	tagOffset := len(sealed) - 16
+	cipherText := sealed[:tagOffset]
+	tag := sealed[tagOffset:]
+
+	// 组合：ephemeral_pub(65) + iv(16) + tag(16) + ciphertext
+	ephemeralPubBytes := ephemeralPub.Bytes() // 未压缩点，65 字节
+	result := make([]byte, 0, 65+16+16+len(cipherText))
+	result = append(result, ephemeralPubBytes...)
+	result = append(result, iv...)
+	result = append(result, tag...)
+	result = append(result, cipherText...)
+
+	return base64.StdEncoding.EncodeToString(result), nil
+}
+
+// DecryptECC 解密 sPassword，对应 Python _decrypt_password
+// 输入：Base64(ephemeral_pub(65) + iv(16) + tag(16) + ciphertext)
+func (s *BasicCryptoService) DecryptECC(encryptedText string) (string, error) {
+	if encryptedText == "" {
+		return "", nil
+	}
+
+	privKey, err := getECCPrivateKey()
+	if err != nil {
+		return "", err
+	}
+
 	data, err := base64.StdEncoding.DecodeString(encryptedText)
 	if err != nil {
-		return "", err
+		data, err = base64.RawStdEncoding.DecodeString(encryptedText)
+		if err != nil {
+			return "", errors.New("Base64 解码失败")
+		}
 	}
 
-	// 解包：临时公钥（65B）+nonce（12B）+密文+tag (16B)
-	if len(data) < 65+12+16 {
-		return "", err
+	if len(data) < 65+16+16 {
+		return "", errors.New("加密数据长度不足")
 	}
 
-	ephemeralPubKey, err := curve.NewPublicKey(data[:65])
+	ephemeralPubBytes := data[:65]
+	iv := data[65:81]
+	tag := data[81:97]
+	cipherText := data[97:]
+
+	curve := ecdh.P256()
+	ephemeralPub, err := curve.NewPublicKey(ephemeralPubBytes)
 	if err != nil {
-		return "", err
-	}
-	nonce := data[65 : 65+12]
-	cipherText := data[65+12:]
-
-	// ECDH 计算共享密钥
-	sharedSecret, err := recentPriKey.ECDH(ephemeralPubKey)
-	if err != nil {
-		return "", err
+		return "", errors.New("解析临时公钥失败: " + err.Error())
 	}
 
-	aesKey := sha256.Sum256(sharedSecret)
-
-	block, err := aes.NewCipher(aesKey[:])
-	if err != nil {
-		return "", err
-	}
-	gcm, err := cipher.NewGCM(block)
+	// ECDH
+	sharedKey, err := privKey.ECDH(ephemeralPub)
 	if err != nil {
 		return "", err
 	}
 
-	plainText, err := gcm.Open(nil, nonce, cipherText, nil)
+	// HKDF 派生 AES key
+	aesKey, err := deriveAESKey(sharedKey)
 	if err != nil {
 		return "", err
 	}
 
-	return string(plainText), nil
+	// AES-GCM 解密
+	block, err := aes.NewCipher(aesKey)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCMWithNonceSize(block, 16)
+	if err != nil {
+		return "", err
+	}
+
+	// 重新组合为 Seal 格式：ciphertext + tag
+	sealedData := append(cipherText, tag...)
+	plainBytes, err := gcm.Open(nil, iv, sealedData, nil)
+	if err != nil {
+		return "", errors.New("解密失败: " + err.Error())
+	}
+
+	return string(plainBytes), nil
 }

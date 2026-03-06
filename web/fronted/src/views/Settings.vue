@@ -410,6 +410,7 @@ export default {
 <style scoped>
 /* 全局容器 */
 .container {
+  height: 100%;
   min-height: 100vh;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdfa 100%);
   position: relative;

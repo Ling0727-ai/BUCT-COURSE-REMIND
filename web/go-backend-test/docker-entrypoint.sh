@@ -45,9 +45,17 @@ echo "--------------------------------------"
 
 echo "======================================"
 echo "✅ 系统启动完成!"
-echo "   应用端口: ${PORT:-:8080}"
+echo "   应用端口: ${PORT:-:5000}"
 echo "======================================"
 
-# 执行传入的命令（即 CMD ["/app/server"]）
-exec "$@"
+# 以 root 启动 haveged 补充熵（后台运行）
+# Go 的 crypto/rand 在低熵容器环境下会阻塞，RSA 密钥生成尤其明显
+if command -v haveged >/dev/null 2>&1; then
+    haveged -w 1024 -v 0
+    echo "✅ haveged 已启动（熵池补充中）"
+fi
+
+# 切换到非 root 用户运行 server（su-exec 是 alpine 的 gosu 等价物）
+# 若第一个参数已经是完整命令（如 /app/server），直接 su-exec 执行
+exec su-exec appuser "$@"
 

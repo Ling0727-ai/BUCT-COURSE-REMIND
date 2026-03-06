@@ -1,16 +1,17 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/crypto"
+	"github.com/Ling0727-ai/go-buct-course-backend/middleware"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/User"
 	"github.com/Ling0727-ai/go-buct-course-backend/services"
 	"github.com/gin-gonic/gin"
 )
 
 // Login 用户登录，对应 Python POST /api/auth/login
-// 支持明文和 RSA 加密两种请求格式
 func Login(c *gin.Context) {
 	var body map[string]interface{}
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -20,18 +21,17 @@ func Login(c *gin.Context) {
 
 	var username, password string
 
-	// 优先尝试 RSA 解密，对应 Python 中 encrypted_data 分支
 	if encryptedData, ok := body["encrypted_data"].(string); ok && encryptedData != "" {
-		rsa := crypto.GetRSAService()
-		decrypted, err := rsa.DecryptRequest(encryptedData)
+		rsaSvc := crypto.GetRSAService()
+		decrypted, err := rsaSvc.DecryptRequest(encryptedData)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "数据解密失败"})
+			log.Printf("[auth] Login 解密失败: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "数据解密失败: " + err.Error()})
 			return
 		}
 		username, _ = decrypted["username"].(string)
 		password, _ = decrypted["password"].(string)
 	} else {
-		// 明文兼容（开发阶段），对应 Python else 分支
 		username, _ = body["username"].(string)
 		password, _ = body["password"].(string)
 	}
@@ -41,15 +41,13 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// 调用 service 登录
 	user, err := User.Service.LoginUser(username, password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 登录成功后异步刷新作业数据，对应 Python auto_refresh_assignments_on_login
-	// 不阻塞登录响应，刷新失败不影响登录
+	middleware.IssueSessionCookie(c, user.ID, user.Username, user.IsAdmin)
 	services.RefreshUserDataAsync(user.ID)
 
 	c.JSON(http.StatusOK, gin.H{
@@ -68,22 +66,39 @@ func Login(c *gin.Context) {
 
 // Register 用户注册，对应 Python POST /api/auth/register
 func Register(c *gin.Context) {
-	var body struct {
-		Username  string `json:"username" binding:"required"`
-		Email     string `json:"email"    binding:"required"`
-		Password  string `json:"password" binding:"required"`
-		StudentID string `json:"student_id"`
-		SPassword string `json:"s_password"`
-	}
-	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	var raw map[string]interface{}
+	if err := c.ShouldBindJSON(&raw); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
 		return
 	}
 
-	user, err := User.Service.RegisterUser(
-		body.Username, body.Email, body.Password,
-		body.StudentID, body.SPassword,
-	)
+	var fields map[string]interface{}
+
+	if enc, ok := raw["encrypted_data"].(string); ok && enc != "" {
+		rsaSvc := crypto.GetRSAService()
+		decrypted, err := rsaSvc.DecryptRequest(enc)
+		if err != nil {
+			log.Printf("[auth] Register 解密失败: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "数据解密失败: " + err.Error()})
+			return
+		}
+		fields = decrypted
+	} else {
+		fields = raw
+	}
+
+	username, _ := fields["username"].(string)
+	email, _ := fields["email"].(string)
+	password, _ := fields["password"].(string)
+	studentID, _ := fields["student_id"].(string)
+	sPassword, _ := fields["s_password"].(string)
+
+	if username == "" || email == "" || password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名、邮箱和密码不能为空"})
+		return
+	}
+
+	user, err := User.Service.RegisterUser(username, email, password, studentID, sPassword)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
@@ -99,11 +114,10 @@ func Register(c *gin.Context) {
 }
 
 // AuthStatus 检查登录状态，对应 Python GET /api/auth/status
-// Go 使用 JWT/session 中间件，这里简单示意从 context 取用户信息
+// SessionMiddleware 已把 user_id 注入 context，直接读取即可
 func AuthStatus(c *gin.Context) {
-	// 实际项目中由 JWT 中间件注入 userID 到 context
 	userID, exists := c.Get("user_id")
-	if !exists {
+	if !exists || userID == "" {
 		c.JSON(http.StatusOK, gin.H{"authenticated": false})
 		return
 	}
@@ -308,6 +322,6 @@ func ResetPassword(c *gin.Context) {
 
 // Logout 用户登出，对应 Python POST /api/auth/logout
 func Logout(c *gin.Context) {
-	// JWT 无状态，前端直接丢弃 token 即可；服务端可选加黑名单
+	middleware.ClearSessionCookie(c)
 	c.JSON(http.StatusOK, gin.H{"message": "登出成功"})
 }

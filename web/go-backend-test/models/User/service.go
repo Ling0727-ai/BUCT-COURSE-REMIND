@@ -27,15 +27,19 @@ func (s *UserServiceImpl) RegisterUser(username, email, password, studentId, sPa
 		return nil, errors.New("email already exists")
 	}
 
-	// 3. 对密码进行 Hash以及ECC加密
+	// 3. 对密码进行 Hash 以及 ECC 加密
 	passwordHash, err := crypto.Crypto.HashPassword(password)
 	if err != nil {
 		return nil, err
 	}
 
-	sPassECC, err := crypto.Crypto.EncryptECC(sPassword)
-	if err != nil {
-		return nil, err
+	// sPassword 为空时不加密，对应 Python: if s_password else None
+	var sPassECC string
+	if sPassword != "" {
+		sPassECC, err = crypto.Crypto.EncryptECC(sPassword)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// 4. 生成唯一 ID 并构造用户对象

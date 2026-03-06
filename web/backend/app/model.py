@@ -397,16 +397,23 @@ class Todo:
 
     def get_user_todos(self, user_id, include_completed=True):
         """获取用户的待办事项列表（不包括已删除和永久删除的）"""
-        query = {
-            'user_id': ObjectId(user_id),
-            'is_deleted': {'$ne': True},  # 排除已删除的项目
-            'forever': {'$ne': 0}  # 排除永久删除的项目
-        }
-        if not include_completed:
-            query['completed'] = False
-
-        todos = list(self.db[self.collection].find(query).sort('created_at', -1))
-        return todos
+        cursor = None
+        try:
+            query = {
+                'user_id': ObjectId(user_id),
+                'is_deleted': {'$ne': True},
+                'forever': {'$ne': 0}
+            }
+            if not include_completed:
+                query['completed'] = False
+            cursor = self.db[self.collection].find(query).sort('created_at', -1)
+            return list(cursor)
+        finally:
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
 
     def get_todo_by_id(self, todo_id, user_id):
         """根据ID获取待办事项"""
@@ -471,13 +478,21 @@ class Todo:
 
     def get_deleted_todos(self, user_id):
         """获取用户已删除的待办事项列表（不包括永久删除的）"""
-        query = {
-            'user_id': ObjectId(user_id),
-            'is_deleted': True,
-            'forever': {'$ne': 0}  # 排除永久删除的项目
-        }
-        todos = list(self.db[self.collection].find(query).sort('delete_time', -1))
-        return todos
+        cursor = None
+        try:
+            query = {
+                'user_id': ObjectId(user_id),
+                'is_deleted': True,
+                'forever': {'$ne': 0}
+            }
+            cursor = self.db[self.collection].find(query).sort('delete_time', -1)
+            return list(cursor)
+        finally:
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
 
     def clear_deleted_todos(self, user_id):
         """清空用户的已删除待办事项（设置forever=0）"""

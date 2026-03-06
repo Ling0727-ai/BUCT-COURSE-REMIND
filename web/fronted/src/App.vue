@@ -14,7 +14,7 @@ export default {
 
 /* 应用级别的样式 */
 #app {
-  min-height: 100vh;
+  height: 100%;
   font-family: 'Inter', 'SF Pro Display', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
 }
 

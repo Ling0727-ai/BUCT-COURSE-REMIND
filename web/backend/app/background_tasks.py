@@ -11,94 +11,95 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
+# ── 并发控制 ───────────────────────────────────────────────────────────────
+# 每个 user_id 同一时刻最多跑一个刷新线程，防止同一用户多次触发时线程堆积
+_refresh_locks: dict[str, threading.Lock] = {}
+_refresh_locks_meta = threading.Lock()
+
+
+def _get_user_lock(user_id: str) -> threading.Lock:
+    """获取或创建指定用户的刷新锁"""
+    with _refresh_locks_meta:
+        if user_id not in _refresh_locks:
+            _refresh_locks[user_id] = threading.Lock()
+        return _refresh_locks[user_id]
+# ──────────────────────────────────────────────────────────────────────────
+
 
 def refresh_user_data_async(user_id, app_context):
     """
-    异步刷新用户数据的后台任务
-    
-    Args:
-        user_id: 用户ID
-        app_context: Flask应用上下文
+    异步刷新用户数据的后台任务（内部实现，由 start_background_refresh 调用）
     """
-    with app_context:
-        try:
-            logger.info(f"开始异步刷新用户 {user_id} 的作业数据")
+    lock = _get_user_lock(user_id)
+    # 非阻塞尝试获取锁，拿不到说明该用户已有刷新在跑，直接返回
+    if not lock.acquire(blocking=False):
+        logger.info(f"用户 {user_id} 已有刷新任务在运行，跳过本次")
+        return
 
-            # 导入必要的模块
-            from . import mongo
-            from .scraper import get_scraper
-            from .course_data import get_course_data_manager
+    try:
+        with app_context:
+            try:
+                logger.info(f"开始异步刷新用户 {user_id} 的作业数据")
 
-            # 检查用户是否有学号和密码
-            user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
-            if not user:
-                logger.warning(f"用户 {user_id} 不存在，跳过数据刷新")
-                return
+                from . import mongo
+                from .scraper import get_scraper
+                from .course_data import get_course_data_manager
 
-            student_id = user.get('student_id')
-            s_password = user.get('s_password')
+                user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+                if not user:
+                    logger.warning(f"用户 {user_id} 不存在，跳过数据刷新")
+                    return
 
-            if not student_id or not s_password:
-                logger.info(f"用户 {user_id} 未设置学号或密码，跳过数据刷新")
-                return
+                if not user.get('student_id') or not user.get('s_password'):
+                    logger.info(f"用户 {user_id} 未设置学号或密码，跳过数据刷新")
+                    return
 
-            # 获取scraper实例并刷新数据
-            scraper = get_scraper()
-            if not scraper:
-                logger.error(f"无法获取scraper实例，用户 {user_id} 数据刷新失败")
-                return
+                scraper = get_scraper()
+                if not scraper:
+                    logger.error(f"无法获取scraper实例，用户 {user_id} 数据刷新失败")
+                    return
 
-            result = scraper.get_pending_tasks(user_id)
+                result = scraper.get_pending_tasks(user_id)
 
-            if not result.get('success'):
-                error_msg = result.get('error', '获取数据失败')
-                logger.warning(f"用户 {user_id} 异步刷新失败: {error_msg}")
-                return
+                if not result.get('success'):
+                    logger.warning(f"用户 {user_id} 异步刷新失败: {result.get('error', '获取数据失败')}")
+                    return
 
-            data = result.get('data', {})
-            tasks_list = data.get('tasks', [])
+                data = result.get('data', {})
+                tasks_list = data.get('tasks', [])
 
-            # 保存到数据库
-            course_data_mgr = get_course_data_manager()
-            saved_count = course_data_mgr.save_user_course_data(user_id, tasks_list)
+                course_data_mgr = get_course_data_manager()
+                saved_count = course_data_mgr.save_user_course_data(user_id, tasks_list)
 
-            stats = data.get('stats', {})
-            logger.info(f"用户 {user_id} 异步刷新完成，保存了 {saved_count} 条数据，统计: {stats}")
+                logger.info(f"用户 {user_id} 异步刷新完成，保存了 {saved_count} 条数据")
 
-        except Exception as e:
-            logger.error(f"用户 {user_id} 异步刷新数据失败: {str(e)}", exc_info=True)
+            except Exception as e:
+                logger.error(f"用户 {user_id} 异步刷新数据失败: {str(e)}", exc_info=True)
+    finally:
+        lock.release()
 
 
 def start_background_refresh(user_id):
     """
-    启动后台数据刷新任务
-    
-    Args:
-        user_id: 用户ID
-        
-    Returns:
-        bool: 是否成功启动任务
+    启动后台数据刷新任务（每个用户同时只允许一个在运行）
     """
     try:
         from flask import current_app
 
-        # 获取当前应用上下文
         try:
             app_context = current_app._get_current_object().app_context()
         except Exception as ctx_error:
             logger.error(f"获取应用上下文失败: {str(ctx_error)}")
             return False
 
-        # 创建后台线程
         thread = threading.Thread(
             target=refresh_user_data_async,
             args=(user_id, app_context),
             daemon=True,
             name=f"refresh_data_{user_id}"
         )
-
         thread.start()
-        logger.info(f"已启动用户 {user_id} 的后台数据刷新任务，线程名: {thread.name}")
+        logger.info(f"已启动用户 {user_id} 的后台数据刷新任务")
         return True
 
     except Exception as e:

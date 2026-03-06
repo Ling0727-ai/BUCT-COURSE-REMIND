@@ -132,6 +132,7 @@ class AssignmentStatus:
             status: 状态过滤 ('completed', 'deleted', None表示所有)
             include_permanent_deleted: 是否包含永久删除的项目
         """
+        cursor = None
         try:
             query = {'user_id': ObjectId(user_id)}
             if status:
@@ -147,6 +148,12 @@ class AssignmentStatus:
         except Exception as e:
             logger.error(f"获取用户作业状态失败: {e}")
             return []
+        finally:
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
 
     def get_assignment_status(self, user_id, assignment_id):
         """
@@ -171,6 +178,7 @@ class AssignmentStatus:
 
     def get_completed_assignment_ids(self, user_id):
         """获取用户已完成的作业ID列表（排除永久删除的）"""
+        cursor = None
         try:
             cursor = self.db[self.collection].find(
                 {
@@ -180,15 +188,20 @@ class AssignmentStatus:
                 },
                 {'assignment_id': 1}
             )
-
             return [doc['assignment_id'] for doc in cursor]
-
         except Exception as e:
             logger.error(f"获取已完成作业ID列表失败: {e}")
             return []
+        finally:
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
 
     def get_deleted_assignment_ids(self, user_id):
         """获取用户已删除的作业ID列表（排除永久删除的）"""
+        cursor = None
         try:
             cursor = self.db[self.collection].find(
                 {
@@ -198,12 +211,16 @@ class AssignmentStatus:
                 },
                 {'assignment_id': 1}
             )
-
             return [doc['assignment_id'] for doc in cursor]
-
         except Exception as e:
             logger.error(f"获取已删除作业ID列表失败: {e}")
             return []
+        finally:
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
 
     def is_completed(self, user_id, assignment_id):
         """检查作业是否已完成"""

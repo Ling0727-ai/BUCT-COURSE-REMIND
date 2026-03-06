@@ -60,3 +60,8 @@ type MongoTodoRepository struct {
 }
 
 var Repository = &MongoTodoRepository{}
+
+// Init 在服务启动时绑定 MongoDB collection，必须在接收任何请求前调用
+func Init(db *mongo.Database) {
+	Repository.collection = db.Collection("todos")
+}

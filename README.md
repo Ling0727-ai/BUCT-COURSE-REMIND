@@ -165,7 +165,7 @@ docker compose -f docker-compose-go.yml logs -f backend
 服务启动后访问：
 
 - 前端：`http://localhost:3033`
-- Go 后端：`http://localhost:8080`
+- Go 后端：`http://localhost:5000`
 
 #### 使用 Python 后端
 
@@ -197,7 +197,7 @@ MAIL_PASSWORD=your_auth_code        # 邮箱授权码，非登录密码
 SECRET_KEY=change-this-in-production
 
 # 端口（可选，默认值如下）
-GO_PORT=8080
+GO_PORT=5000
 FLASK_PORT=5000
 FRONTEND_PORT=3033
 ```
@@ -241,7 +241,7 @@ npm run serve
 
 ## API 接口
 
-> Go 后端所有接口统一前缀 `/api/v1`，Python 后端前缀为 `/api`。
+> Go 后端与 Python 后端路由前缀完全一致，均为 `/api`，nginx 无需修改即可切换。
 
 ### 认证
 
@@ -350,13 +350,14 @@ Go 后端使用 `goroutine + time.Ticker` 实现三个并发定时任务：
 
 ### Python vs Go 对比
 
-| 指标          | Python (Flask) | Go (Gin)    |
-|-------------|----------------|-------------|
-| Docker 镜像大小 | ~300MB         | ~20MB       |
-| 容器启动时间      | ~3-5s          | <1s         |
-| 并发模型        | 多线程 / gevent   | goroutine   |
-| 定时任务        | APScheduler    | time.Ticker |
-| 路由前缀        | `/api`         | `/api/v1`   |
+| 指标          | Python (Flask) | Go (Gin)               |
+|-------------|----------------|------------------------|
+| Docker 镜像大小 | ~300MB         | ~20MB                  |
+| 容器启动时间      | ~3-5s          | <1s                    |
+| 并发模型        | 多线程 / gevent   | goroutine              |
+| 定时任务        | APScheduler    | time.Ticker            |
+| 路由前缀        | `/api`         | `/api`（与 Python 完全一致）  |
+| 对外端口        | `5000`         | `5000`（nginx 无需改动即可切换） |
 
 ---
 
@@ -376,10 +377,9 @@ Go 后端使用 `goroutine + time.Ticker` 实现三个并发定时任务：
 
 ## TODO list
 
-- [ ] JWT 鉴权中间件完善（当前 handler 内手动判断）
+- [x] JWT 鉴权中间件完善 — 已用 HttpOnly Cookie + JWT 实现，与 Python session 行为一致
 - [ ] Go 后端单元测试覆盖
-- [ ] 前端适配 Go 后端 `/api/v1` 前缀
-- [ ] Python 后端：生产环境使用 `gunicorn` 启动，避免 Flask reloader 导致调度器重复初始化（`"调度器已经在运行中"` 日志的根因）
+- [ ] Python 后端：生产环境使用 `gunicorn` 启动，避免 Flask reloader 导致调度器重复初始化
 
 ## 许可证
 

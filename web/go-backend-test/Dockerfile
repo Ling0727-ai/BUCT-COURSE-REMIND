@@ -38,38 +38,36 @@ FROM alpine:3.20 AS runner
 #   ca-certificates  HTTPS 请求（发邮件、调外部 API）必需
 #   curl             健康检查
 #   tzdata           时区支持（北京时间）
-RUN apk add --no-cache ca-certificates curl tzdata && \
+#   haveged          熵守护进程：防止 alpine 容器内 crypto/rand 因熵不足而阻塞
+#                    （RSA 2048 密钥生成需要大量随机熵）
+RUN apk add --no-cache ca-certificates curl tzdata haveged su-exec && \
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone
 
-# 创建非 root 用户，提升安全性
+# 创建非 root 用户
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-# 从构建阶段只复制编译好的二进制文件
 COPY --from=builder /app/server .
-
-# 创建日志目录并授权
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
 
-# 复制启动脚本
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# 切换到非 root 用户
-USER appuser
+# 不在此处切换用户，由 entrypoint 在启动 haveged(root) 后 su-exec 到 appuser
+# USER appuser
 
 # 对应 Python 版本的 MONGO_URI 默认值格式
-ENV PORT=:8080
+ENV PORT=:5000
 ENV ENV=production
 ENV MONGODB_URI=mongodb://REDACTED_MONGO_USER:REDACTED_MONGO_PASSWORD@mongodb:27017/REDACTED_MONGO_USER?authSource=admin
 
-EXPOSE 8080
+EXPOSE 5000
 
 # 健康检查，对应 Python 版本的 /api/health
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:5000/api/health || exit 1
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["/app/server"]

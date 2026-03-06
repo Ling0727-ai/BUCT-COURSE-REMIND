@@ -22,14 +22,24 @@ func (s *CourseDataScheduler) run() {
 	defer autoReminderTicker.Stop()
 	defer refreshTicker.Stop()
 
+	// semaphore：同一时刻最多 1 个 processDueReminders 在运行，防止 goroutine 堆积
+	reminderSem := make(chan struct{}, 1)
+	// semaphore：同一时刻最多 1 个 checkAndCreateAutoReminders 在运行
+	autoSem := make(chan struct{}, 1)
+
 	// 启动时先检查一次：只刷新"从未更新过"或"距上次超12h"的用户
-	// 不无条件强制刷新，对应 Python _get_users_need_refresh 的判断逻辑
 	s.runRefreshCycle()
 
-	// 启动时先检查一次自动提醒（对应 Python 调度器启动后首轮循环）
+	// 启动时先检查一次自动提醒
 	go func() {
-		if err := checkAndCreateAutoReminders(); err != nil {
-			log.Printf("[scheduler] 启动时检查自动提醒异常: %v", err)
+		select {
+		case autoSem <- struct{}{}:
+			defer func() { <-autoSem }()
+			if err := checkAndCreateAutoReminders(); err != nil {
+				log.Printf("[scheduler] 启动时检查自动提醒异常: %v", err)
+			}
+		default:
+			// 已有一个在运行，跳过
 		}
 	}()
 
@@ -40,22 +50,32 @@ func (s *CourseDataScheduler) run() {
 			return
 
 		case <-refreshTicker.C:
-			// 每 12 小时执行一次全量刷新，对应 Python 外层 while 循环
 			s.runRefreshCycle()
 
 		case <-reminderTicker.C:
-			// 每 5 秒检查到期提醒，对应 Python i % reminder_check_interval == 0
+			// 非阻塞尝试获取 semaphore，拿不到说明上一轮还没跑完，直接跳过
 			go func() {
-				if err := processDueReminders(); err != nil {
-					log.Printf("[scheduler] 处理到期提醒异常: %v", err)
+				select {
+				case reminderSem <- struct{}{}:
+					defer func() { <-reminderSem }()
+					if err := processDueReminders(); err != nil {
+						log.Printf("[scheduler] 处理到期提醒异常: %v", err)
+					}
+				default:
+					log.Println("[scheduler] 上一轮提醒处理尚未完成，跳过本次")
 				}
 			}()
 
 		case <-autoReminderTicker.C:
-			// 每小时检查需要自动提醒的作业，对应 Python i % auto_reminder_check_interval == 0
 			go func() {
-				if err := checkAndCreateAutoReminders(); err != nil {
-					log.Printf("[scheduler] 检查自动提醒异常: %v", err)
+				select {
+				case autoSem <- struct{}{}:
+					defer func() { <-autoSem }()
+					if err := checkAndCreateAutoReminders(); err != nil {
+						log.Printf("[scheduler] 检查自动提醒异常: %v", err)
+					}
+				default:
+					log.Println("[scheduler] 上一轮自动提醒检查尚未完成，跳过本次")
 				}
 			}()
 		}

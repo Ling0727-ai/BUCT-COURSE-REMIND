@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -95,25 +96,18 @@ func (r *RSAService) IsEnabled() bool {
 	return r.enabled
 }
 
-// isKeyExpired 检查当前密钥是否过期（调用前须持有读锁或写锁）
-func (r *RSAService) isKeyExpired() bool {
+// isKeyExpiredLocked 检查密钥是否过期，调用方须持有任意锁
+func (r *RSAService) isKeyExpiredLocked() bool {
 	if r.privateKey == nil {
 		return true
 	}
 	return time.Now().After(r.keyGeneratedAt.Add(time.Duration(r.expireMinutes) * time.Minute))
 }
 
-// GenerateKeyPair 生成新的 RSA 密钥对，对应 Python generate_key_pair
-func (r *RSAService) GenerateKeyPair() error {
-	if !r.enabled {
-		return errors.New("RSA 加密已禁用")
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
+// generateKeyPairLocked 不加锁版本，调用方须已持有写锁
+func (r *RSAService) generateKeyPairLocked() error {
 	// 双重检查
-	if r.privateKey != nil && !r.isKeyExpired() {
+	if r.privateKey != nil && !r.isKeyExpiredLocked() {
 		return nil
 	}
 
@@ -137,13 +131,25 @@ func (r *RSAService) GenerateKeyPair() error {
 	return nil
 }
 
-// ensureKey 确保密钥可用，需要时自动生成，调用时持有写锁
-func (r *RSAService) ensureKey() error {
+// GenerateKeyPair 公开 API，自己加写锁，对应 Python generate_key_pair
+func (r *RSAService) GenerateKeyPair() error {
 	if !r.enabled {
 		return errors.New("RSA 加密已禁用")
 	}
-	if r.privateKey == nil || r.isKeyExpired() {
-		return r.GenerateKeyPair()
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.generateKeyPairLocked()
+}
+
+// ensureKeyLocked 确保密钥可用，调用方须已持有写锁
+func (r *RSAService) ensureKeyLocked() error {
+	if !r.enabled {
+		return errors.New("RSA 加密已禁用")
+	}
+	if r.privateKey == nil || r.isKeyExpiredLocked() {
+		return r.generateKeyPairLocked()
 	}
 	return nil
 }
@@ -161,7 +167,8 @@ func (r *RSAService) GetPublicKeyPEM() (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if err := r.ensureKey(); err != nil {
+	// 使用不加锁版本，避免死锁
+	if err := r.ensureKeyLocked(); err != nil {
 		return "", err
 	}
 
@@ -217,7 +224,7 @@ func (r *RSAService) DecryptRequest(encryptedBase64 string) (map[string]interfac
 	// Base64 解码
 	encryptedBytes, err := decodeBase64(encryptedBase64)
 	if err != nil {
-		return nil, errors.New("Base64 解码失败")
+		return nil, errors.New("Base64 解码失败: " + err.Error())
 	}
 
 	// 先用当前私钥解密
@@ -228,14 +235,14 @@ func (r *RSAService) DecryptRequest(encryptedBase64 string) (map[string]interfac
 			log.Println("[RSA] 当前密钥解密失败，尝试旧密钥（过渡期）")
 			plainBytes, err = rsa.DecryptPKCS1v15(rand.Reader, oldPriKey, encryptedBytes)
 			if err != nil {
-				return nil, errors.New("解密失败（当前密钥和旧密钥均失败）")
+				return nil, errors.New("解密失败（当前密钥和旧密钥均失败）: " + err.Error())
 			}
 		} else {
 			// 旧密钥已过期，清理
 			r.mu.Lock()
 			r.oldPrivateKey = nil
 			r.mu.Unlock()
-			return nil, errors.New("解密失败")
+			return nil, errors.New("解密失败: " + err.Error())
 		}
 	}
 
@@ -245,7 +252,7 @@ func (r *RSAService) DecryptRequest(encryptedBase64 string) (map[string]interfac
 		return nil, errors.New("JSON 解析失败")
 	}
 
-	// 防重放：验证时间戳，对应 Python 中 time_diff > 600 的判断
+	// 防重放时间戳校验
 	if tsRaw, ok := data["timestamp"]; ok {
 		var ts int64
 		switch v := tsRaw.(type) {
@@ -281,13 +288,10 @@ func (r *RSAService) CreateChallenge() (*ChallengeData, error) {
 	if _, err := rand.Read(raw); err != nil {
 		return nil, err
 	}
-
-	import_b64 := encodeBase64(raw)
-	hash := hashSHA256Hex([]byte(import_b64))
-
+	b64 := encodeBase64(raw)
 	return &ChallengeData{
-		Challenge: import_b64,
-		Hash:      hash,
+		Challenge: b64,
+		Hash:      hashSHA256Hex([]byte(b64)),
 		Timestamp: time.Now().Unix(),
 	}, nil
 }
@@ -297,7 +301,12 @@ func (r *RSAService) CreateChallenge() (*ChallengeData, error) {
 // ──────────────────────────────────────────────
 
 func decodeBase64(s string) ([]byte, error) {
-	return base64.StdEncoding.DecodeString(s)
+	// JSEncrypt 产出带换行的 Base64，Python b64decode 忽略换行，Go 需手动清理
+	cleaned := strings.NewReplacer("\n", "", "\r", "", " ", "").Replace(strings.TrimSpace(s))
+	if b, err := base64.StdEncoding.DecodeString(cleaned); err == nil {
+		return b, nil
+	}
+	return base64.RawStdEncoding.DecodeString(cleaned)
 }
 
 func encodeBase64(b []byte) string {

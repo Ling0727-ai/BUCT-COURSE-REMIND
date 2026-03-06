@@ -1,5 +1,6 @@
 # web/backend/app/__init__.py
 import logging
+import os
 import threading
 import time
 from datetime import datetime, timezone
@@ -51,6 +52,26 @@ def _start_cors_refresh_thread(app):
     app.logger.info(f"CORS 动态刷新线程已启动，间隔: {interval_hours} 小时")
 
 
+def _is_main_process() -> bool:
+    """
+    判断当前是否为主进程（而非 Flask reloader 的 watcher 子进程）。
+    Flask reloader 会在子进程中设置 WERKZEUG_RUN_MAIN=true，
+    调度器、清理任务等只应在该子进程（真正处理请求的进程）中启动，
+    防止"调度器已经在运行中"的重复初始化问题。
+    在生产环境（gunicorn/uwsgi）中该变量不存在，同样返回 True 保证正常启动。
+    """
+    # 开发模式下 WERKZEUG_RUN_MAIN='true' 代表真正的 worker 进程
+    # 生产模式下该变量不存在，os.environ.get 返回 None，条件为真
+    werkzeug_main = os.environ.get('WERKZEUG_RUN_MAIN')
+    flask_env = os.environ.get('FLASK_ENV', 'production')
+
+    if flask_env == 'development' or os.environ.get('FLASK_DEBUG') == '1':
+        # 开发模式：只在 worker 子进程中启动后台任务
+        return werkzeug_main == 'true'
+    # 生产模式：直接启动
+    return True
+
+
 def create_app():
     """Application factory"""
     app = Flask(__name__)
@@ -71,8 +92,9 @@ def create_app():
                   allow_headers=['Content-Type', 'Authorization'],
                   methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
-    # 启动后台刷新线程
-    _start_cors_refresh_thread(app)
+    # 启动后台刷新线程（仅主进程）
+    if _is_main_process():
+        _start_cors_refresh_thread(app)
 
     with app.app_context():
         from . import auth, assignments, webhooks, settings, utils, test_routes, health, admin, todos, crypto_routes, \
@@ -89,12 +111,14 @@ def create_app():
         app.register_blueprint(crypto_routes.crypto_bp)
         app.register_blueprint(course_data.course_data_bp)
 
-        from .cleanup_tasks import init_cleanup_tasks
-        init_cleanup_tasks(app)
-        app.logger.info("清理任务已初始化")
+        # 后台任务只在主进程中启动，防止 reloader 导致重复初始化
+        if _is_main_process():
+            from .cleanup_tasks import init_cleanup_tasks
+            init_cleanup_tasks(app)
+            app.logger.info("清理任务已初始化")
 
-        from .scheduler import init_scheduler
-        init_scheduler()
-        app.logger.info("课程数据定时刷新调度器已初始化")
+            from .scheduler import init_scheduler
+            init_scheduler()
+            app.logger.info("课程数据定时刷新调度器已初始化")
 
     return app
