@@ -1,70 +1,93 @@
 version: '3.8'
 
+# Go 后端版本的 docker-compose
+# 对应 Python 版本的 docker-compose.yml，将 backend 替换为 Go 服务
+
 services:
-  # Go后端服务
-  backend-go:
-    build:
-      context: ./backend-go
-      dockerfile: Dockerfile
-    container_name: buct-backend-go
-    restart: unless-stopped
+
+  # ── MongoDB ──────────────────────────────────
+  mongodb:
+    image: mongo:6-jammy
+    container_name: buct-mongodb
     ports:
-      - "5000:5000"
+      - "${MONGO_PORT:-27017}:27017"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/buct-course
-      - SECRET_KEY=${SECRET_KEY:-dev_secret_key_for_jwt}
-      - MAIL_SMTP_SERVER=${MAIL_SMTP_SERVER:-smtp.163.com}
-      - MAIL_SMTP_PORT=${MAIL_SMTP_PORT:-465}
-      - MAIL_SENDER=${MAIL_SENDER:-buct_course_remind@163.com}
-      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
-      - GIN_MODE=release
-      # ECC密钥用于加密存储的密码（十进制格式的私钥）
-      - ECC_PRIVATE_KEY=${ECC_PRIVATE_KEY:-}
-      # RSA密钥用于前端传输加密
-      - RSA_PRIVATE_KEY=${RSA_PRIVATE_KEY:-}
-    depends_on:
-      mongo:
-        condition: service_healthy
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-REDACTED_MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-REDACTED_MONGO_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-REDACTED_MONGO_USER}
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+      - ./mongodb_backup:/backup
+    restart: unless-stopped
     networks:
       - buct-network
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O-", "http://localhost:5000/health"]
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 40s
 
-  # MongoDB数据库
-  mongo:
-    image: mongo:6.0
-    container_name: buct-mongo
-    restart: unless-stopped
+  # ── Go 后端 ───────────────────────────────────
+  backend:
+    build:
+      context: ./go-backend-test
+      dockerfile: Dockerfile
+    container_name: buct-backend-go
     ports:
-      - "27017:27017"
+      - "${GO_PORT:-8080}:8080"
+    environment:
+      # 运行环境
+      - ENV=production
+      - PORT=:8080
+
+      # MongoDB 连接，对应 Python 的 MONGO_URI
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-REDACTED_MONGO_USER}:${MONGO_INITDB_ROOT_PASSWORD:-REDACTED_MONGO_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE:-REDACTED_MONGO_USER}?authSource=admin
+
+      # JWT 密钥
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+
+      # 邮件配置，与 Python 版本完全一致
+      - MAIL_SMTP_SERVER=${MAIL_SMTP_SERVER:-smtp.163.com}
+      - MAIL_SMTP_PORT=${MAIL_SMTP_PORT:-465}
+      - MAIL_SENDER=${MAIL_SENDER:-your_email@163.com}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - VERIFY_CODE_EXPIRE=${VERIFY_CODE_EXPIRE:-180}
+
+      # 加密配置
+      - ECC_PRIVATE_KEY=${ECC_PRIVATE_KEY:-REDACTED_ECC_PRIVATE_KEY}
+      - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:-10000000667}
+      - RSA_KEY_SIZE=${RSA_KEY_SIZE:-2048}
+      - RSA_KEY_EXPIRE_MINUTES=${RSA_KEY_EXPIRE_MINUTES:-30}
+      - RSA_ENABLE=${RSA_ENABLE:-true}
+
+      # Snowflake ID 生成器节点 ID（多实例部署时每个实例设不同值）
+      - SNOWFLAKE_NODE=${SNOWFLAKE_NODE:-1}
     volumes:
-      - mongo-data:/data/db
+      - ./go-backend-test/logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
       - buct-network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
-  # 前端服务
+  # ── 前端 ─────────────────────────────────────
   frontend:
-    build:
-      context: ./fronted
-      dockerfile: Dockerfile
+    build: ./fronted
     container_name: buct-frontend
-    restart: unless-stopped
     ports:
-      - "8080:80"
+      - "${FRONTEND_PORT:-3033}:80"
     depends_on:
-      backend-go:
-        condition: service_healthy
+      - backend
+    restart: unless-stopped
     networks:
       - buct-network
 
@@ -73,4 +96,9 @@ networks:
     driver: bridge
 
 volumes:
-  mongo-data:
+  mongodb_data:
+    driver: local
+    name: buct_mongodb_data
+  mongodb_config:
+    driver: local
+    name: buct_mongodb_config

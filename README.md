@@ -1,15 +1,19 @@
 # BUCT课程提醒系统
 
-一个基于 Flask + MongoDB + Vue.js 的课程作业提醒系统，支持自动获取教务系统信息并发送通知。
+一个基于 Flask / **Go (Gin)** + MongoDB + Vue.js 的课程作业提醒系统，支持自动获取教务系统信息并发送通知。
+
+> 项目现提供 **Python (Flask) 后端** 和 **Go (Gin) 后端** 两个实现，功能完全一致，可按需选用。
 
 ## 功能特性
 
-- 🔐 用户注册登录系统
-- 📚 学生信息管理（学号、外部系统密码）
-- 📧 邮箱验证码验证
-- 🔔 多种通知方式（邮件、Telegram、Discord等）
+- 🔐 用户注册登录系统（RSA 强制加密传输）
+- 📚 学生信息管理（学号、外部系统密码 ECC 加密存储）
+- 📧 邮箱验证码验证 + 忘记密码重置
+- 🔔 邮件提醒（手动 / 定时 / DDL 前 24h 自动提醒）
+- 📝 待办事项管理（含优先级、软删除、回收站）
 - ⚙️ 灵活的系统设置
-- 📱 响应式前端界面
+- 📱 响应式前端界面（薄荷主色调）
+- 🚀 Go 高性能后端（镜像体积 ~20MB，启动 <1s）
 
 ## 更新日志
 
@@ -75,166 +79,296 @@
     3. 未使用加密的请求将被拒绝（返回400错误）
     4. 符合OWASP安全标准，防止中间人攻击和网络嗅探
 
+**2026年3月版本更新**：
+
+- v4.0.0 - 完整 Go (Gin) 后端实现，与 Python 版本功能完全对齐。(2026-03-06)
+  1. 使用 Go 1.25 + Gin 重写全部后端接口（63 条路由，覆盖全部 Python 蓝图）
+  2. 多阶段 Docker 构建，最终镜像体积 ~20MB（Python 版 ~300MB）
+  3. 采用分层架构：handler → service → model/repository
+  4. Snowflake 分布式 ID 生成，替代 MongoDB ObjectID
+  5. goroutine + time.Ticker 实现调度器，替代 APScheduler
+  6. 原生 `net/smtp` 实现多候选 SMTP 自动重试发送
+  7. 新增 Docker Compose 一键部署（`docker-compose-go.yml`）
+
 ## 项目结构
 
 ```
-BUCT-couse-remind/
+BUCT-course-remind/
 ├── web/
-│   ├── backend/           # Flask后端
-│   │   ├── app/          # 应用模块
-│   │   │   ├── __init__.py
-│   │   │   ├── model.py   # 数据库模型
-│   │   │   ├── auth.py    # 认证相关
-│   │   │   ├── settings.py # 设置管理
+│   ├── backend/                # Python (Flask) 后端
+│   │   ├── app/
+│   │   │   ├── auth.py         # 认证、验证码、密码重置
+│   │   │   ├── assignments.py  # 作业 CRUD + 状态管理
+│   │   │   ├── course_data.py  # 课程数据刷新
+│   │   │   ├── todos.py        # 待办事项
+│   │   │   ├── scheduler.py    # 定时刷新 + 自动提醒
+│   │   │   ├── scraper.py      # 教务系统爬虫
 │   │   │   └── ...
-│   │   ├── config.py      # 配置文件
-│   │   ├── app.py         # 应用入口
+│   │   ├── Dockerfile
 │   │   └── requirements.txt
-│   └── fronted/           # Vue.js前端
-│       └── src/
-│           ├── views/     # 页面组件
-│           │   ├── Register.vue  # 注册页面
-│           │   ├── Settings.vue  # 设置页面
-│           │   └── ...
-│           └── ...
+│   │
+│   ├── go-backend-test/        # Go (Gin) 后端
+│   │   ├── api/handlers/       # Handler 层（接口定义）
+│   │   │   ├── auth.go
+│   │   │   ├── assignments.go
+│   │   │   ├── todos.go
+│   │   │   ├── reminder.go
+│   │   │   ├── course_data.go
+│   │   │   ├── admin.go
+│   │   │   ├── settings.go
+│   │   │   └── ...
+│   │   ├── services/           # 业务逻辑层
+│   │   ├── models/             # 数据层（按集合分包）
+│   │   │   ├── User/
+│   │   │   ├── CourseData/
+│   │   │   ├── AssignmentStatus/
+│   │   │   ├── Todo/
+│   │   │   └── Reminder/
+│   │   ├── scheduler/          # 定时调度器
+│   │   ├── scraper/            # 教务系统爬虫
+│   │   ├── config/             # 配置 + 邮件
+│   │   ├── crypto/             # RSA / AES / ECC 加密
+│   │   ├── router/router.go    # 路由注册
+│   │   ├── middleware/         # 日志 / CORS / Recovery
+│   │   ├── Dockerfile
+│   │   └── main.go
+│   │
+│   ├── fronted/                # Vue.js 前端
+│   │   └── src/
+│   │       ├── views/
+│   │       └── components/
+│   │
+│   ├── docker-compose.yml      # Python 后端一键部署
+│   └── docker-compose-go.yml   # Go 后端一键部署
 └── README.md
 ```
 
 ## 安装和运行
 
-### 后端设置
+### 方式一：Docker 一键部署（推荐）
 
-1. 进入后端目录：
-
-```bash
-cd web/backend
-```
-
-2. 安装依赖：
+#### 使用 Go 后端
 
 ```bash
-pip install -r requirements.txt
-```
+cd web
 
-3. 配置环境变量：
-
-```bash
+# 复制并编辑环境变量
 cp .env.example .env
-# 编辑 .env 文件，填入正确的配置信息
+
+# 启动（MongoDB + Go后端 + 前端）
+docker compose -f docker-compose-go.yml up -d
+
+# 查看日志
+docker compose -f docker-compose-go.yml logs -f backend
 ```
 
-4. 启动后端服务：
+服务启动后访问：
+
+- 前端：`http://localhost:3033`
+- Go 后端：`http://localhost:8080`
+
+#### 使用 Python 后端
 
 ```bash
-python app.py
+cd web
+docker compose -f docker-compose.yml up -d
 ```
 
-### 前端设置
+服务启动后访问：
 
-1. 进入前端目录：
+- 前端：`http://localhost:3033`
+- Python 后端：`http://localhost:5000`
 
-```bash
-cd web/fronted
-```
+#### 环境变量说明（`.env`）
 
-2. 安装依赖：
+```dotenv
+# MongoDB
+MONGO_INITDB_ROOT_USERNAME=REDACTED_MONGO_USER
+MONGO_INITDB_ROOT_PASSWORD=REDACTED_MONGO_PASSWORD
+MONGO_INITDB_DATABASE=REDACTED_MONGO_USER
 
-```bash
-npm install
-```
-
-3. 启动开发服务器：
-
-```bash
-npm run serve
-```
-
-## API接口
-
-### 认证相关
-
-- `POST /api/auth/register` - 用户注册
-- `POST /api/auth/login` - 用户登录
-- `POST /api/auth/logout` - 用户登出
-- `GET /api/auth/status` - 获取登录状态
-- `GET /api/auth/user-info` - 获取用户信息
-- `POST /api/auth/update-student-info` - 更新学生信息
-- `POST /api/auth/send-verification-code` - 发送验证码
-- `POST /api/auth/verify-code` - 验证验证码
-
-### 设置相关
-
-- `GET /api/settings` - 获取系统设置
-- `POST /api/settings` - 保存系统设置
-
-## 主要功能
-
-### 1. 用户注册
-
-- 支持用户名、邮箱、密码注册
-- 可选填写学号和外部系统密码
-- 邮箱验证码验证
-- 密码强度检测
-
-### 2. 学生信息管理
-
-- 在设置页面可以配置学号和外部系统密码
-- 用于自动登录教务系统获取作业信息
-- 密码安全存储
-
-### 3. 通知系统
-
-- 支持多种通知方式：邮件、Telegram、Discord、Slack等
-- 可配置多个通知渠道
-- 支持测试通知功能
-
-### 4. 系统设置
-
-- 服务器地址配置
-- Webhook通知配置
-- 用户个人信息管理
-
-## 环境要求
-
-- Python 3.8+
-- MongoDB 4.0+
-- Node.js 14+
-- Vue.js 3.x
-
-## 配置说明
-
-### 邮件配置
-
-在 `.env` 文件中配置邮件服务器信息：
-
-```
+# 邮件（必填，否则邮件功能不可用）
 MAIL_SMTP_SERVER=smtp.163.com
 MAIL_SMTP_PORT=465
 MAIL_SENDER=your_email@163.com
-MAIL_PASSWORD=your_auth_code
+MAIL_PASSWORD=your_auth_code        # 邮箱授权码，非登录密码
+
+# JWT 密钥（生产环境务必修改）
+SECRET_KEY=change-this-in-production
+
+# 端口（可选，默认值如下）
+GO_PORT=8080
+FLASK_PORT=5000
+FRONTEND_PORT=3033
 ```
 
-### MongoDB配置
+---
+
+### 方式二：本地开发运行
+
+#### Go 后端
+
+```bash
+cd web/go-backend-test
+
+# 配置环境变量
+cp .env.example .env   # 或直接设置系统环境变量
+
+# 下载依赖
+go mod download
+
+# 运行
+go run main.go
+```
+
+#### Python 后端
+
+```bash
+cd web/backend
+pip install -r requirements.txt
+python app.py
+```
+
+#### 前端
+
+```bash
+cd web/fronted
+npm install
+npm run serve
+```
+
+---
+
+## API 接口
+
+> Go 后端所有接口统一前缀 `/api/v1`，Python 后端前缀为 `/api`。
+
+### 认证
+
+| 方法   | 路径                             | 说明           |
+|------|--------------------------------|--------------|
+| POST | `/auth/login`                  | 用户登录（RSA 加密） |
+| POST | `/auth/logout`                 | 用户登出         |
+| POST | `/auth/register`               | 用户注册（RSA 加密） |
+| GET  | `/auth/status`                 | 登录状态检查       |
+| GET  | `/auth/user-info`              | 获取当前用户信息     |
+| POST | `/auth/update-email`           | 修改邮箱         |
+| POST | `/auth/update-student-info`    | 更新学号/教务密码    |
+| POST | `/auth/check-email`            | 检查邮箱是否已注册    |
+| POST | `/auth/send-verification-code` | 发送邮箱验证码      |
+| POST | `/auth/verify-code`            | 校验验证码        |
+| POST | `/auth/reset-password`         | 重置密码（RSA 加密） |
+
+### 作业
+
+| 方法     | 路径                                  | 说明        |
+|--------|-------------------------------------|-----------|
+| GET    | `/assignments`                      | 获取作业列表    |
+| GET    | `/assignments/stats`                | 统计信息      |
+| GET    | `/assignments/completed`            | 已完成 ID 列表 |
+| GET    | `/assignments/deleted`              | 回收站列表     |
+| DELETE | `/assignments/clear-deleted`        | 清空回收站     |
+| POST   | `/assignments/:id/complete`         | 标记完成      |
+| POST   | `/assignments/:id/uncomplete`       | 撤销完成      |
+| POST   | `/assignments/:id/delete`           | 软删除       |
+| POST   | `/assignments/:id/restore`          | 恢复        |
+| DELETE | `/assignments/:id/permanent-delete` | 永久删除      |
+| POST   | `/assignments/:id/remind`           | 创建提醒      |
+
+### 课程数据
+
+| 方法   | 路径                     | 说明       |
+|------|------------------------|----------|
+| POST | `/course-data/refresh` | 手动触发爬虫刷新 |
+| GET  | `/course-data/list`    | 获取课程数据列表 |
+| GET  | `/course-data/status`  | 查看上次刷新时间 |
+
+### 待办事项
+
+| 方法     | 路径                            | 说明              |
+|--------|-------------------------------|-----------------|
+| GET    | `/todos`                      | 待办列表            |
+| POST   | `/todos`                      | 创建待办            |
+| GET    | `/todos/stats`                | 统计              |
+| GET    | `/todos/deleted`              | 回收站             |
+| DELETE | `/todos/clear-deleted`        | 清空回收站           |
+| PUT    | `/todos/:id`                  | 更新              |
+| POST   | `/todos/:id/complete`         | 标记完成（12h 后自动删除） |
+| POST   | `/todos/:id/uncomplete`       | 撤销完成            |
+| POST   | `/todos/:id/remind`           | 发送提醒邮件          |
+| POST   | `/todos/:id/delete`           | 软删除             |
+| POST   | `/todos/:id/restore`          | 恢复              |
+| DELETE | `/todos/:id/permanent-delete` | 永久删除            |
+
+### 提醒
+
+| 方法     | 路径                  | 说明     |
+|--------|---------------------|--------|
+| GET    | `/reminders`        | 提醒列表   |
+| POST   | `/reminders`        | 创建定时提醒 |
+| DELETE | `/reminders/:id`    | 删除提醒   |
+| POST   | `/reminders/manual` | 立即手动发送 |
+| POST   | `/reminders/test`   | 发送测试邮件 |
+
+### 设置 / 其他
+
+| 方法       | 路径                             | 说明                |
+|----------|--------------------------------|-------------------|
+| GET/POST | `/settings`                    | 系统设置              |
+| GET/POST | `/settings/email`              | 邮件通知设置            |
+| GET      | `/health`                      | 健康检查（含 DB + 邮件状态） |
+| GET      | `/stats`                       | 全局统计              |
+| GET/POST | `/crypto/public-key` 等         | RSA/AES 加密接口      |
+| POST     | `/admin/cleanup/trigger`       | 管理员手动触发刷新         |
+| GET      | `/admin/completed-assignments` | 管理员查看完成记录         |
+| GET      | `/admin/system/status`         | 系统状态              |
+
+---
+
+## 架构说明
+
+### Go 后端分层
 
 ```
-MONGO_URI=mongodb://localhost:27017/buct_course_remind
+HTTP 请求
+  → middleware（日志 / CORS / Recovery）
+  → router（URL 分发）
+  → handlers（解析请求 + 返回响应）
+  → services（跨模型业务逻辑）
+  → models/[集合名]/database.go（MongoDB 操作）
 ```
 
-## 开发说明
+### 调度器
 
-### 后端开发
+Go 后端使用 `goroutine + time.Ticker` 实现三个并发定时任务：
 
-- 使用 Flask 框架
-- MongoDB 作为数据库
-- 支持 CORS 跨域请求
-- 使用 session 进行用户认证
+| 任务     | 间隔    | 说明                              |
+|--------|-------|---------------------------------|
+| 课程数据刷新 | 12 小时 | 自动爬取教务系统，更新数据库                  |
+| 到期提醒检查 | 5 秒   | 发送 `scheduled_reminders` 中到期的邮件 |
+| 自动提醒生成 | 1 小时  | 为 DDL 前 24h 内的作业自动创建提醒          |
 
-### 前端开发
+### Python vs Go 对比
 
-- 使用 Vue.js 3 + Composition API
-- 响应式设计，支持移动端
-- 使用 Vue Router 进行路由管理
-- 现代化的 UI 设计
+| 指标          | Python (Flask) | Go (Gin)    |
+|-------------|----------------|-------------|
+| Docker 镜像大小 | ~300MB         | ~20MB       |
+| 容器启动时间      | ~3-5s          | <1s         |
+| 并发模型        | 多线程 / gevent   | goroutine   |
+| 定时任务        | APScheduler    | time.Ticker |
+| 路由前缀        | `/api`         | `/api/v1`   |
+
+---
+
+## 环境要求
+
+| 组件    | Python 版本    | Go 版本        |
+|-------|--------------|--------------|
+| 后端运行时 | Python 3.8+  | Go 1.21+     |
+| 数据库   | MongoDB 4.0+ | MongoDB 4.0+ |
+| 前端    | Node.js 14+  | Node.js 14+  |
+
+---
 
 ## 贡献
 
@@ -242,7 +376,9 @@ MONGO_URI=mongodb://localhost:27017/buct_course_remind
 
 ## TODO list
 
-- [ ] 增加更多通知方式
+- [ ] JWT 鉴权中间件完善（当前 handler 内手动判断）
+- [ ] Go 后端单元测试覆盖
+- [ ] 前端适配 Go 后端 `/api/v1` 前缀
 
 ## 许可证
 

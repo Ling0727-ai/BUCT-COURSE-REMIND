@@ -1,4 +1,4 @@
-# Node.js 构建阶段
+# 使用官方 Node.js 镜像作为基础镜像
 FROM node:20-alpine
 
 # 设置工作目录
@@ -16,7 +16,7 @@ COPY . .
 # 构建应用
 RUN npm run build
 
-# Nginx服务阶段
+# 使用 nginx 来服务静态文件
 FROM nginx:alpine
 
 # 复制构建的文件到 nginx 目录
