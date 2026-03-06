@@ -17,7 +17,7 @@ func NewMongoUserRepository() (UserRepository, error) {
 		return nil, err
 	}
 
-	db := client.Database("REDACTED_MONGO_USER")
+	db := client.Database("buct-course")
 
 	return &MongoUserRepository{
 		collection: db.Collection("users"),

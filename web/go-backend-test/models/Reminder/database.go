@@ -20,7 +20,7 @@ func NewMongoReminderRepository() *MongoReminderRepository {
 	if err != nil {
 		panic(err)
 	}
-	col := client.Database("REDACTED_MONGO_USER").Collection(collectionName)
+	col := client.Database("buct-course").Collection(collectionName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

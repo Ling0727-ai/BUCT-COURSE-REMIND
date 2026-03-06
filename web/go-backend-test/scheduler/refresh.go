@@ -119,7 +119,7 @@ func getUsersNeedRefresh() ([]string, error) {
 	defer cancel()
 
 	// 查询有学号和密码的用户，对应 Python users.find({student_id, s_password exist})
-	col := client.Database("REDACTED_MONGO_USER").Collection("users")
+	col := client.Database("buct-course").Collection("users")
 	cursor, err := col.Find(ctx, bson.M{
 		"studentId": bson.M{"$exists": true, "$nin": bson.A{nil, ""}},
 		"sPassword": bson.M{"$exists": true, "$nin": bson.A{nil, ""}},

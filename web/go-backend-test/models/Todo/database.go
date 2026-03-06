@@ -18,7 +18,7 @@ func NewMongoTodoRepository() *MongoTodoRepository {
 		panic(err)
 	}
 
-	col := client.Database("REDACTED_MONGO_USER").Collection("todos")
+	col := client.Database("buct-course").Collection("todos")
 
 	// 对应 Python: create_index("expires_at", expireAfterSeconds=0)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

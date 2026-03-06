@@ -35,7 +35,7 @@ func getVerCodeCollection() (*mongo.Collection, error) {
 	if err != nil {
 		return nil, err
 	}
-	return client.Database("REDACTED_MONGO_USER").Collection(verificationCodesCollection), nil
+	return client.Database("buct-course").Collection(verificationCodesCollection), nil
 }
 
 // GenerateVerificationCode 生成 6 位纯数字验证码

@@ -19,7 +19,7 @@ func NewMongoAssignmentStatusRepository() *MongoAssignmentStatusRepository {
 		panic(err)
 	}
 
-	col := client.Database("REDACTED_MONGO_USER").Collection("assignment_status")
+	col := client.Database("buct-course").Collection("assignment_status")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
