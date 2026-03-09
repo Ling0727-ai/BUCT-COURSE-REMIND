@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"log"
-	"net/http"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/crypto"
 	"github.com/Ling0727-ai/go-buct-course-backend/middleware"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/User"
 	"github.com/Ling0727-ai/go-buct-course-backend/services"
+	"github.com/Ling0727-ai/go-buct-course-backend/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,7 +15,7 @@ import (
 func Login(c *gin.Context) {
 	var body map[string]interface{}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.RequestFormatError})
 		return
 	}
 
@@ -26,7 +26,7 @@ func Login(c *gin.Context) {
 		decrypted, err := rsaSvc.DecryptRequest(encryptedData)
 		if err != nil {
 			log.Printf("[auth] Login 解密失败: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "数据解密失败: " + err.Error()})
+			c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed + ": " + err.Error()})
 			return
 		}
 		username, _ = decrypted["username"].(string)
@@ -37,21 +37,21 @@ func Login(c *gin.Context) {
 	}
 
 	if username == "" || password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名/邮箱和密码不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.InvalidCredentials})
 		return
 	}
 
 	user, err := User.Service.LoginUser(username, password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		c.JSON(utils.Defaults.Status.Unauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
 	middleware.IssueSessionCookie(c, user.ID, user.Username, user.IsAdmin)
 	services.RefreshUserDataAsync(user.ID)
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "登录成功",
+	c.JSON(utils.Defaults.Status.OK, gin.H{
+		"message": utils.Defaults.Auth.LoginSuccess,
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
@@ -68,7 +68,7 @@ func Login(c *gin.Context) {
 func Register(c *gin.Context) {
 	var raw map[string]interface{}
 	if err := c.ShouldBindJSON(&raw); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.RequestFormatError})
 		return
 	}
 
@@ -79,7 +79,7 @@ func Register(c *gin.Context) {
 		decrypted, err := rsaSvc.DecryptRequest(enc)
 		if err != nil {
 			log.Printf("[auth] Register 解密失败: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "数据解密失败: " + err.Error()})
+			c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed + ": " + err.Error()})
 			return
 		}
 		fields = decrypted
@@ -94,18 +94,18 @@ func Register(c *gin.Context) {
 	sPassword, _ := fields["s_password"].(string)
 
 	if username == "" || email == "" || password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名、邮箱和密码不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.InvalidCredentials})
 		return
 	}
 
 	user, err := User.Service.RegisterUser(username, email, password, studentID, sPassword)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(utils.Defaults.Status.Conflict, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "注册成功",
+	c.JSON(utils.Defaults.Status.Created, gin.H{
+		"message": utils.Defaults.Auth.RegisterSuccess,
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
@@ -118,17 +118,17 @@ func Register(c *gin.Context) {
 func AuthStatus(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists || userID == "" {
-		c.JSON(http.StatusOK, gin.H{"authenticated": false})
+		c.JSON(utils.Defaults.Status.OK, gin.H{"authenticated": false})
 		return
 	}
 
 	user, err := User.Repository.GetUserByID(userID.(string))
 	if err != nil || user == nil {
-		c.JSON(http.StatusOK, gin.H{"authenticated": false})
+		c.JSON(utils.Defaults.Status.OK, gin.H{"authenticated": false})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"authenticated": true,
 		"user": gin.H{
 			"id":       user.ID,
@@ -147,11 +147,11 @@ func GetUserInfo(c *gin.Context) {
 
 	user, err := User.Repository.GetUserByID(userID)
 	if err != nil || user == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"error": utils.Defaults.User.NotFound})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"id":                   user.ID,
 		"username":             user.Username,
 		"email":                user.Email,
@@ -172,33 +172,33 @@ func UpdateEmail(c *gin.Context) {
 		Email string `json:"email" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱地址不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Email.Empty})
 		return
 	}
 	if !services.EmailRegexp.MatchString(body.Email) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱格式不正确"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Email.InvalidFormat})
 		return
 	}
 
 	// 检查邮箱是否被其他用户使用
 	existing, _ := User.Repository.GetUserByEmail(body.Email)
 	if existing != nil && existing.ID != userID {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "该邮箱已被其他用户使用"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Email.AlreadyUsed})
 		return
 	}
 
 	user, _ := User.Repository.GetUserByID(userID)
 	if user == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"error": utils.Defaults.User.NotFound})
 		return
 	}
 	user.Email = body.Email
 
 	if err := User.Repository.UpdateUser(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失败，请重试"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.User.UpdateFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "邮箱修改成功"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"message": utils.Defaults.Email.UpdateSuccess})
 }
 
 // UpdateStudentInfo 更新学号和外部系统密码，对应 Python POST /api/auth/update-student-info
@@ -213,13 +213,13 @@ func UpdateStudentInfo(c *gin.Context) {
 		SPassword *string `json:"s_password"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || (body.StudentID == nil && body.SPassword == nil) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无可更新的字段"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Misc.NoUpdatedFields})
 		return
 	}
 
 	user, _ := User.Repository.GetUserByID(userID)
 	if user == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"error": utils.Defaults.User.NotFound})
 		return
 	}
 
@@ -244,10 +244,10 @@ func UpdateStudentInfo(c *gin.Context) {
 	}
 
 	if err := User.Repository.UpdateUser(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新失败，请重试"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.User.UpdateFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "学生信息更新成功"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"message": utils.Defaults.Auth.StudentInfoSuccess})
 }
 
 // CheckEmail 检查邮箱是否已注册，对应 Python POST /api/auth/check-email
@@ -256,72 +256,72 @@ func CheckEmail(c *gin.Context) {
 		Email string `json:"email" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱地址不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Email.Empty})
 		return
 	}
 	if !services.EmailRegexp.MatchString(body.Email) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱格式不正确"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Email.InvalidFormat})
 		return
 	}
 
 	user, _ := User.Repository.GetUserByEmail(body.Email)
-	c.JSON(http.StatusOK, gin.H{"exists": user != nil})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"exists": user != nil})
 }
 
 // ResetPassword 重置密码（强制 RSA 加密），对应 Python POST /api/auth/reset-password
 func ResetPassword(c *gin.Context) {
 	var body map[string]interface{}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.RequestFormatError})
 		return
 	}
 
 	encryptedData, _ := body["encrypted_data"].(string)
 	if encryptedData == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "必须使用加密传输"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.RequireEncryption})
 		return
 	}
 
 	rsa := crypto.GetRSAService()
 	decrypted, err := rsa.DecryptRequest(encryptedData)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "数据解密失败"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed})
 		return
 	}
 
 	email, _ := decrypted["email"].(string)
 	newPassword, _ := decrypted["new_password"].(string)
 	if email == "" || newPassword == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱和新密码不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.User.EmailAndPwdRequired})
 		return
 	}
 	if len(newPassword) < 6 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "密码长度至少6位"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.User.PasswordTooShort})
 		return
 	}
 
 	user, _ := User.Repository.GetUserByEmail(email)
 	if user == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "该邮箱未注册"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"error": utils.Defaults.Email.NotFound})
 		return
 	}
 
 	hash, err := crypto.Crypto.HashPassword(newPassword)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "密码处理失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.User.PasswordProcessFail})
 		return
 	}
 	user.PasswordHash = hash
 
 	if err = User.Repository.UpdateUser(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "重置失败，请重试"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.User.UpdateFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "密码重置成功"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"message": utils.Defaults.Auth.ResetPasswordSuccess})
 }
 
 // Logout 用户登出，对应 Python POST /api/auth/logout
 func Logout(c *gin.Context) {
 	middleware.ClearSessionCookie(c)
-	c.JSON(http.StatusOK, gin.H{"message": "登出成功"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"message": utils.Defaults.Auth.LogoutSuccess})
 }

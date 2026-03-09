@@ -2,13 +2,13 @@ package handlers
 
 import (
 	"context"
-	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/models"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/User"
 	"github.com/Ling0727-ai/go-buct-course-backend/scheduler"
+	"github.com/Ling0727-ai/go-buct-course-backend/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -21,7 +21,7 @@ func adminRequired(c *gin.Context) bool {
 	}
 	user, err := User.Repository.GetUserByID(userID)
 	if err != nil || user == nil || !user.IsAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"error": "需要管理员权限"})
+		c.JSON(utils.Defaults.Status.Forbidden, gin.H{"error": utils.Defaults.Auth.RequireAdmin})
 		return false
 	}
 	return true
@@ -37,7 +37,7 @@ func AdminTriggerCleanup(c *gin.Context) {
 	// 用调度器单例在后台执行一次全量刷新
 	go scheduler.GetScheduler().TriggerRefresh()
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success":   true,
 		"message":   "清理/刷新任务已触发",
 		"timestamp": time.Now().Format(time.RFC3339),
@@ -63,7 +63,7 @@ func AdminGetCompletedAssignments(c *gin.Context) {
 
 	client, err := models.ConnectToDB()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "数据库连接失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Database.ConnectFailed})
 		return
 	}
 
@@ -99,18 +99,18 @@ func AdminGetCompletedAssignments(c *gin.Context) {
 
 	cursor, err := col.Aggregate(ctx, pipeline)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "查询失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.QueryFailed})
 		return
 	}
 	defer cursor.Close(ctx)
 
 	var records []map[string]interface{}
 	if err = cursor.All(ctx, &records); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "解析数据失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.ParseFailed})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
 		"records": records,
 		"pagination": gin.H{
@@ -132,7 +132,7 @@ func AdminGetSystemStatus(c *gin.Context) {
 
 	client, err := models.ConnectToDB()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "数据库连接失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Database.ConnectFailed})
 		return
 	}
 
@@ -146,7 +146,7 @@ func AdminGetSystemStatus(c *gin.Context) {
 	scheduledReminders, _ := db.Collection("scheduled_reminders").CountDocuments(ctx, bson.M{"status": "scheduled"})
 
 	s := scheduler.GetScheduler()
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
 		"system_status": gin.H{
 			"database_stats": gin.H{

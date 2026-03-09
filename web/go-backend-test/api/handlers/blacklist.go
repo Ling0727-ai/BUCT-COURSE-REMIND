@@ -1,9 +1,8 @@
 package handlers
 
 import (
-	"net/http"
-
 	"github.com/Ling0727-ai/go-buct-course-backend/models/Blacklist"
+	"github.com/Ling0727-ai/go-buct-course-backend/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,11 +16,11 @@ func GetBlacklist(c *gin.Context) {
 
 	list, err := Blacklist.Repository.GetBlacklist(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "获取黑名单失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Blacklist.GetSuccess})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "blacklist": list, "count": len(list)})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "blacklist": list, "count": len(list)})
 }
 
 // AddBlacklist 添加科目到黑名单
@@ -36,16 +35,16 @@ func AddBlacklist(c *gin.Context) {
 		SubjectID string `json:"subject_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "subject_id 不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Blacklist.SubjectIDEmpty})
 		return
 	}
 
 	if err := Blacklist.Repository.AddSubject(userID, body.SubjectID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "添加失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.CreateFailed})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已加入黑名单"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Blacklist.AddSuccess})
 }
 
 // RemoveBlacklist 从黑名单移除科目
@@ -58,16 +57,16 @@ func RemoveBlacklist(c *gin.Context) {
 
 	subjectID := c.Param("subject_id")
 	if subjectID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "subject_id 不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Blacklist.SubjectIDEmpty})
 		return
 	}
 
 	if err := Blacklist.Repository.RemoveSubject(userID, subjectID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "移除失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.DeleteFailed})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已从黑名单移除"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Blacklist.RemoveSuccess})
 }
 
 // ClearBlacklist 清空用户黑名单
@@ -79,9 +78,9 @@ func ClearBlacklist(c *gin.Context) {
 	}
 
 	if err := Blacklist.Repository.ClearBlacklist(userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "清空失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.ClearFailed})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "黑名单已清空"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Blacklist.ClearSuccess})
 }

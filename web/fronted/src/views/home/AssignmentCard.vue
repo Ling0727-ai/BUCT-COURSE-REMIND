@@ -50,73 +50,78 @@
       </div>
       
       <div class="actions" @click.stop>
-        <!-- 拉黑按钮（仅作业/测试卡片，不含待办） -->
-        <button
-            v-if="assignment.type !== '待办'"
-            class="btn btn-blacklist"
-            title="拉黑此科目"
-            @click="$emit('blacklist-subject', assignment)"
-        >
-          <i class="fas fa-ban"></i>
-          <span class="btn-text">拉黑</span>
-        </button>
-        <button
-          v-if="!assignment.completed"
-          class="btn btn-warning"
-          @click="$emit('set-reminder', assignment)"
-          title="设置提醒"
-        >
-          <i class="fas fa-bell"></i>
-          <span class="btn-text">提醒</span>
-        </button>
-        <!-- 删除按钮 - 在提醒和完成之间 -->
-        <button 
-          v-if="!assignment.completed"
-          class="btn btn-danger delete-btn"
-          @click="$emit('delete-assignment', assignment)"
-          :title="assignment.type === '待办' ? '删除待办' : '删除作业'"
-        >
-          <i class="fas fa-trash"></i>
-          <span class="btn-text">删除</span>
-        </button>
-        <button 
-          v-if="!assignment.completed"
-          class="btn btn-success complete-btn"
-          @click="$emit('mark-completed', assignment)"
-          :disabled="assignment.completing"
-          title="标记为完成"
-        >
-          <span v-if="!assignment.completing" class="btn-content">
-            <i class="fas fa-check"></i>
-            <span class="btn-text">完成</span>
-          </span>
-          <span v-else class="btn-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span class="btn-text">处理中...</span>
-          </span>
-        </button>
-        <div v-else-if="assignment.completed" class="completed-actions">
-          <button class="btn btn-completed" title="已完成">
-            <i class="fas fa-check-circle"></i>
-            <span class="btn-text">已完成</span>
-          </button>
-          <button 
-            class="btn btn-secondary undo-btn"
-            @click="$emit('undo-completed', assignment)"
-            :disabled="assignment.undoing"
-            title="撤销完成"
+        <!-- 未完成状态：显示拉黑、提醒、删除、完成按钮 -->
+        <template v-if="!assignment.completed">
+          <!-- 拉黑按钮（仅作业/测试卡片，不含待办） -->
+          <button
+              v-if="assignment.type !== '待办'"
+              class="btn btn-blacklist"
+              title="拉黑此科目"
+              @click="$emit('blacklist-subject', assignment)"
           >
-            <i v-if="!assignment.undoing" class="fas fa-undo"></i>
-            <i v-else class="fas fa-spinner fa-spin"></i>
+            <i class="fas fa-ban"></i>
+            <span class="btn-text">拉黑</span>
           </button>
-          <button 
-            class="btn btn-danger delete-btn"
-            @click="$emit('delete-assignment', assignment)"
-            :title="assignment.type === '待办' ? '删除待办' : '删除作业'"
+          <button
+              class="btn btn-warning"
+              title="设置提醒"
+              @click="$emit('set-reminder', assignment)"
+          >
+            <i class="fas fa-bell"></i>
+            <span class="btn-text">提醒</span>
+          </button>
+          <!-- 删除按钮 - 在提醒和完成之间 -->
+          <button
+              :title="assignment.type === '待办' ? '删除待办' : '删除作业'"
+              class="btn btn-danger delete-btn"
+              @click="$emit('delete-assignment', assignment)"
           >
             <i class="fas fa-trash"></i>
+            <span class="btn-text">删除</span>
           </button>
-        </div>
+          <button
+              :disabled="assignment.completing"
+              class="btn btn-success complete-btn"
+              title="标记为完成"
+              @click="$emit('mark-completed', assignment)"
+          >
+            <span v-if="!assignment.completing" class="btn-content">
+              <i class="fas fa-check"></i>
+              <span class="btn-text">完成</span>
+            </span>
+            <span v-else class="btn-loading">
+              <i class="fas fa-spinner fa-spin"></i>
+              <span class="btn-text">处理中...</span>
+            </span>
+          </button>
+        </template>
+
+        <!-- 已完成状态：显示已完成、撤销、删除按钮 -->
+        <template v-else>
+          <div class="completed-actions">
+            <button class="btn btn-completed" title="已完成">
+              <i class="fas fa-check-circle"></i>
+              <span class="btn-text">已完成</span>
+            </button>
+            <button
+                :disabled="assignment.undoing"
+                class="btn btn-secondary undo-btn"
+                title="撤销完成"
+                @click="$emit('undo-completed', assignment)"
+            >
+              <i v-if="!assignment.undoing" class="fas fa-undo"></i>
+              <i v-else class="fas fa-spinner fa-spin"></i>
+            </button>
+            <button
+                :title="assignment.type === '待办' ? '删除待办' : '删除作业'"
+                class="btn btn-danger delete-btn"
+                @click="$emit('delete-assignment', assignment)"
+            >
+              <i class="fas fa-trash"></i>
+              <span class="btn-text">删除</span>
+            </button>
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -638,6 +643,8 @@ export default {
   gap: 8px;
   align-items: center;
   flex-wrap: nowrap;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .btn-completed {

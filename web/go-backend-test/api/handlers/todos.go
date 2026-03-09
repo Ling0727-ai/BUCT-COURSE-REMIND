@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/config"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/Todo"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/User"
+	"github.com/Ling0727-ai/go-buct-course-backend/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,11 +22,11 @@ func GetTodos(c *gin.Context) {
 	includeCompleted := c.Query("include_completed") == "true"
 	todos, err := Todo.Repository.GetTodosByUserID(userID, includeCompleted)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "获取待办列表失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Todo.GetFailed})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "todos": todos, "count": len(todos)})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "todos": todos, "count": len(todos)})
 }
 
 // CreateTodo 创建待办事项
@@ -45,7 +45,7 @@ func CreateTodo(c *gin.Context) {
 		DueDate     string   `json:"due_date"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "待办标题不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Todo.TitleEmpty})
 		return
 	}
 
@@ -62,7 +62,7 @@ func CreateTodo(c *gin.Context) {
 	case body.Hours != nil:
 		h := *body.Hours
 		if h <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "小时数必须大于0"})
+			c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Todo.HoursInvalid})
 			return
 		}
 		t := now.Add(time.Duration(h * float64(time.Hour)))
@@ -71,7 +71,7 @@ func CreateTodo(c *gin.Context) {
 	case body.DueDate != "":
 		t, err := time.Parse(time.RFC3339, body.DueDate)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "截止日期格式错误"})
+			c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Todo.DueDateInvalid})
 			return
 		}
 		dueDate = &t
@@ -97,10 +97,10 @@ func CreateTodo(c *gin.Context) {
 	}
 
 	if err := Todo.Repository.CreateTodo(todo); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "创建待办失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.CreateFailed})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"success": true, "message": "待办事项创建成功", "todo_id": todo.ID})
+	c.JSON(utils.Defaults.Status.Created, gin.H{"success": true, "message": utils.Defaults.Todo.CreateSuccess, "todo_id": todo.ID})
 }
 
 // UpdateTodo 更新待办事项
@@ -114,13 +114,13 @@ func UpdateTodo(c *gin.Context) {
 
 	existing, err := Todo.Repository.GetTodoByID(todoID)
 	if err != nil || existing == nil || existing.UserID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "待办事项不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"success": false, "error": utils.Defaults.Todo.NotFound})
 		return
 	}
 
 	var body map[string]interface{}
 	if err = c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "请求格式错误"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Auth.RequestFormatError})
 		return
 	}
 
@@ -147,10 +147,10 @@ func UpdateTodo(c *gin.Context) {
 	existing.UpdatedAt = time.Now()
 
 	if err = Todo.Repository.UpdateTodo(existing); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "更新失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.UpdateFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "待办事项更新成功"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Todo.UpdateSuccess})
 }
 
 // CompleteTodo 标记待办已完成（12h 后 TTL 自动删除）
@@ -164,15 +164,15 @@ func CompleteTodo(c *gin.Context) {
 
 	existing, err := Todo.Repository.GetTodoByID(todoID)
 	if err != nil || existing == nil || existing.UserID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "待办事项不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"success": false, "error": utils.Defaults.Todo.NotFound})
 		return
 	}
 
 	if err = Todo.Repository.MarkCompleted(todoID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "标记完成失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.UpdateFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "待办事项已完成，12小时后自动删除"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Todo.CompleteSuccess + utils.Defaults.Todo.AutoDeleteHint})
 }
 
 // UncompleteTodo 撤销待办完成状态
@@ -186,15 +186,15 @@ func UncompleteTodo(c *gin.Context) {
 
 	existing, err := Todo.Repository.GetTodoByID(todoID)
 	if err != nil || existing == nil || existing.UserID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "待办事项不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"success": false, "error": utils.Defaults.Todo.NotFound})
 		return
 	}
 
 	if err = Todo.Repository.MarkUncompleted(todoID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "撤销失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.UpdateFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "待办事项完成状态已撤销"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Todo.UncompleteSuccess})
 }
 
 // RemindTodo 为待办发送提醒邮件
@@ -208,21 +208,21 @@ func RemindTodo(c *gin.Context) {
 
 	existing, err := Todo.Repository.GetTodoByID(todoID)
 	if err != nil || existing == nil || existing.UserID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "待办事项不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"success": false, "error": utils.Defaults.Todo.NotFound})
 		return
 	}
 	if existing.Completed {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "该待办事项已完成，无需提醒"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Todo.CompleteSuccess + utils.Defaults.Todo.AlreadyCompletedHint})
 		return
 	}
 	if existing.IsDeleted {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "该待办事项已删除，无法提醒"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Todo.AlreadyDeletedHint})
 		return
 	}
 
 	user, _ := User.Repository.GetUserByID(userID)
 	if user == nil || user.Email == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "未找到用户邮箱，请在设置中配置邮箱"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Todo.NoEmailHint})
 		return
 	}
 
@@ -241,11 +241,11 @@ func RemindTodo(c *gin.Context) {
 	}
 
 	if err = config.Mail.SendMail(user.Email, "北化课程提醒 - 待办提醒", msg); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "邮件发送失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Email.SendFailed})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "提醒已发送: " + existing.Title})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Todo.RemindSuccess + existing.Title})
 }
 
 // DeleteTodo 软删除待办
@@ -259,15 +259,15 @@ func DeleteTodo(c *gin.Context) {
 
 	existing, err := Todo.Repository.GetTodoByID(todoID)
 	if err != nil || existing == nil || existing.UserID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "待办事项不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"success": false, "error": utils.Defaults.Todo.NotFound})
 		return
 	}
 
 	if err = Todo.Repository.DeleteTodo(todoID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "删除失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.DeleteFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "待办事项已移至回收站"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Todo.DeleteSuccess})
 }
 
 // RestoreTodo 恢复已删除待办
@@ -281,15 +281,15 @@ func RestoreTodo(c *gin.Context) {
 
 	existing, err := Todo.Repository.GetTodoByID(todoID)
 	if err != nil || existing == nil || existing.UserID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "待办事项不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"success": false, "error": utils.Defaults.Todo.NotFound})
 		return
 	}
 
 	if err = Todo.Repository.RestoreTodo(todoID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "恢复失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.RestoreFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "待办事项已恢复"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Todo.RestoreSuccess})
 }
 
 // PermanentDeleteTodo 永久删除待办
@@ -303,15 +303,15 @@ func PermanentDeleteTodo(c *gin.Context) {
 
 	existing, err := Todo.Repository.GetTodoByID(todoID)
 	if err != nil || existing == nil || existing.UserID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "待办事项不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"success": false, "error": utils.Defaults.Todo.NotFound})
 		return
 	}
 
 	if err = Todo.Repository.PermanentlyDeleteTodo(todoID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "永久删除失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.DeleteFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "待办事项已永久删除"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Todo.PermDeleteSuccess})
 }
 
 // GetDeletedTodos 获取已删除的待办列表
@@ -324,7 +324,7 @@ func GetDeletedTodos(c *gin.Context) {
 
 	todos, err := Todo.Repository.GetDeletedTodosByUserID(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "获取已删除待办失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Todo.GetDeletedFailed})
 		return
 	}
 
@@ -338,7 +338,7 @@ func GetDeletedTodos(c *gin.Context) {
 		items = append(items, deletedTodoItem{Todo: t, TodoID: t.ID})
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "deleted_todos": items, "count": len(items)})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "deleted_todos": items, "count": len(items)})
 }
 
 // ClearDeletedTodos 清空已删除的待办
@@ -350,10 +350,10 @@ func ClearDeletedTodos(c *gin.Context) {
 	}
 
 	if err := Todo.Repository.ClearDeletedTodos(userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "清空失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.ClearFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已清空回收站"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Todo.ClearSuccess})
 }
 
 // GetTodoStats 获取待办统计
@@ -366,7 +366,7 @@ func GetTodoStats(c *gin.Context) {
 
 	todos, err := Todo.Repository.GetTodosByUserID(userID, true)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "获取统计失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Todo.GetStatsFailed})
 		return
 	}
 
@@ -390,7 +390,7 @@ func GetTodoStats(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
 		"stats": gin.H{
 			"total":          total,

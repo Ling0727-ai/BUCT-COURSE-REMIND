@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/services"
+	"github.com/Ling0727-ai/go-buct-course-backend/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,12 +12,12 @@ import (
 func getUserID(c *gin.Context) (string, bool) {
 	v, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
+		c.JSON(utils.Defaults.Status.Unauthorized, gin.H{"error": utils.Defaults.Auth.NotLoggedIn})
 		return "", false
 	}
 	id, ok := v.(string)
 	if !ok || id == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
+		c.JSON(utils.Defaults.Status.Unauthorized, gin.H{"error": utils.Defaults.Auth.NotLoggedIn})
 		return "", false
 	}
 	return id, true
@@ -38,7 +38,7 @@ func ManualReminder(c *gin.Context) {
 		Message string `json:"message"` // 若非空则直接使用
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.RequestFormatError})
 		return
 	}
 
@@ -50,16 +50,16 @@ func ManualReminder(c *gin.Context) {
 		Message: body.Message,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{
 			"success": false,
 			"error":   err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
-		"message": "提醒邮件已发送",
+		"message": utils.Defaults.Reminder.SendSuccess,
 	})
 }
 
@@ -73,16 +73,16 @@ func TestReminder(c *gin.Context) {
 
 	email, err := services.SendTestEmail(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{
 			"success": false,
 			"error":   err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
-		"message": "测试邮件已发送到: " + email,
+		"message": utils.Defaults.Reminder.TestEmailSuccess + email,
 	})
 }
 
@@ -100,7 +100,7 @@ func CreateReminder(c *gin.Context) {
 		ScheduledTime string `json:"scheduled_time" binding:"required"` // RFC3339 / "2006-01-02 15:04:05"
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -114,11 +114,11 @@ func CreateReminder(c *gin.Context) {
 		}
 	}
 	if parseErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "时间格式不正确，请使用 2006-01-02 15:04:05"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Reminder.TimeInvalid})
 		return
 	}
 	if scheduledAt.Before(time.Now()) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "提醒时间不能早于当前时间"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Reminder.TimePast})
 		return
 	}
 
@@ -126,11 +126,11 @@ func CreateReminder(c *gin.Context) {
 		userID, body.TargetID, body.Type, body.Message, scheduledAt,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	c.JSON(utils.Defaults.Status.Created, gin.H{
 		"success": true,
 		"data":    reminder,
 	})
@@ -147,11 +147,11 @@ func GetReminders(c *gin.Context) {
 
 	reminders, err := services.GetUserReminders(userID, status)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
 		"data":    reminders,
 		"count":   len(reminders),
@@ -167,17 +167,17 @@ func DeleteReminder(c *gin.Context) {
 
 	reminderID := c.Param("id")
 	if reminderID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少提醒 ID"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Reminder.MissingID})
 		return
 	}
 
 	if err := services.DeleteReminder(reminderID, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
-		"message": "提醒已删除",
+		"message": utils.Defaults.Reminder.DeleteSuccess,
 	})
 }

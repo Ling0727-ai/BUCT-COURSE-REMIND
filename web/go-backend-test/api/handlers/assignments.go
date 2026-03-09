@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"net/http"
 	"regexp"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/Ling0727-ai/go-buct-course-backend/models/Blacklist"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/CourseData"
 	"github.com/Ling0727-ai/go-buct-course-backend/services"
+	"github.com/Ling0727-ai/go-buct-course-backend/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,7 +35,7 @@ func GetAssignments(c *gin.Context) {
 
 	tasks, err := CourseData.Repository.GetCourseDataByUserID(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "获取作业列表失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Assignment.GetFailed})
 		return
 	}
 
@@ -83,7 +83,7 @@ func GetAssignments(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
 		"tasks":   formatted,
 		"total":   len(formatted),
@@ -106,7 +106,7 @@ func GetAssignmentStats(c *gin.Context) {
 
 	tasks, err := CourseData.Repository.GetCourseDataByUserID(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "获取统计失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Assignment.GetStatsFailed})
 		return
 	}
 
@@ -137,7 +137,7 @@ func GetAssignmentStats(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
 		"stats": gin.H{
 			"total":     total,
@@ -160,11 +160,11 @@ func GetCompletedAssignments(c *gin.Context) {
 
 	ids, err := AssignmentStatus.Repository.GetCompletedIDs(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "获取已完成作业失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Assignment.GetCompletedFailed})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "completed_assignments": ids})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "completed_assignments": ids})
 }
 
 // GetDeletedAssignments 获取已删除的作业列表（含完整信息）
@@ -177,7 +177,7 @@ func GetDeletedAssignments(c *gin.Context) {
 
 	statuses, err := AssignmentStatus.Repository.GetUserStatuses(userID, AssignmentStatus.StatusDeleted, false)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "获取已删除作业失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Assignment.GetDeletedFailed})
 		return
 	}
 
@@ -207,7 +207,7 @@ func GetDeletedAssignments(c *gin.Context) {
 		result = append(result, entry)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "deleted_assignments": result, "count": len(result)})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "deleted_assignments": result, "count": len(result)})
 }
 
 // MarkAssignmentComplete 标记作业已完成
@@ -226,10 +226,10 @@ func MarkAssignmentComplete(c *gin.Context) {
 	c.ShouldBindJSON(&body)
 
 	if err := AssignmentStatus.Repository.MarkCompleted(userID, assignmentID, body.Title, body.Subject); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "标记完成失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.UpdateFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "作业已标记为完成"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Assignment.CompleteSuccess})
 }
 
 // MarkAssignmentUncomplete 撤销作业完成状态
@@ -242,10 +242,10 @@ func MarkAssignmentUncomplete(c *gin.Context) {
 	assignmentID := c.Param("id")
 
 	if err := AssignmentStatus.Repository.RestoreAssignment(userID, assignmentID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "撤销失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.UpdateFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已撤销完成状态"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Assignment.UncompleteSuccess})
 }
 
 // DeleteAssignment 软删除作业
@@ -265,10 +265,10 @@ func DeleteAssignment(c *gin.Context) {
 	c.ShouldBindJSON(&body)
 
 	if err := AssignmentStatus.Repository.MarkDeleted(userID, assignmentID, body.Title, body.Subject, body.Type); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "删除失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.DeleteFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "作业已移至回收站"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Assignment.DeleteSuccess})
 }
 
 // RestoreAssignment 恢复已删除作业
@@ -281,10 +281,10 @@ func RestoreAssignment(c *gin.Context) {
 	assignmentID := c.Param("id")
 
 	if err := AssignmentStatus.Repository.RestoreAssignment(userID, assignmentID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "恢复失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.RestoreFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "作业已恢复"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Assignment.RestoreSuccess})
 }
 
 // PermanentDeleteAssignment 永久删除作业
@@ -297,10 +297,10 @@ func PermanentDeleteAssignment(c *gin.Context) {
 	assignmentID := c.Param("id")
 
 	if err := AssignmentStatus.Repository.PermanentDelete(userID, assignmentID, "", ""); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "永久删除失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.DeleteFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "作业已永久删除"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Assignment.PermDeleteSuccess})
 }
 
 // ClearDeletedAssignments 清空回收站
@@ -313,10 +313,10 @@ func ClearDeletedAssignments(c *gin.Context) {
 
 	count, err := AssignmentStatus.Repository.ClearUserStatus(userID, AssignmentStatus.StatusDeleted)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "清空失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Data.ClearFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "已清空回收站", "deleted_count": count})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"success": true, "message": utils.Defaults.Assignment.ClearSuccess, "deleted_count": count})
 }
 
 // RemindAssignment 为作业创建定时提醒
@@ -331,19 +331,19 @@ func RemindAssignment(c *gin.Context) {
 	// 检查作业是否已完成或已删除
 	completed, _ := AssignmentStatus.Repository.IsCompleted(userID, assignmentID)
 	if completed {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "该作业已完成，无需提醒"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Assignment.AlreadyCompleted})
 		return
 	}
 	deleted, _ := AssignmentStatus.Repository.IsDeleted(userID, assignmentID)
 	if deleted {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "该作业已删除，无法提醒"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"success": false, "error": utils.Defaults.Assignment.AlreadyDeleted})
 		return
 	}
 
 	// 从数据库获取作业详情
 	tasks, err := CourseData.Repository.GetCourseDataByUserID(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "查询作业失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Assignment.QueryFailed})
 		return
 	}
 	var task *CourseData.CourseData
@@ -354,7 +354,7 @@ func RemindAssignment(c *gin.Context) {
 		}
 	}
 	if task == nil {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": "作业不存在"})
+		c.JSON(utils.Defaults.Status.NotFound, gin.H{"success": false, "error": utils.Defaults.Assignment.NotFound})
 		return
 	}
 
@@ -385,21 +385,21 @@ func RemindAssignment(c *gin.Context) {
 			UserID:  userID,
 			Message: msg,
 		}); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "邮件发送失败"})
+			c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Email.SendFailed})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
+		c.JSON(utils.Defaults.Status.OK, gin.H{
 			"success": true,
-			"message": "提醒已立即发送：" + task.Subject + " - " + task.Title,
+			"message": utils.Defaults.Assignment.RemindSuccess + task.Subject + " - " + task.Title,
 		})
 		return
 	}
 
 	if _, err := services.CreateScheduledReminder(userID, assignmentID, "assignment", msg, scheduledAt); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": "创建提醒失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"success": false, "error": utils.Defaults.Assignment.CreateReminderFail})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"success": true,
 		"message": "已设置" + taskType + "提醒（" + scheduleDesc + "）：" + task.Subject + " - " + task.Title,
 	})

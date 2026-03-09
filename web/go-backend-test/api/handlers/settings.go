@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/config"
 	"github.com/Ling0727-ai/go-buct-course-backend/models"
 	"github.com/Ling0727-ai/go-buct-course-backend/services"
+	"github.com/Ling0727-ai/go-buct-course-backend/utils"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -18,7 +18,7 @@ const settingsCollection = "settings"
 func GetSettings(c *gin.Context) {
 	client, err := models.ConnectToDB()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库连接失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Database.ConnectFailed})
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -26,7 +26,7 @@ func GetSettings(c *gin.Context) {
 
 	cursor, err := client.Database("buct-course").Collection(settingsCollection).Find(ctx, map[string]interface{}{})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取设置失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Settings.GetFailed})
 		return
 	}
 	defer cursor.Close(ctx)
@@ -41,19 +41,19 @@ func GetSettings(c *gin.Context) {
 			result[doc.Key] = doc.Value
 		}
 	}
-	c.JSON(http.StatusOK, result)
+	c.JSON(utils.Defaults.Status.OK, result)
 }
 
 // SaveSettings 保存系统设置，对应 Python POST /api/settings
 func SaveSettings(c *gin.Context) {
 	var body map[string]interface{}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.RequestFormatError})
 		return
 	}
 	client, err := models.ConnectToDB()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库连接失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Database.ConnectFailed})
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -70,14 +70,14 @@ func SaveSettings(c *gin.Context) {
 			options.Update().SetUpsert(true),
 		)
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "设置保存成功"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"message": utils.Defaults.Settings.SaveSuccess})
 }
 
 // GetEmailSettings 获取邮箱通知设置，对应 Python GET /api/settings/email
 func GetEmailSettings(c *gin.Context) {
 	client, err := models.ConnectToDB()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库连接失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Database.ConnectFailed})
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -90,7 +90,7 @@ func GetEmailSettings(c *gin.Context) {
 		map[string]interface{}{"key": "notification_email"},
 	).Decode(&doc)
 
-	c.JSON(http.StatusOK, gin.H{"to_email": doc.Value})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"to_email": doc.Value})
 }
 
 // SaveEmailSettings 保存邮箱通知设置，对应 Python POST /api/settings/email
@@ -99,16 +99,16 @@ func SaveEmailSettings(c *gin.Context) {
 		ToEmail string `json:"to_email"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.RequestFormatError})
 		return
 	}
 	if body.ToEmail != "" && !services.EmailRegexp.MatchString(body.ToEmail) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱格式不正确"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Email.InvalidFormat})
 		return
 	}
 	client, err := models.ConnectToDB()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库连接失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Database.ConnectFailed})
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -120,10 +120,10 @@ func SaveEmailSettings(c *gin.Context) {
 		options.Update().SetUpsert(true),
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Settings.SaveFailed})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "邮箱设置保存成功"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"message": utils.Defaults.Settings.EmailSaveSuccess})
 }
 
 // HealthCheck 健康检查端点，对应 Python GET /api/health
@@ -142,10 +142,10 @@ func HealthCheck(c *gin.Context) {
 
 	mailConfigured := config.Mail != nil && config.Mail.IsReady()
 	status := "healthy"
-	statusCode := http.StatusOK
+	statusCode := utils.Defaults.Status.OK
 	if dbStatus != "healthy" {
 		status = "unhealthy"
-		statusCode = http.StatusServiceUnavailable
+		statusCode = utils.Defaults.Status.ServiceUnavailable
 	}
 	c.JSON(statusCode, gin.H{
 		"status":          status,
@@ -163,7 +163,7 @@ func HealthCheck(c *gin.Context) {
 func GetStats(c *gin.Context) {
 	client, err := models.ConnectToDB()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库连接失败"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Database.ConnectFailed})
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -179,7 +179,7 @@ func GetStats(c *gin.Context) {
 	urgentAssignments, _ := db.Collection("course_data").CountDocuments(ctx,
 		map[string]interface{}{"deadline": map[string]interface{}{"$lte": now.Add(48 * time.Hour).Format(time.RFC3339)}})
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(utils.Defaults.Status.OK, gin.H{
 		"total_assignments":  totalAssignments,
 		"total_tests":        totalTests,
 		"urgent_assignments": urgentAssignments,

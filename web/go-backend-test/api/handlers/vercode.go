@@ -1,11 +1,10 @@
 package handlers
 
 import (
-	"net/http"
-
 	"github.com/Ling0727-ai/go-buct-course-backend/crypto"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/User"
 	"github.com/Ling0727-ai/go-buct-course-backend/services"
+	"github.com/Ling0727-ai/go-buct-course-backend/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,7 +12,7 @@ import (
 func SendVerificationCode(c *gin.Context) {
 	var body map[string]interface{}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.RequestFormatError})
 		return
 	}
 
@@ -24,7 +23,7 @@ func SendVerificationCode(c *gin.Context) {
 		rsa := crypto.GetRSAService()
 		decrypted, err := rsa.DecryptRequest(enc)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "数据解密失败"})
+			c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed})
 			return
 		}
 		email, _ = decrypted["email"].(string)
@@ -33,22 +32,22 @@ func SendVerificationCode(c *gin.Context) {
 	}
 
 	if email == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱地址不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Email.Empty})
 		return
 	}
 	if !services.EmailRegexp.MatchString(email) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱格式不正确"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Email.InvalidFormat})
 		return
 	}
 
 	// 频率限制：1 分钟内只能发送一次，对应 Python recent_code 判断
 	limited, err := services.IsRateLimited(email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "服务异常，请重试"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Verification.ServiceError})
 		return
 	}
 	if limited {
-		c.JSON(http.StatusTooManyRequests, gin.H{"error": "请等待 1 分钟后再次发送验证码"})
+		c.JSON(utils.Defaults.Status.TooManyRequests, gin.H{"error": utils.Defaults.Verification.RateLimited})
 		return
 	}
 
@@ -61,23 +60,23 @@ func SendVerificationCode(c *gin.Context) {
 
 	code, testMode, err := services.SendVerificationEmail(email, username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "验证码发送失败，请稍后重试"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Verification.SendFailed})
 		return
 	}
 
 	// 邮件发送成功
 	if !testMode {
-		c.JSON(http.StatusOK, gin.H{"message": "验证码已发送到您的邮箱"})
+		c.JSON(utils.Defaults.Status.OK, gin.H{"message": utils.Defaults.Verification.SendSuccess})
 		return
 	}
 
 	// 邮件不可用，降级测试模式，对应 Python test_mode 回退响应
-	c.JSON(http.StatusOK, gin.H{
-		"message":           "验证码已发送到您的邮箱",
+	c.JSON(utils.Defaults.Status.OK, gin.H{
+		"message":           utils.Defaults.Verification.SendSuccess,
 		"test_mode":         true,
 		"verification_code": code,
 		"username":          username,
-		"note":              "邮件服务暂时不可用，使用测试模式",
+		"note":              utils.Defaults.Verification.TestModeNote,
 	})
 }
 
@@ -88,19 +87,19 @@ func VerifyCode(c *gin.Context) {
 		Code  string `json:"code"  binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "邮箱和验证码不能为空"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Verification.Empty})
 		return
 	}
 
 	ok, err := services.VerifyCode(body.Email, body.Code)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "验证失败，请重试"})
+		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Verification.VerifyFailed})
 		return
 	}
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "验证码无效或已过期"})
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Verification.InvalidOrExpired})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "验证成功"})
+	c.JSON(utils.Defaults.Status.OK, gin.H{"message": utils.Defaults.Verification.VerifySuccess})
 }
