@@ -44,6 +44,10 @@ func SetupRoutes(r *gin.Engine) {
 			assign.POST("/:id/restore", handlers.RestoreAssignment)
 			assign.DELETE("/:id/permanent-delete", handlers.PermanentDeleteAssignment)
 			assign.POST("/:id/remind", handlers.RemindAssignment)
+			// 同步刷新（前端 settings 页）
+			assign.POST("/refresh-sync", handlers.RefreshAssignmentsSync)
+			// 独立 API：获取未完成作业（不走 JWT，通过账号密码验证）
+			assign.POST("/uncompleted", handlers.GetUncompletedAssignments)
 		}
 
 		// ── 课程数据，对应 Python /api/course-data ───────────────────

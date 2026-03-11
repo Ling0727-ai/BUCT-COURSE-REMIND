@@ -8,6 +8,7 @@ import (
 	"github.com/Ling0727-ai/go-buct-course-backend/models/AssignmentStatus"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/Blacklist"
 	"github.com/Ling0727-ai/go-buct-course-backend/models/CourseData"
+	"github.com/Ling0727-ai/go-buct-course-backend/models/User"
 	"github.com/Ling0727-ai/go-buct-course-backend/services"
 	"github.com/Ling0727-ai/go-buct-course-backend/utils"
 	"github.com/gin-gonic/gin"
@@ -514,4 +515,110 @@ func buildAssignmentReminderMsg(taskType, subject, title, deadline, scheduleDesc
 	}
 	return fmt.Sprintf("⚠️ %s提醒\n\n科目: %s\n标题: %s\n截止时间: %s\n提醒时间: %s",
 		taskType, subject, title, dl, scheduleDesc)
+}
+
+// RefreshAssignmentsSync 同步刷新作业数据
+// 对应 POST /api/assignments/refresh-sync（前端 settings 页调用）
+func RefreshAssignmentsSync(c *gin.Context) {
+	userID, ok := getUserID(c)
+	if !ok {
+		return
+	}
+
+	count, err := services.RefreshUserDataSync(userID)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"success": false,
+			"error":   "刷新数据失败: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"success":    true,
+		"message":    fmt.Sprintf("数据刷新完成，共更新 %d 条记录", count),
+		"count":      count,
+		"updated_at": time.Now().Format(time.RFC3339),
+	})
+}
+
+// GetUncompletedAssignments 获取所有未完成作业（独立API，不使用JWT session）
+// 排除：软删除、永久删除、黑名单科目、已完成
+// 通过账号密码验证身份，密码使用scrypt加密对比
+func GetUncompletedAssignments(c *gin.Context) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"success": false, "error": "请求格式错误"})
+		return
+	}
+
+	if req.Username == "" || req.Password == "" {
+		c.JSON(400, gin.H{"success": false, "error": "账号和密码不能为空"})
+		return
+	}
+
+	user, err := User.Service.LoginUser(req.Username, req.Password)
+	if err != nil {
+		c.JSON(401, gin.H{"success": false, "error": "账号或密码错误"})
+		return
+	}
+
+	userID := user.ID
+
+	tasks, err := CourseData.Repository.GetCourseDataByUserID(userID)
+	if err != nil {
+		c.JSON(500, gin.H{"success": false, "error": "获取作业数据失败"})
+		return
+	}
+
+	completedIDs := toStringSet(AssignmentStatus.Repository.GetCompletedIDs(userID))
+	deletedIDs := toStringSet(AssignmentStatus.Repository.GetDeletedIDs(userID))
+
+	blacklistedIDs, _ := Blacklist.Repository.GetBlacklistedIDs(userID)
+	blacklistSet := make(map[string]bool, len(blacklistedIDs))
+	for _, id := range blacklistedIDs {
+		blacklistSet[id] = true
+	}
+
+	result := make([]gin.H, 0)
+	homeworkCount, testCount := 0, 0
+
+	for _, t := range tasks {
+		if deletedIDs[t.TaskID] {
+			continue
+		}
+		if completedIDs[t.TaskID] {
+			continue
+		}
+		if courseID := extractCourseID(t.Url); courseID != "" && blacklistSet[courseID] {
+			continue
+		}
+
+		result = append(result, gin.H{
+			"id":       t.TaskID,
+			"subject":  t.Subject,
+			"title":    t.Title,
+			"deadline": t.Deadline,
+			"details":  t.Details,
+			"url":      t.Url,
+			"type":     t.Type,
+		})
+
+		if t.Type == "homework" {
+			homeworkCount++
+		} else {
+			testCount++
+		}
+	}
+
+	c.JSON(200, gin.H{
+		"success":        true,
+		"tasks":          result,
+		"total":          len(result),
+		"homework_count": homeworkCount,
+		"test_count":     testCount,
+	})
 }

@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 安装依赖
-RUN npm config set registry https://registry.npmmirror.com && npm install
+RUN npm config set registry https://registry.npmmirror.com && npm install --legacy-peer-deps
 
 # 复制源代码
 COPY . .
