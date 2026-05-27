@@ -1,8 +1,8 @@
 <template>
-  <div class="app-bg">
+  <div class="app-bg" :class="`preset-${settings.preset}`">
     <!-- 自定义背景层 -->
     <div
-      v-if="settings.enabled && mediaUrl"
+      v-if="settings.preset === 'custom' && mediaUrl"
       class="custom-bg"
       :style="{ opacity: settings.bgOpacity }"
     >
@@ -21,25 +21,31 @@
       />
     </div>
 
-    <!-- 动态光晕 -->
-    <div class="bg-blob bg-blob-1"></div>
-    <div class="bg-blob bg-blob-2"></div>
-    <div class="bg-blob bg-blob-3"></div>
+    <!-- 动态光晕 - 浅色模式更柔和，深色模式更鲜艳 -->
+    <div
+      v-if="settings.preset !== 'none' && settings.preset !== 'custom'"
+      class="bg-blobs"
+    >
+      <div class="bg-blob bg-blob-1"></div>
+      <div class="bg-blob bg-blob-2"></div>
+      <div class="bg-blob bg-blob-3"></div>
+    </div>
 
     <router-view />
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent } from 'vue'
 import { useBackground } from '@/composables/useBackground'
 
-export default {
+export default defineComponent({
   name: 'App',
   setup() {
     const { settings, mediaUrl, mediaType } = useBackground()
     return { settings, mediaUrl, mediaType }
   }
-}
+})
 </script>
 
 <style>
@@ -54,7 +60,7 @@ export default {
   min-height: 100vh;
 }
 
-/* 自定义背景层 */
+/* ─── 自定义背景层 ─── */
 .custom-bg {
   position: fixed;
   inset: 0;
@@ -70,7 +76,15 @@ export default {
   object-fit: cover;
 }
 
-/* 动态渐变光晕 */
+/* ─── 动态渐变光晕 ─── */
+.bg-blobs {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
 .bg-blob {
   position: fixed;
   border-radius: 50%;
@@ -80,6 +94,7 @@ export default {
   z-index: -1;
 }
 
+/* ─── 浅色模式光晕（柔和淡雅） ─── */
 .bg-blob-1 {
   width: 500px;
   height: 500px;
@@ -107,6 +122,32 @@ export default {
   animation: blobFloat3 20s ease-in-out infinite;
 }
 
+/* ─── 深色模式光晕（深邃鲜艳） ─── */
+.preset-dark .bg-blob-1 {
+  width: 600px;
+  height: 600px;
+  background: rgba(59, 130, 246, 0.18);
+  top: -150px;
+  right: -100px;
+}
+
+.preset-dark .bg-blob-2 {
+  width: 500px;
+  height: 500px;
+  background: rgba(139, 92, 246, 0.15);
+  bottom: -120px;
+  left: -80px;
+}
+
+.preset-dark .bg-blob-3 {
+  width: 450px;
+  height: 450px;
+  background: rgba(14, 165, 233, 0.12);
+  top: 40%;
+  right: 10%;
+}
+
+/* ─── 动画 ─── */
 @keyframes blobFloat1 {
   0%, 100% { transform: translate(0, 0) scale(1); }
   33% { transform: translate(40px, -30px) scale(1.05); }
@@ -124,7 +165,7 @@ export default {
   50% { transform: translate(30px, 20px) scale(1.08); }
 }
 
-/* 路由过渡 */
+/* ─── 路由过渡 ─── */
 .router-enter-active,
 .router-leave-active {
   transition: opacity 0.2s ease, transform 0.2s ease;

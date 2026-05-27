@@ -12,7 +12,8 @@ const routes = [
     {
         path: '/',
         name: 'Home',
-        component: Home
+        component: Home,
+        meta: {requiresAuth: true}
     },
     {
         path: '/login',
@@ -63,6 +64,11 @@ router.beforeEach(async (to, _from, next) => {
     cleanupLoginMarker()
 
     const {authenticated} = await checkAuthenticated()
+
+    if (!authenticated) {
+        localStorage.removeItem(SESSION_KEYS.user)
+        sessionStorage.removeItem(SESSION_KEYS.user)
+    }
 
     if (to.matched.some((record) => record.meta.requiresAuth) && !authenticated) {
         next('/login')

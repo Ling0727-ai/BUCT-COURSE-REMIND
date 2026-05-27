@@ -70,6 +70,12 @@
         <BackgroundSettings />
       </section>
 
+      <!-- Font -->
+      <section class="card">
+        <h2 class="card-title">字体与字号</h2>
+        <FontSettings />
+      </section>
+
       <!-- Mouse Trail -->
       <section class="card">
         <h2 class="card-title">
@@ -87,10 +93,11 @@ import { defineComponent } from 'vue';
 import { useSettingsService } from './settings';
 import ColorPicker from './components/ColorPicker.vue';
 import BackgroundSettings from './components/BackgroundSettings.vue';
+import FontSettings from './components/FontSettings.vue';
 
 export default defineComponent({
   name: 'Settings',
-  components: { ColorPicker, BackgroundSettings },
+  components: { ColorPicker, BackgroundSettings, FontSettings },
   setup() { return useSettingsService(); }
 });
 </script>
