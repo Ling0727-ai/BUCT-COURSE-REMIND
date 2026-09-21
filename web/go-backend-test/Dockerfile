@@ -69,9 +69,9 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # USER appuser
 
 # 对应 Python 版本的 MONGO_URI 默认值格式
+# 注意：不在此处写死连接串（含账号密码），由 docker-compose / .env 注入
 ENV PORT=:5000
 ENV ENV=production
-ENV MONGODB_URI=mongodb://REDACTED_MONGO_USER:REDACTED_MONGO_PASSWORD@mongodb:27017/REDACTED_MONGO_USER?authSource=admin
 
 EXPOSE 5000
 

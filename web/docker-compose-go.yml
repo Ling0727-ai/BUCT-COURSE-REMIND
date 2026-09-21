@@ -12,9 +12,10 @@ services:
     ports:
       - "${MONGO_PORT:-27017}:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-REDACTED_MONGO_USER}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-REDACTED_MONGO_PASSWORD}
-      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-REDACTED_MONGO_USER}
+      # 无默认值：必须由 .env 提供，避免静默使用已知的弱口令
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME 必须在 .env 中设置}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD 必须在 .env 中设置}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-buct-course}
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
@@ -44,7 +45,8 @@ services:
       - PORT=:5000
 
       # MongoDB 连接，对应 Python 的 MONGO_URI
-      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-REDACTED_MONGO_USER}:${MONGO_INITDB_ROOT_PASSWORD:-REDACTED_MONGO_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE:-buct-course}?authSource=admin
+      # 无默认值：必须由 .env 提供凭据
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE:-buct-course}?authSource=admin
 
       # JWT 密钥
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}

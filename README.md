@@ -170,15 +170,25 @@ docker compose -f docker-compose-go.yml logs -f backend
 #### 使用 Python 后端（已移除）
 
 > Python (Flask) 后端因存在内存泄漏问题已从仓库移除，请使用 Go 后端。
-> 如需查看历史实现：`git show 9647ee0:web/backend/app/scheduler.py`
+> 如需查看历史实现：见旧仓库 `KMT-CN/BUCT-course-remind` 的 `web/backend/`。
 
 #### 环境变量说明（`.env`）
 
+仓库只提供 `web/.env.template`，不含任何真实值。首次部署：
+
+```bash
+cd web
+cp .env.template .env
+# 然后编辑 .env 填入真实值
+```
+
+`.env` 已在 `.gitignore` 中忽略，**不会被提交**。
+
 ```dotenv
-# MongoDB
-MONGO_INITDB_ROOT_USERNAME=REDACTED_MONGO_USER
-MONGO_INITDB_ROOT_PASSWORD=REDACTED_MONGO_PASSWORD
-MONGO_INITDB_DATABASE=REDACTED_MONGO_USER
+# MongoDB（必填）
+MONGO_INITDB_ROOT_USERNAME=your_mongo_username
+MONGO_INITDB_ROOT_PASSWORD=your_mongo_password
+MONGO_INITDB_DATABASE=buct-course
 
 # 邮件（必填，否则邮件功能不可用）
 MAIL_SMTP_SERVER=smtp.163.com
