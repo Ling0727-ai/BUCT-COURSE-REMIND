@@ -263,12 +263,14 @@ export class MouseTrailManager {
 
 export function initMouseTrail(): MouseTrailManager | null {
     try {
+        // 默认关闭：拖尾是装饰性效果，需要用户在设置中显式开启
         const flag = localStorage.getItem('mouse_trail_enabled')
-        if (flag === 'false') {
+        if (flag !== 'true') {
             return null
         }
     } catch {
         // ignore storage read failures
+        return null
     }
 
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {

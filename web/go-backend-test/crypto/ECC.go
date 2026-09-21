@@ -38,16 +38,21 @@ func deriveAESKey(sharedKey []byte) ([]byte, error) {
 
 // getECCPrivateKey 对应 Python ec.derive_private_key(int(ECC_PRIVATE_KEY), ec.SECP256R1())
 // ECC_PRIVATE_KEY 是十进制整数字符串，转为 32 字节大端序再构造私钥
+//
+// 不再提供内置默认值：默认值等于把学生密码的加密密钥公开在源码里，
+// 任何拿到数据库的人都能解密。未配置时直接报错，强制显式配置。
 func getECCPrivateKey() (*ecdh.PrivateKey, error) {
 	privKeyStr := os.Getenv("ECC_PRIVATE_KEY")
 	if privKeyStr == "" {
-		// 和 Python 一样的默认值
-		privKeyStr = "REDACTED_ECC_PRIVATE_KEY"
+		return nil, errors.New("未配置 ECC_PRIVATE_KEY，拒绝启动加密功能（请在 .env 中设置）")
 	}
 
 	n := new(big.Int)
 	if _, ok := n.SetString(privKeyStr, 10); !ok {
 		return nil, errors.New("ECC_PRIVATE_KEY 不是合法的十进制整数")
+	}
+	if n.Sign() <= 0 {
+		return nil, errors.New("ECC_PRIVATE_KEY 必须为正整数")
 	}
 
 	// 转为 32 字节大端序（P-256 私钥固定 32 字节）

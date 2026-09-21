@@ -1,8 +1,8 @@
 # BUCT课程提醒系统
 
-一个基于 Flask / **Go (Gin)** + MongoDB + Vue.js 的课程作业提醒系统，支持自动获取教务系统信息并发送通知。
+一个基于 **Go (Gin)** + MongoDB + Vue.js 的课程作业提醒系统，支持自动获取教务系统信息并发送通知。
 
-> 项目现提供 **Python (Flask) 后端** 和 **Go (Gin) 后端** 两个实现，功能完全一致，可按需选用。
+> 后端为 Go (Gin) 单一实现。早期版本曾提供 Python (Flask) 后端，因存在内存泄漏问题已移除（见下方说明）。
 
 ## 功能特性
 
@@ -12,7 +12,7 @@
 - 🔔 邮件提醒（手动 / 定时 / DDL 前 24h 自动提醒）
 - 📝 待办事项管理（含优先级、软删除、回收站）
 - ⚙️ 灵活的系统设置
-- 📱 响应式前端界面（薄荷主色调）
+- 📱 响应式前端界面（蓝色主色调，支持深色模式）
 - 🚀 Go 高性能后端（镜像体积 ~20MB，启动 <1s）
 
 ## 更新日志
@@ -31,7 +31,7 @@
 
 2025年11月版本更新：
 
-- v3.0.0 - 重构前端样式，改为更加清新的薄荷主色调的配色方案，提升视觉体验；同时优化移动端的使用体验。(2025-11-11)
+- v3.0.0 - 重构前端样式，改为清新明快的蓝色主色调配色方案，提升视觉体验；同时优化移动端的使用体验。(2025-11-11)
 - v3.1.0 - 初步实现邮箱提醒功能，支持用户通过邮箱接收课程作业提醒。(2025-11-13)
 - v3.2.0 - 邮箱自动化提醒功能完善，支持定时发送课程作业提醒邮件（ddl24h前自动发送）。(2025-11-14)
 - v3.3.0 - 修复了一系列bug并美化界面，提升系统稳定性和用户体验。(2025-11-15 3:00 AM)
@@ -90,23 +90,24 @@
   6. 原生 `net/smtp` 实现多候选 SMTP 自动重试发送
   7. 新增 Docker Compose 一键部署（`docker-compose-go.yml`）
 
+**2026年9月版本更新**：
+
+- v4.1.0 - 前端可用性与可访问性重构。(2026-09-21)
+  1. **修复深色模式**：卡片透明度原先直接覆写 `--bg` 内联变量，导致深色预设失效、白底浅灰字（对比度约 1.2:1）。改为 `--surface-rgb` + `--card-alpha` 组合，深浅色均达到 WCAG AA。
+  2. **修复 XSS 风险**：Toast 原先用 `innerHTML` 拼接含后端数据的文本，改为 Vue 组件渲染；同时移除 `PreviewModal` 的 `v-html`。
+  3. **统一 Toast**：删除登录/注册/找回密码各自实现的三套 Toast，合并为全局 `ToastHost`，支持堆叠、悬停暂停、错误用 `role="alert"`。
+  4. **弹窗规范化**：新增 `BaseModal`，统一对话框语义（`role="dialog"` / `aria-modal`）、Esc 关闭、Tab 焦点陷阱、打开聚焦与关闭后焦点归还、页面滚动锁；消除 7 份重复的弹窗 CSS。
+  5. **键盘可访问性**：全站补齐 `:focus-visible` 焦点环；卡片改为可聚焦并支持回车打开；所有图标按钮补 `aria-label`；表单控件关联 `<label>`。
+  6. **移动端**：恢复页面缩放能力（移除 `user-scalable=no`）；触控目标放大到 44px 并加大间距；头部按钮在窄屏收进"更多"菜单。
+  7. **首页信息架构**：卡片去掉固定 220px 最小高度、改用 CSS 行数截断；新增紧凑视图切换；首屏改骨架屏、后台刷新不再整页遮挡；筛选状态同步到 URL 便于分享；空结果提供"清除筛选"出口；统计卡改为按钮并补齐移动端。
+  8. **内网部署**：Font Awesome 由 cdnjs 改为本地打包，内网无外网时图标不再丢失；新增首屏加载态与 `<noscript>` 提示。
+  9. **工程**：路由改为懒加载并新增 404 兜底；清理约 2900 行死代码（两份重复 Modal/SecurityIndicator、未引用的 `public/styles.css`、调试页、从未生效的 canvas 粒子服务、重复的 `vue.config.ts`）；修复 ESLint 无法解析 TypeScript 的配置问题。
+
 ## 项目结构
 
 ```
 BUCT-course-remind/
 ├── web/
-│   ├── backend/                # Python (Flask) 后端
-│   │   ├── app/
-│   │   │   ├── auth.py         # 认证、验证码、密码重置
-│   │   │   ├── assignments.py  # 作业 CRUD + 状态管理
-│   │   │   ├── course_data.py  # 课程数据刷新
-│   │   │   ├── todos.py        # 待办事项
-│   │   │   ├── scheduler.py    # 定时刷新 + 自动提醒
-│   │   │   ├── scraper.py      # 教务系统爬虫
-│   │   │   └── ...
-│   │   ├── Dockerfile
-│   │   └── requirements.txt
-│   │
 │   ├── go-backend-test/        # Go (Gin) 后端
 │   │   ├── api/handlers/       # Handler 层（接口定义）
 │   │   │   ├── auth.go
@@ -138,7 +139,6 @@ BUCT-course-remind/
 │   │       ├── views/
 │   │       └── components/
 │   │
-│   ├── docker-compose.yml      # Python 后端一键部署
 │   └── docker-compose-go.yml   # Go 后端一键部署
 └── README.md
 ```
@@ -167,17 +167,10 @@ docker compose -f docker-compose-go.yml logs -f backend
 - 前端：`http://localhost:3033`
 - Go 后端：`http://localhost:5000`
 
-#### 使用 Python 后端
+#### 使用 Python 后端（已移除）
 
-```bash
-cd web
-docker compose -f docker-compose.yml up -d
-```
-
-服务启动后访问：
-
-- 前端：`http://localhost:3033`
-- Python 后端：`http://localhost:5000`
+> Python (Flask) 后端因存在内存泄漏问题已从仓库移除，请使用 Go 后端。
+> 如需查看历史实现：`git show 9647ee0:web/backend/app/scheduler.py`
 
 #### 环境变量说明（`.env`）
 
@@ -196,9 +189,13 @@ MAIL_PASSWORD=your_auth_code        # 邮箱授权码，非登录密码
 # JWT 密钥（生产环境务必修改）
 SECRET_KEY=change-this-in-production
 
+# ECC 密钥（必填，用于加密存储学生的学校密码）
+# 生成后请妥善保管；更换密钥必须同步迁移库中已加密的 s_password，否则无法解密
+ECC_PRIVATE_KEY=<你的 P-256 私钥十进制值>
+ECC_PUBLIC_KEY=<对应的公钥 x 坐标>
+
 # 端口（可选，默认值如下）
 GO_PORT=5000
-FLASK_PORT=5000
 FRONTEND_PORT=3033
 ```
 
@@ -221,14 +218,6 @@ go mod download
 go run main.go
 ```
 
-#### Python 后端
-
-```bash
-cd web/backend
-pip install -r requirements.txt
-python app.py
-```
-
 #### 前端
 
 ```bash
@@ -241,7 +230,7 @@ npm run serve
 
 ## API 接口
 
-> Go 后端与 Python 后端路由前缀完全一致，均为 `/api`，nginx 无需修改即可切换。
+> 所有路由前缀均为 `/api`。
 
 ### 认证
 
@@ -348,26 +337,26 @@ Go 后端使用 `goroutine + time.Ticker` 实现三个并发定时任务：
 | 到期提醒检查 | 5 秒   | 发送 `scheduled_reminders` 中到期的邮件 |
 | 自动提醒生成 | 1 小时  | 为 DDL 前 24h 内的作业自动创建提醒          |
 
-### Python vs Go 对比
+### 后端技术指标
 
-| 指标          | Python (Flask) | Go (Gin)               |
-|-------------|----------------|------------------------|
-| Docker 镜像大小 | ~300MB         | ~20MB                  |
-| 容器启动时间      | ~3-5s          | <1s                    |
-| 并发模型        | 多线程 / gevent   | goroutine              |
-| 定时任务        | APScheduler    | time.Ticker            |
-| 路由前缀        | `/api`         | `/api`（与 Python 完全一致）  |
-| 对外端口        | `5000`         | `5000`（nginx 无需改动即可切换） |
+| 指标          | Go (Gin)               |
+|-------------|------------------------|
+| Docker 镜像大小 | ~20MB                  |
+| 容器启动时间      | <1s                    |
+| 并发模型        | goroutine              |
+| 定时任务        | time.Ticker            |
+| 路由前缀        | `/api`                 |
+| 对外端口        | `5000`                 |
 
 ---
 
 ## 环境要求
 
-| 组件    | Python 版本    | Go 版本        |
-|-------|--------------|--------------|
-| 后端运行时 | Python 3.8+  | Go 1.21+     |
-| 数据库   | MongoDB 4.0+ | MongoDB 4.0+ |
-| 前端    | Node.js 14+  | Node.js 14+  |
+| 组件    | 版本           |
+|-------|--------------|
+| 后端运行时 | Go 1.25+     |
+| 数据库   | MongoDB 4.0+ |
+| 前端    | Node.js 14+  |
 
 ---
 
@@ -377,9 +366,8 @@ Go 后端使用 `goroutine + time.Ticker` 实现三个并发定时任务：
 
 ## TODO list
 
-- [x] JWT 鉴权中间件完善 — 已用 HttpOnly Cookie + JWT 实现，与 Python session 行为一致
+- [x] JWT 鉴权中间件完善 — 已用 HttpOnly Cookie + JWT 实现
 - [ ] Go 后端单元测试覆盖
-- [ ] Python 后端：生产环境使用 `gunicorn` 启动，避免 Flask reloader 导致调度器重复初始化
 
 ## 许可证
 

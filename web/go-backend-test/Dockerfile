@@ -3,8 +3,15 @@
 # ──────────────────────────────────────────────
 FROM golang:1.25-alpine AS builder
 
-# 安装构建依赖（gcc 用于 cgo，git 用于拉取依赖）
-RUN apk add --no-cache gcc musl-dev git
+# 安装构建依赖
+#   只需 git：GOPROXY 的 direct 回退靠它拉取依赖
+#   不需要 gcc/musl-dev：下面用 CGO_ENABLED=0 编译纯静态二进制，
+#   省掉 gcc 及其依赖（binutils/gmp/mpfr4/isl26 等约 200MB）可大幅缩短构建时间
+# 换用国内 Alpine 源：dl-cdn.alpinelinux.org 直连很慢
+# 挂载 apk 缓存：包列表变化时复用已下载的 .apk（故不再用 --no-cache）
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    sed -i 's|dl-cdn.alpinelinux.org|mirrors.ustc.edu.cn|g' /etc/apk/repositories && \
+    apk add git
 
 WORKDIR /build
 
@@ -40,7 +47,10 @@ FROM alpine:3.20 AS runner
 #   tzdata           时区支持（北京时间）
 #   haveged          熵守护进程：防止 alpine 容器内 crypto/rand 因熵不足而阻塞
 #                    （RSA 2048 密钥生成需要大量随机熵）
-RUN apk add --no-cache ca-certificates curl tzdata haveged su-exec && \
+# 换用国内 Alpine 源 + 复用 apk 缓存，理由同 builder 阶段
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    sed -i 's|dl-cdn.alpinelinux.org|mirrors.ustc.edu.cn|g' /etc/apk/repositories && \
+    apk add ca-certificates curl tzdata haveged su-exec && \
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone
 

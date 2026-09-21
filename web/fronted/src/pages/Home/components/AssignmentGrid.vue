@@ -1,0 +1,200 @@
+<template>
+  <div class="content">
+    <!-- 首屏骨架屏：避免整页闪成"加载中"再闪回 -->
+    <div v-if="loading && assignments.length === 0" class="grid" aria-busy="true" aria-live="polite">
+      <span class="sr-only">正在加载作业数据</span>
+      <div v-for="n in skeletonCount" :key="n" class="skeleton-card" aria-hidden="true">
+        <div class="sk-line sk-tags"></div>
+        <div class="sk-line sk-title"></div>
+        <div class="sk-line sk-desc"></div>
+        <div class="sk-line sk-foot"></div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div v-else-if="error" class="state error" role="alert">
+      <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+      <h3>加载失败</h3>
+      <p>{{ error }}</p>
+      <button type="button" class="btn" @click="$emit('refresh', true)">重新加载</button>
+    </div>
+
+    <!-- Grid -->
+    <div v-else class="grid" :class="{ 'grid-compact': compact }">
+      <div v-if="assignments.length === 0" class="state empty">
+        <i class="fas fa-inbox" aria-hidden="true"></i>
+        <h3>{{ emptyTitle }}</h3>
+        <p>{{ emptyHint }}</p>
+        <button v-if="filtersActive" type="button" class="btn" @click="$emit('clear-filters')">
+          清除筛选条件
+        </button>
+      </div>
+      <AssignmentCard
+        v-for="a in assignments" :key="a.id"
+        :assignment="a"
+        @open-url="$emit('open-url', $event)"
+        @show-preview="$emit('show-preview', $event)"
+        @set-reminder="$emit('set-reminder', $event)"
+        @delete-assignment="$emit('delete-assignment', $event)"
+        @mark-completed="$emit('mark-completed', $event)"
+        @undo-completed="$emit('undo-completed', $event)"
+        @blacklist-subject="$emit('blacklist-subject', $event)"
+      />
+    </div>
+
+    <!-- 后台刷新指示：不遮挡已有列表 -->
+    <div v-if="loading && assignments.length > 0" class="refresh-bar" role="status">
+      <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+      正在刷新…
+    </div>
+  </div>
+</template>
+
+<script lang="ts">
+import { defineComponent } from 'vue'
+import type { PropType } from 'vue'
+import AssignmentCard from './AssignmentCard.vue'
+import type { Assignment } from '../home.data'
+
+export default defineComponent({
+  name: 'AssignmentGrid',
+  components: { AssignmentCard },
+  props: {
+    assignments: { type: Array as PropType<Assignment[]>, required: true },
+    loading: Boolean,
+    error: { type: String, default: '' },
+    /** 紧凑视图：单列窄卡片，一屏能看到更多条目。 */
+    compact: { type: Boolean, default: false },
+    /** 是否有筛选条件生效，用于给出"清除筛选"出口。 */
+    filtersActive: { type: Boolean, default: false },
+    emptyTitle: { type: String, default: '暂无作业' },
+    emptyHint: { type: String, default: '没有找到符合条件的作业' },
+    skeletonCount: { type: Number, default: 6 }
+  },
+  emits: ['refresh', 'clear-filters', 'open-url', 'show-preview', 'set-reminder', 'delete-assignment', 'mark-completed', 'undo-completed', 'blacklist-subject']
+})
+</script>
+
+<style scoped>
+.content {
+  padding: 0 var(--space-6) var(--space-8);
+}
+
+/* 宽松视图（默认）：卡片更宽、留白更大、描述多显示一行。 */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr));
+  gap: var(--space-6);
+  align-items: start;
+}
+
+/* 紧凑视图：沿用原来的默认密度（340px 列 + 16px 间距），一屏看到更多条目。
+   列宽下限保持在能容纳"2026-09-30 23:59"单行显示的宽度。 */
+.grid-compact {
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  gap: var(--space-4);
+}
+
+.state {
+  grid-column: 1 / -1;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.state i {
+  display: block;
+  margin-bottom: var(--space-4);
+  font-size: 2.5rem;
+}
+
+.state h3 {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+}
+
+.state p {
+  margin-bottom: var(--space-4);
+  font-size: var(--font-sm);
+}
+
+.state.error i { color: var(--red); }
+
+.btn {
+  min-height: 44px;
+  padding: 8px 20px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ── 骨架屏 ── */
+.skeleton-card {
+  padding: var(--space-5);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+}
+
+.sk-line {
+  height: 12px;
+  margin-bottom: var(--space-3);
+  background: linear-gradient(90deg, var(--gray-100) 25%, var(--gray-200) 37%, var(--gray-100) 63%);
+  background-size: 400% 100%;
+  border-radius: var(--radius-sm);
+  animation: sk-shimmer 1.4s ease infinite;
+}
+
+.sk-tags { width: 45%; height: 18px; }
+.sk-title { width: 85%; }
+.sk-desc { width: 65%; margin-bottom: var(--space-5); }
+.sk-foot { width: 40%; margin-bottom: 0; }
+
+@keyframes sk-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-line { animation: none; }
+}
+
+/* ── 后台刷新条 ── */
+.refresh-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-2);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 768px) {
+  .content { padding: 0 var(--space-4) var(--space-6); }
+  .grid { grid-template-columns: 1fr; gap: var(--space-3); }
+  .grid-compact { grid-template-columns: 1fr; }
+}
+</style>

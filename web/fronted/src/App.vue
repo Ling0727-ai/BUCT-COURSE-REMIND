@@ -32,15 +32,19 @@
     </div>
 
     <router-view />
+
+    <ToastHost />
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue'
 import { useBackground } from '@/composables/useBackground'
+import ToastHost from '@/components/ToastHost.vue'
 
 export default defineComponent({
   name: 'App',
+  components: { ToastHost },
   setup() {
     const { settings, mediaUrl, mediaType } = useBackground()
     return { settings, mediaUrl, mediaType }

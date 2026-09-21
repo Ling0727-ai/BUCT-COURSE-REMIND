@@ -17,3 +17,38 @@
 .windsurf/
 rules/
 __pycache__/
+
+# ── 环境变量（含数据库密码、邮箱授权码、JWT 与 ECC 私钥）──
+# 注意：这些文件若曾被提交过，需 git rm --cached 才会真正停止跟踪
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+web/.env
+web/fronted/.env
+web/go-backend-test/.env
+
+# ── 依赖与构建产物 ──
+node_modules/
+dist/
+build/
+web/fronted/node_modules/
+web/fronted/dist/
+
+# ── Python 环境（Python 后端已移除，仅防御性忽略）──
+.venv/
+venv/
+*.pyc
+
+# ── 日志与备份 ──
+*.log
+logs/
+mongodb_backup/
+.keyfix-backup/
+
+# ── 编译产物 ──
+*.exe
+*.dll
+*.so
+*.dylib

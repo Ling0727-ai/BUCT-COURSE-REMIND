@@ -1,7 +1,7 @@
 version: '3.8'
 
 # Go 后端版本的 docker-compose
-# 对应 Python 版本的 docker-compose.yml，将 backend 替换为 Go 服务
+# 启动：docker compose -f docker-compose-go.yml up -d
 
 services:
 
@@ -57,9 +57,9 @@ services:
       - VERIFY_CODE_EXPIRE=${VERIFY_CODE_EXPIRE:-180}
 
       # ECC 私钥：十进制整数，对应 Python ec.derive_private_key(int(ECC_PRIVATE_KEY), ec.SECP256R1())
-      - ECC_PRIVATE_KEY=${ECC_PRIVATE_KEY:-REDACTED_ECC_PRIVATE_KEY}
-      - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:-10000000667}
-      - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:-10000000667}
+      # 无默认值：必须由 .env 提供，避免静默退回已知的弱密钥
+      - ECC_PRIVATE_KEY=${ECC_PRIVATE_KEY:?ECC_PRIVATE_KEY 必须在 .env 中设置}
+      - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:?ECC_PUBLIC_KEY 必须在 .env 中设置}
       - RSA_KEY_SIZE=${RSA_KEY_SIZE:-2048}
       - RSA_KEY_EXPIRE_MINUTES=${RSA_KEY_EXPIRE_MINUTES:-30}
       - RSA_ENABLE=${RSA_ENABLE:-true}

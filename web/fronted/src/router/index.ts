@@ -1,12 +1,15 @@
 import {createRouter, createWebHistory} from 'vue-router'
-import Home from '@/pages/Home/Home.vue'
-import Login from '@/pages/Login/Login.vue'
-import Register from '@/pages/Register/Register.vue'
-import Settings from '@/pages/Settings/Settings.vue'
-import Terms from '@/pages/Legal/Terms.vue'
-import Privacy from '@/pages/Legal/Privacy.vue'
 import {checkAuthenticated} from '@/pages/Auth/auth'
 import {SESSION_KEYS, SESSION_POLICY} from '@/config/session'
+
+// 路由级懒加载：登录页不再需要下载 Settings / Terms / Privacy 等代码。
+const Home = () => import('@/pages/Home/Home.vue')
+const Login = () => import('@/pages/Login/Login.vue')
+const Register = () => import('@/pages/Register/Register.vue')
+const Settings = () => import('@/pages/Settings/Settings.vue')
+const Terms = () => import('@/pages/Legal/Terms.vue')
+const Privacy = () => import('@/pages/Legal/Privacy.vue')
+const NotFound = () => import('@/pages/Legal/NotFound.vue')
 
 const routes = [
     {
@@ -40,6 +43,12 @@ const routes = [
         path: '/privacy',
         name: 'Privacy',
         component: Privacy
+    },
+    {
+        // 兜底：未匹配的路径不再静默落到首页
+        path: '/:pathMatch(.*)*',
+        name: 'NotFound',
+        component: NotFound
     }
 ]
 
@@ -84,4 +93,3 @@ router.beforeEach(async (to, _from, next) => {
 })
 
 export default router
-

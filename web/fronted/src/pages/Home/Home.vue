@@ -19,6 +19,8 @@
       :total-count="totalCount"
       :completed-count="completedCount"
       :todo-count="todoCount"
+      :compact="compactView"
+      @update:compact="setCompactView"
       @show-stat-modal="openStatModal"
     />
 
@@ -26,6 +28,9 @@
       :assignments="filteredAssignments"
       :loading="loading"
       :error="error"
+      :compact="compactView"
+      :filters-active="filtersActive"
+      @clear-filters="clearFilters"
       @refresh="handleGridRefresh"
       @open-url="openAssignmentUrl"
       @show-preview="openPreview"
@@ -87,7 +92,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useHomeService } from './home';
 import { useToast } from '@/composables/useToast';
 import * as api from './home.api';
@@ -104,6 +110,8 @@ import ReminderModal from './components/modals/ReminderModal.vue';
 import BlacklistModal from './components/modals/BlacklistModal.vue';
 import type { Assignment, Todo, ReminderConfig } from './home.data';
 
+const COMPACT_KEY = 'buct-compact-view';
+
 export default defineComponent({
   name: 'Home',
   components: {
@@ -114,6 +122,69 @@ export default defineComponent({
   setup() {
     const service = useHomeService();
     const { showToast } = useToast();
+    const route = useRoute();
+    const router = useRouter();
+
+    // ─── 筛选状态同步到 URL，便于刷新保留和分享链接 ───
+    const searchTerm = service.searchTerm;
+    const subjectFilter = service.subjectFilter;
+    const statusFilter = service.statusFilter;
+
+    const applyQuery = (query: Record<string, unknown>) => {
+      const q = (key: string) => (typeof query[key] === 'string' ? (query[key] as string) : '');
+      searchTerm.value = q('q');
+      subjectFilter.value = q('subject');
+      statusFilter.value = q('status');
+    };
+
+    applyQuery(route.query);
+
+    let syncingFromUrl = false;
+    watch(
+      () => route.query,
+      (query) => {
+        syncingFromUrl = true;
+        applyQuery(query);
+        syncingFromUrl = false;
+      }
+    );
+
+    watch([searchTerm, subjectFilter, statusFilter], () => {
+      if (syncingFromUrl) return;
+      const query: Record<string, string> = {};
+      if (searchTerm.value) query.q = searchTerm.value;
+      if (subjectFilter.value) query.subject = subjectFilter.value;
+      if (statusFilter.value) query.status = statusFilter.value;
+      // 使用 replace 避免每个字符都产生一条历史记录
+      router.replace({ query });
+    });
+
+    const filtersActive = computed(
+      () => Boolean(searchTerm.value || subjectFilter.value || statusFilter.value)
+    );
+
+    const clearFilters = () => {
+      searchTerm.value = '';
+      subjectFilter.value = '';
+      statusFilter.value = '';
+    };
+
+    // ─── 紧凑视图偏好 ───
+    const compactView = ref(false);
+    try {
+      compactView.value = localStorage.getItem(COMPACT_KEY) === '1';
+    } catch {
+      // localStorage 不可用时使用默认值
+    }
+
+    const setCompactView = (value: boolean) => {
+      compactView.value = value;
+      try {
+        localStorage.setItem(COMPACT_KEY, value ? '1' : '0');
+      } catch {
+        // 忽略写入失败
+      }
+    };
 
     const showAddTodoModal = ref(false);
     const addingTodo = ref(false);
@@ -195,6 +266,7 @@ export default defineComponent({
 
     return {
       ...service,
+      filtersActive, clearFilters, compactView, setCompactView,
       showAddTodoModal, addingTodo, newTodo, closeAddTodoModal, onAddTodo,
       showPreviewModal, previewItem, openPreview, closePreviewModal, openAssignmentUrl,
       showConfirmModal, confirmMessage, onConfirmAction, onCancelConfirm,

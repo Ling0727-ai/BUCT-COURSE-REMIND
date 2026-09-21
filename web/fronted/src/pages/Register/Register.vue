@@ -116,12 +116,7 @@
       </div>
     </div>
 
-    <transition name="slide">
-      <div v-if="showSuccess" class="toast">
-        <div class="toast-title">注册成功！</div>
-        <div class="toast-msg">正在跳转到登录页面...</div>
-      </div>
-    </transition>
+    <!-- Toast 由全局 ToastHost 统一渲染（见 register.ts 中的 useToast 调用） -->
   </div>
 </template>
 
@@ -350,18 +345,6 @@ export default defineComponent({
 .form-footer { text-align: center; margin-top: var(--space-4); font-size: var(--font-sm); color: var(--text-tertiary); }
 .login-link { color: var(--primary); font-weight: var(--font-medium); margin-left: 4px; }
 .login-link i { font-size: 12px; }
-
-/* Toast */
-.toast {
-  position: fixed; top: var(--space-6); left: 50%; transform: translateX(-50%);
-  background: var(--bg); padding: var(--space-4) var(--space-5); border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg); border-left: 4px solid var(--green);
-  z-index: 1000; min-width: 280px;
-}
-.toast-title { font-weight: var(--font-semibold); font-size: var(--font-sm); color: var(--text-primary); margin-bottom: 2px; }
-.toast-msg { font-size: var(--font-xs); color: var(--text-tertiary); }
-.slide-enter-active, .slide-leave-active { transition: all 0.3s ease; }
-.slide-enter-from, .slide-leave-to { opacity: 0; transform: translate(-50%, -12px); }
 
 /* Responsive */
 @media (max-width: 768px) {

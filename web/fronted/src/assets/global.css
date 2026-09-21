@@ -31,11 +31,16 @@
   /* 文字 */
   --text-primary: #111827;
   --text-secondary: #4b5563;
-  --text-tertiary: #9ca3af;
+  /* 在 --gray-100 (#f3f4f6) 背景上仍需满足 AA 4.5:1，故比 gray-500 略深 */
+  --text-tertiary: #636e7d;
   --text-white: #ffffff;
 
-  /* 背景 */
-  --bg: #ffffff;
+  /* 背景
+     卡片表面用 --surface-rgb + --card-alpha 组合，深色预设只需换 --surface-rgb，
+     不再由 JS 直接覆写 --bg（那样会盖掉深色模式，见 useBackground）。 */
+  --surface-rgb: 255, 255, 255;
+  --card-alpha: 1;
+  --bg: rgba(var(--surface-rgb), var(--card-alpha));
   --bg-secondary: #f9fafb;
   --bg-tertiary: #f3f4f6;
 
@@ -68,7 +73,7 @@
 
   /* 字体 */
   --font-xs: 12px;
-  --font-sm: 13px;
+  --font-sm: 14px;
   --font-base: 15px;
   --font-lg: 17px;
   --font-xl: 20px;
@@ -134,10 +139,11 @@ html[data-bg-preset="none"] body {
 /* ─── 深色模式全局变量覆盖 ─── */
 html[data-bg-preset="dark"] {
   --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
 
-  --bg: #1e293b;
+  /* 深色卡片表面：由 --surface-rgb 决定，卡片透明度不再覆写它 */
+  --surface-rgb: 30, 41, 59;
   --bg-secondary: #0f172a;
   --bg-tertiary: #1e293b;
 
@@ -173,11 +179,65 @@ a:hover {
 
 button {
   font-family: inherit;
+  touch-action: manipulation;
 }
 
 input, textarea, select {
   font-family: inherit;
   font-size: inherit;
+}
+
+/* ─── 键盘焦点可见性 ───
+   各处 input/select 的 outline: none 是给鼠标点击用的，
+   这里统一补回键盘焦点环，避免键盘用户"看不见自己在哪"。 */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* 鼠标点击不显示焦点环，键盘导航才显示 */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* 输入类控件本身的边框已经足够表达焦点，避免双重描边 */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline-offset: 1px;
+}
+
+/* 跳转到主内容：键盘用户的第一个可聚焦元素 */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 4000;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-md) 0;
+  font-size: var(--font-sm);
+  font-weight: var(--font-medium);
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+/* 仅供屏幕阅读器 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* 自定义滚动条 */
@@ -267,5 +327,19 @@ input, textarea, select {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── 触控目标 ─── */
+@media (pointer: coarse) {
+  /* 图标按钮在触屏设备上至少 44px，避免误触相邻的删除/拉黑 */
+  .icon-btn,
+  .act-btn,
+  .close-btn,
+  .modal-close,
+  .preview-btn,
+  .fab {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
