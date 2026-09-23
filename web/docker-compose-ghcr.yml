@@ -1,0 +1,114 @@
+# ──────────────────────────────────────────────────────────────
+# 使用 GHCR 已发布镜像部署（无需在服务器上构建）
+#
+# 与 web/docker-compose-go.yml 的区别：
+#   - 那份用 build: 本地构建源码，需要 Go / Node 环境
+#   - 本份用 image: 直接拉取 CI 构建好的镜像，开箱即用
+#
+# 使用方式：
+#   mkdir -p ~/buct-deploy && cd ~/buct-deploy
+#   cp <仓库>/web/docker-compose-ghcr.yml ./docker-compose.yml
+#   cp <仓库>/web/.env.template ./.env     # 然后填入真实值
+#   docker login ghcr.io -u <用户名>        # 镜像是私有的，必须先登录
+#   docker compose up -d
+#
+# ⚠️ 本文件不含任何密钥，全部通过同目录的 .env 注入。
+#    缺少必填项时 compose 会直接报错退出，不会静默使用弱默认值。
+# ──────────────────────────────────────────────────────────────
+
+services:
+
+  # ── MongoDB ──────────────────────────────────
+  mongodb:
+    image: mongo:6-jammy
+    environment:
+      # 无默认值：必须由 .env 提供，避免静默使用已知的弱口令
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME 必须在 .env 中设置}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD 必须在 .env 中设置}
+      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-buct-course}
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    restart: unless-stopped
+    networks:
+      - buct-network
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ── Go 后端（使用已发布镜像）───────────────────
+  # ⚠️ 服务名必须叫 backend：前端 nginx.conf 里的上游地址在构建时
+  #    固化为 http://backend:5000，改名会导致前端 502。
+  backend:
+    image: ghcr.io/ling0727-ai/buct-course-remind-backend:latest
+    ports:
+      - "${GO_PORT:-5000}:5000"
+    environment:
+      - ENV=production
+      - PORT=:5000
+
+      # MongoDB 连接，凭据由 .env 注入
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE:-buct-course}?authSource=admin
+
+      # JWT 密钥（无默认值：原实现默认 change-this-in-production，
+      # 该值公开在仓库里，未配置时任何人都能伪造登录态）
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY 必须在 .env 中设置}
+
+      # 邮件配置，为空则验证码与提醒邮件发不出去
+      - MAIL_SMTP_SERVER=${MAIL_SMTP_SERVER:-smtp.163.com}
+      - MAIL_SMTP_PORT=${MAIL_SMTP_PORT:-465}
+      - MAIL_SENDER=${MAIL_SENDER:-your_email@163.com}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - VERIFY_CODE_EXPIRE=${VERIFY_CODE_EXPIRE:-180}
+
+      # ECC 私钥：十进制整数，用于加密存储学生的学校密码
+      - ECC_PRIVATE_KEY=${ECC_PRIVATE_KEY:?ECC_PRIVATE_KEY 必须在 .env 中设置}
+      - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:?ECC_PUBLIC_KEY 必须在 .env 中设置}
+      - RSA_KEY_SIZE=${RSA_KEY_SIZE:-2048}
+      - RSA_KEY_EXPIRE_MINUTES=${RSA_KEY_EXPIRE_MINUTES:-30}
+      # 必须保持 true：后端已强制要求加密传输，设为 false 会导致
+      # 登录/注册/重置密码等接口全部返回 400，服务不可用。
+      - RSA_ENABLE=true
+      # CORS 白名单（逗号分隔）。生产走 nginx 同源代理，通常留空即可。
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+
+      # Snowflake ID 生成器节点 ID（多实例部署时每个实例设不同值）
+      - SNOWFLAKE_NODE=${SNOWFLAKE_NODE:-1}
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - buct-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5000/api/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── 前端（使用已发布镜像）──────────────────────
+  frontend:
+    image: ghcr.io/ling0727-ai/buct-course-remind-frontend:latest
+    ports:
+      - "${FRONTEND_PORT:-3033}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - buct-network
+
+networks:
+  buct-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local

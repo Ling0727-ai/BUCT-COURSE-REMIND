@@ -196,77 +196,22 @@ ECC 密钥的生成方式见下方「生成密钥」。**不要复用示例值**
 
 #### 2. 创建 `docker-compose.yml`
 
-> 下面的 `container_name` 与 `volumes` 名称是固定的。若同一台机器上已跑过旧栈，
-> 会报容器名冲突或直接复用旧数据卷。想并行跑一套用于验证，请去掉 `container_name`
-> 并另设 `MONGO_PORT` / `GO_PORT` / `FRONTEND_PORT`。
+直接用仓库里现成的 [`web/docker-compose-ghcr.yml`](web/docker-compose-ghcr.yml)
+（已实测可启动），复制过来重命名即可：
 
-```yaml
-services:
-  mongodb:
-    image: mongo:6-jammy
-    container_name: buct-mongodb
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:?必须设置}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:?必须设置}
-      - MONGO_INITDB_DATABASE=buct-course
-    volumes:
-      - mongodb_data:/data/db
-      - mongodb_config:/data/configdb
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks: [buct]
-
-  # ⚠️ 服务名必须叫 backend：前端 nginx.conf 里的上游地址
-  #    在构建时固化为 http://backend:5000，改名会导致前端 502
-  backend:
-    image: ghcr.io/ling0727-ai/buct-course-remind-backend:latest
-    container_name: buct-backend-go
-    environment:
-      - ENV=production
-      - PORT=:5000
-      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/buct-course?authSource=admin
-      - SECRET_KEY=${SECRET_KEY:?必须设置}
-      - ECC_PRIVATE_KEY=${ECC_PRIVATE_KEY:?必须设置}
-      - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:?必须设置}
-      - MAIL_SMTP_SERVER=${MAIL_SMTP_SERVER:-smtp.163.com}
-      - MAIL_SMTP_PORT=${MAIL_SMTP_PORT:-465}
-      - MAIL_SENDER=${MAIL_SENDER:-your_email@163.com}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - VERIFY_CODE_EXPIRE=${VERIFY_CODE_EXPIRE:-180}
-      - RSA_ENABLE=true
-      - SNOWFLAKE_NODE=${SNOWFLAKE_NODE:-1}
-    ports:
-      - "${GO_PORT:-5000}:5000"
-    volumes:
-      - ./logs:/app/logs
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    restart: unless-stopped
-    networks: [buct]
-
-  frontend:
-    image: ghcr.io/ling0727-ai/buct-course-remind-frontend:latest
-    container_name: buct-frontend
-    ports:
-      - "${FRONTEND_PORT:-3033}:80"
-    depends_on: [backend]
-    restart: unless-stopped
-    networks: [buct]
-
-networks:
-  buct:
-    driver: bridge
-
-volumes:
-  mongodb_data:
-  mongodb_config:
+```bash
+curl -fsSL -o docker-compose.yml \
+  https://raw.githubusercontent.com/Ling0727-ai/BUCT-course-remind/main/web/docker-compose-ghcr.yml
 ```
+
+或在已克隆的仓库里：
+
+```bash
+cp <仓库路径>/web/docker-compose-ghcr.yml ./docker-compose.yml
+```
+
+该文件不含任何密钥，全部通过同目录 `.env` 注入。服务名固定为 `backend`——
+前端 nginx 的上游地址在构建时固化，改名会导致 502。
 
 #### 3. 登录并启动
 
