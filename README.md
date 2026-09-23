@@ -196,6 +196,10 @@ ECC 密钥的生成方式见下方「生成密钥」。**不要复用示例值**
 
 #### 2. 创建 `docker-compose.yml`
 
+> 下面的 `container_name` 与 `volumes` 名称是固定的。若同一台机器上已跑过旧栈，
+> 会报容器名冲突或直接复用旧数据卷。想并行跑一套用于验证，请去掉 `container_name`
+> 并另设 `MONGO_PORT` / `GO_PORT` / `FRONTEND_PORT`。
+
 ```yaml
 services:
   mongodb:
@@ -266,10 +270,17 @@ volumes:
 
 #### 3. 登录并启动
 
+镜像与包都是私有的，**必须先登录**，否则拉取返回 `denied`。
+
+需要一个 **classic PAT**（`gh auth token` 生成的令牌不含包权限）：
+
+- `read:packages` —— 拉取镜像必需
+- `repo` —— 因为包关联到私有仓库并继承其权限，缺这项仍会 `denied`
+
 ```bash
-# 必做：镜像与仓库都是私有的，不登录会拉取失败（denied）
-# 令牌需带 read:packages 权限
-echo $GITHUB_TOKEN | docker login ghcr.io -u <你的GitHub用户名> --password-stdin
+export CR_PAT=<你的 classic PAT>
+echo $CR_PAT | docker login ghcr.io -u <你的GitHub用户名> --password-stdin
+# 应输出 Login Succeeded
 
 docker compose up -d
 docker compose logs -f backend
@@ -311,9 +322,10 @@ docker compose up -d
 **`required variable ... is missing a value`**：`.env` 缺必填项。
 检查 `SECRET_KEY`、`ECC_PRIVATE_KEY`、`ECC_PUBLIC_KEY`、两个 Mongo 变量。
 
-**`denied` 拉取失败**：镜像是私有的，必须先 `docker login ghcr.io`，
-且令牌要有 `read:packages` 权限。用 `gh auth token` 生成的令牌**不含**该权限，
-需另建 classic PAT 并勾选 `read:packages`。
+**`denied` 拉取失败**：镜像是私有的，必须先 `docker login ghcr.io`。
+令牌要用 **classic PAT** 且勾选 `read:packages` **和** `repo`——
+包关联到私有仓库并继承其权限，只勾 `read:packages` 仍会被拒。
+`gh auth token` 生成的令牌不含包权限，不能用。
 
 **数据库数据在哪**：`mongodb_data` 卷。`docker compose down` 不会删数据，
 `docker compose down -v` 会。
