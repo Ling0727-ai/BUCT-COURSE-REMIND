@@ -69,9 +69,10 @@
     />
     <RecycleBinModal
       :show="showRecycleBinModal" :items="deletedItems"
+      :loading="recycleBinLoading" :restoring-all="restoringAllRecycle"
       @close="showRecycleBinModal = false"
       @restore-item="handleRestoreItem" @permanent-delete="onPermanentDelete"
-      @restore-all="handleRestoreAll"
+      @restore-all="onRestoreAll"
     />
     <ReminderModal
       :assignment="reminderAssignment" :show="showReminderModal"
@@ -238,6 +239,19 @@ export default defineComponent({
       showCustomConfirm(`确定要永久删除"${item.title}"吗？`, () => service.handlePermanentDelete(item));
     };
 
+    // 「全部恢复」没有后端批量接口，是前端逐条调用，
+    // 项数可能较多，用状态位防止重复点击并给出进度反馈。
+    const restoringAllRecycle = ref(false);
+    const onRestoreAll = async () => {
+      if (restoringAllRecycle.value) return;
+      restoringAllRecycle.value = true;
+      try {
+        await service.handleRestoreAll();
+      } finally {
+        restoringAllRecycle.value = false;
+      }
+    };
+
     const showReminderModal = ref(false);
     const reminderAssignment = ref<Assignment | null>(null);
     const openReminderModal = (item: Assignment) => { reminderAssignment.value = item; showReminderModal.value = true; };
@@ -272,6 +286,7 @@ export default defineComponent({
       showConfirmModal, confirmMessage, onConfirmAction, onCancelConfirm,
       showStatisticsModal, currentStatType, filteredStatItems, openStatModal, closeStatModal,
       handleGridRefresh, showRecycleBinModal, openRecycleBin, onPermanentDelete,
+      restoringAllRecycle, onRestoreAll,
       showReminderModal, reminderAssignment, openReminderModal, closeReminderModal, onConfirmReminder,
       showBlacklistModal, confirmBlacklistSubject, confirmDelete
     };

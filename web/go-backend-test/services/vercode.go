@@ -27,7 +27,13 @@ type verCodeDoc struct {
 	Code      string    `bson:"code"`
 	CreatedAt time.Time `bson:"created_at"`
 	ExpiresAt time.Time `bson:"expires_at"`
+	Attempts  int       `bson:"attempts"`
 }
+
+// maxVerifyAttempts 单个验证码允许的最大校验失败次数。
+// 6 位数字码只有 100 万种组合，若不做次数限制，
+// 在 3 分钟有效期内足以被枚举，进而通过重置密码接管账号。
+const maxVerifyAttempts = 5
 
 // getVerCodeCollection 获取 verification_codes 集合
 func getVerCodeCollection() (*mongo.Collection, error) {
@@ -96,6 +102,7 @@ func SaveVerificationCode(email, code string) error {
 			"code":       code,
 			"created_at": now,
 			"expires_at": now.Add(time.Duration(expire) * time.Second),
+			"attempts":   0,
 		}},
 		options.Update().SetUpsert(true),
 	)
@@ -103,7 +110,7 @@ func SaveVerificationCode(email, code string) error {
 }
 
 // VerifyCode 校验验证码是否有效，成功后删除记录
-// 对应 Python verify_code 路由逻辑
+// 对应 Python verify_code 路由逻辑，并增加了失败次数限制
 func VerifyCode(email, code string) (bool, error) {
 	col, err := getVerCodeCollection()
 	if err != nil {
@@ -116,15 +123,33 @@ func VerifyCode(email, code string) (bool, error) {
 	var doc verCodeDoc
 	err = col.FindOne(ctx, bson.M{
 		"email":      email,
-		"code":       code,
 		"expires_at": bson.M{"$gt": time.Now()},
 	}).Decode(&doc)
 
 	if err == mongo.ErrNoDocuments {
-		return false, nil // 验证码无效或已过期
+		return false, nil // 验证码不存在或已过期
 	}
 	if err != nil {
 		return false, err
+	}
+
+	// 已超过尝试上限：直接作废该验证码，要求重新发送
+	if doc.Attempts >= maxVerifyAttempts {
+		_, _ = col.DeleteOne(ctx, bson.M{"email": email})
+		return false, nil
+	}
+
+	if doc.Code != code {
+		// 记录一次失败；达到上限时顺手删除，避免继续被尝试
+		if doc.Attempts+1 >= maxVerifyAttempts {
+			_, _ = col.DeleteOne(ctx, bson.M{"email": email})
+		} else {
+			_, _ = col.UpdateOne(ctx,
+				bson.M{"email": email},
+				bson.M{"$inc": bson.M{"attempts": 1}},
+			)
+		}
+		return false, nil
 	}
 
 	// 验证成功后删除记录，对应 Python delete_one

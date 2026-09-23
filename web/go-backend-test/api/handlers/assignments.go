@@ -182,29 +182,39 @@ func GetDeletedAssignments(c *gin.Context) {
 		return
 	}
 
-	// 构建 taskID → status_time 映射
-	deletedMap := make(map[string]*AssignmentStatus.AssignmentStatus, len(statuses))
-	for _, s := range statuses {
-		deletedMap[s.AssignmentID] = s
+	tasks, _ := CourseData.Repository.GetCourseDataByUserID(userID)
+	taskMap := make(map[string]*CourseData.CourseData, len(tasks))
+	for _, t := range tasks {
+		taskMap[t.TaskID] = t
 	}
 
-	tasks, _ := CourseData.Repository.GetCourseDataByUserID(userID)
-	var result []gin.H
-	for _, t := range tasks {
-		s, ok := deletedMap[t.TaskID]
-		if !ok {
-			continue
-		}
+	// 以「删除记录」为主遍历，而不是以课表为主。
+	//
+	// 原实现只遍历 course_data，若某作业已从课表同步中消失
+	// （学期结束、科目被拉黑、任务被上游移除），
+	// 它的删除记录就会变成永远看不到、也无法恢复的孤儿，
+	// 尽管软删数据仍在库里。这里对缺失的课表信息回退到
+	// 删除时快照的标题/科目。
+	result := make([]gin.H, 0, len(statuses))
+	for _, s := range statuses {
 		entry := gin.H{
-			"task_id":     t.TaskID,
-			"subject":     t.Subject,
-			"title":       t.Title,
-			"deadline":    t.Deadline,
-			"details":     t.Details,
-			"url":         t.Url,
-			"type":        t.Type,
+			"task_id":     s.AssignmentID,
+			"title":       s.AssignmentTitle,
+			"subject":     s.AssignmentSubject,
+			"type":        s.AssignmentType,
 			"delete_time": s.StatusTime.Format(time.RFC3339),
 		}
+
+		// 课表里还在的话，补上更完整的字段
+		if t, ok := taskMap[s.AssignmentID]; ok {
+			entry["title"] = t.Title
+			entry["subject"] = t.Subject
+			entry["deadline"] = t.Deadline
+			entry["details"] = t.Details
+			entry["url"] = t.Url
+			entry["type"] = t.Type
+		}
+
 		result = append(result, entry)
 	}
 

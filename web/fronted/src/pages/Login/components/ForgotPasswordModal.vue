@@ -332,10 +332,15 @@ export default defineComponent({
       loading.value = true
 
       try {
+        const verifyRequest = await rsaCrypto.createEncryptedRequest({
+          email: formData.email,
+          code: formData.captcha
+        })
+
         const verifyResponse = await fetch('/api/auth/verify-code', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: formData.email, code: formData.captcha })
+          body: JSON.stringify(verifyRequest)
         })
 
         if (verifyResponse.ok) {

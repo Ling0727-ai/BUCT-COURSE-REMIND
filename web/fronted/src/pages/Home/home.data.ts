@@ -93,10 +93,51 @@ export interface TodosResponse {
 }
 
 export interface RecycleBinItem {
+  /** 作业用 task_id，待办用 _id */
   id: string
   title: string
+  /** 显示用类型：作业 / 测试 / 待办 */
   type: string
   subject?: string
+  content?: string
+  dueDate?: string
+  deletedAt?: string
+  /** 决定调用哪一组恢复/永久删除接口 */
+  source: 'assignment' | 'todo'
+}
+
+/** GET /assignments/deleted 的条目 */
+export interface DeletedAssignmentRaw {
+  task_id: string
+  subject?: string
+  title?: string
+  deadline?: string
+  details?: string
+  url?: string
+  type?: string
+  delete_time?: string
+}
+
+export interface DeletedAssignmentsResponse {
+  success?: boolean
+  deleted_assignments?: DeletedAssignmentRaw[]
+  count?: number
+}
+
+/** GET /todos/deleted 的条目（Todo 字段平铺 + todo_id） */
+export interface DeletedTodoRaw {
+  _id: string
+  todo_id?: string
+  title?: string
+  description?: string
+  due_date?: string
+  delete_time?: string
+}
+
+export interface DeletedTodosResponse {
+  success?: boolean
+  deleted_todos?: DeletedTodoRaw[]
+  count?: number
 }
 
 export interface RecycleBinResponse {

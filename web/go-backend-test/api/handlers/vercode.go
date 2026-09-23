@@ -16,20 +16,20 @@ func SendVerificationCode(c *gin.Context) {
 		return
 	}
 
-	var email string
-
-	// 优先尝试 RSA 解密，对应 Python encrypted_data 分支
-	if enc, ok := body["encrypted_data"].(string); ok && enc != "" {
-		rsa := crypto.GetRSAService()
-		decrypted, err := rsa.DecryptRequest(enc)
-		if err != nil {
-			c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed})
-			return
-		}
-		email, _ = decrypted["email"].(string)
-	} else {
-		email, _ = body["email"].(string)
+	// 强制加密传输：不接受明文 email
+	enc, _ := body["encrypted_data"].(string)
+	if enc == "" {
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.RequireEncryption})
+		return
 	}
+
+	rsa := crypto.GetRSAService()
+	decrypted, err := rsa.DecryptRequest(enc)
+	if err != nil {
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed})
+		return
+	}
+	email, _ := decrypted["email"].(string)
 
 	if email == "" {
 		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Email.Empty})
@@ -82,16 +82,35 @@ func SendVerificationCode(c *gin.Context) {
 
 // VerifyCode 校验验证码，对应 Python POST /api/auth/verify-code
 func VerifyCode(c *gin.Context) {
-	var body struct {
-		Email string `json:"email" binding:"required"`
-		Code  string `json:"code"  binding:"required"`
-	}
+	var body map[string]interface{}
 	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.RequestFormatError})
+		return
+	}
+
+	// 强制加密传输：验证码是账号找回的关键凭证，
+	// 明文传输会让同网段攻击者直接读到并抢先使用。
+	enc, _ := body["encrypted_data"].(string)
+	if enc == "" {
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.RequireEncryption})
+		return
+	}
+
+	rsa := crypto.GetRSAService()
+	decrypted, err := rsa.DecryptRequest(enc)
+	if err != nil {
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed})
+		return
+	}
+
+	email, _ := decrypted["email"].(string)
+	code, _ := decrypted["code"].(string)
+	if email == "" || code == "" {
 		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Verification.Empty})
 		return
 	}
 
-	ok, err := services.VerifyCode(body.Email, body.Code)
+	ok, err := services.VerifyCode(email, code)
 	if err != nil {
 		c.JSON(utils.Defaults.Status.InternalServerError, gin.H{"error": utils.Defaults.Verification.VerifyFailed})
 		return

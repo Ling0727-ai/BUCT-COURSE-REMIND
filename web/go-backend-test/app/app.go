@@ -2,6 +2,7 @@ package app
 
 import (
 	"log"
+	"time"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/config"
 	"github.com/Ling0727-ai/go-buct-course-backend/crypto"
@@ -28,10 +29,16 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	}
 
 	r := gin.New()
+	// 默认信任所有代理会导致 c.ClientIP() 可被 X-Forwarded-For 伪造，
+	// 限流形同虚设。这里只信任 Docker 网络与回环地址。
+	_ = r.SetTrustedProxies([]string{"127.0.0.1", "172.16.0.0/12", "10.0.0.0/8", "192.168.0.0/16"})
 	r.Use(middleware.LoggingMiddleware())
 	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.RecoveryMiddleware())
 	r.Use(middleware.SessionMiddleware())
+
+	// 全局兜底限流：单 IP 每分钟 300 次，防止接口被扫
+	r.Use(middleware.RateLimit(300, time.Minute))
 
 	router.SetupRoutes(r)
 	return r

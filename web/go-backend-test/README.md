@@ -50,10 +50,25 @@ go-backend/
 ### 4. **middleware** - 中间件
 
 - 日志中间件（LoggingMiddleware）
-- CORS跨域中间件（CORSMiddleware）
+- CORS 跨域中间件（CORSMiddleware）：仅放行同源与 `ALLOWED_ORIGINS` 白名单，不反射任意来源
 - 恢复中间件（RecoveryMiddleware）
+- 会话中间件（SessionMiddleware）：解析 JWT Cookie，注入用户信息
+- 强制鉴权（AuthRequired）：用于 `/api/test`、`/api/admin` 等敏感路由组
+- IP 限流（RateLimit）：固定窗口计数，作为兜底
+- 账号失败锁定（loginguard.go）：同一账号连续 5 次登录失败锁定 15 分钟
 
-### 5. **models** - 数据模型
+> 为什么抗爆破依赖「账号锁定」而不是「IP 限流」：
+> 校园网中大量用户共享同一 NAT 出口 IP，严格按 IP 计数会把正常用户
+> 一并挡掉，而攻击者换 IP 成本极低。
+
+### 5. **crypto** - 加密
+
+- `RSA.go`：传输加密（PKCS#1 v1.5）。含 30 分钟密钥轮换 + 5 分钟旧密钥过渡期、
+  600 秒时间戳窗口，以及**一次性密文防重放**（同一密文只能成功解密一次）
+- `ECC.go`：P-256，用于加密存储学生的学校密码（`s_password`）
+- `AES.go`：`EncryptAES` / `DecryptAES` 当前**无调用方**，属预留代码
+
+### 6. **models** - 数据模型
 
 - 用户模型 (User)
 - 课程模型 (Course)
@@ -71,6 +86,27 @@ go-backend/
 
 - 统一响应工具函数
 - 简化的错误处理响应
+- `defaults.go`：集中管理所有面向用户的中文提示文案
+
+## 安全约定（改动前请先读）
+
+1. **登录 / 注册 / 重置密码 / 收发验证码一律不接受明文。**
+   前端 `createEncryptedRequest` 在加密失败时会直接抛错中止请求，
+   后端对应 handler 会回 400「必须使用加密传输」。
+   两侧都不能保留明文降级分支，否则攻击者只要阻断
+   `/api/crypto/public-key` 就能诱导前端明文提交。
+
+2. **`RSA_ENABLE` 必须为 true。** 设为 false 时前端会拒绝发送、
+   后端也没有私钥，登录注册全部不可用。
+
+3. **验证码校验有 5 次失败上限**（`services/vercode.go`）。
+   6 位数字码若不限次，3 分钟有效期内足以被枚举，
+   进而通过重置密码接管账号。达到上限后该验证码作废，需重新发送。
+
+4. **`/api/test` 与 `/api/admin` 必须经过 `AuthRequired`。**
+   `send-test-email` 会真实发信，`/api/test/config` 曾泄露 `MONGODB_URI`。
+
+5. **ECC 密钥不可随意更换**，库中 `s_password` 依赖它解密。
 
 ## 前提条件
 
@@ -91,7 +127,7 @@ go mod download
 go run main.go
 ```
 
-应用将在 `http://localhost:8080` 启动。
+应用将在 `http://localhost:5000` 启动。
 
 ### 3. 构建二进制文件
 
@@ -103,34 +139,56 @@ go build -o go-backend.exe
 
 ### 健康检查
 
-- `GET /health` - 检查服务器健康状态
+- `GET /health`、`GET /api/health` - 检查服务器与数据库健康状态
 
-### API v1
+### 认证 (`/api/auth`)
 
-#### Ping
+| 方法   | 路径                          | 说明                    | 需登录 |
+|------|-----------------------------|-----------------------|-----|
+| POST | `/api/auth/login`           | 登录（加密），签发 HttpOnly Cookie | 否   |
+| POST | `/api/auth/register`        | 注册（加密）                | 否   |
+| POST | `/api/auth/logout`          | 登出，清除 Cookie           | 否   |
+| GET  | `/api/auth/status`          | 查询登录状态                | 否   |
+| GET  | `/api/auth/user-info`       | 获取当前用户信息              | 是   |
+| POST | `/api/auth/send-verification-code` | 发送验证码（加密）       | 否   |
+| POST | `/api/auth/verify-code`     | 校验验证码（加密），5 次失败上限     | 否   |
+| POST | `/api/auth/reset-password`  | 重置密码（加密）              | 否   |
+| POST | `/api/auth/check-email`     | 查询邮箱是否已注册             | 否   |
 
-- `GET /api/v1/ping` - 简单的 Ping 测试
+### 业务接口
 
-#### 用户管理 (`/api/v1/users`)
+- `/api/assignments/*` - 作业列表、完成/删除/恢复、手动提醒
+- `/api/courses/*` - 课程数据（`/api/course-data/list` 等）
+- `/api/todos/*` - 待办事项
+- `/api/reminders`、`/api/webhooks/*` - 提醒
+- `/api/settings`、`/api/stats`、`/api/blacklist` - 设置、统计、黑名单
+- `/api/crypto/public-key`、`/api/crypto/status` - 加密公钥与状态
+- `/api/test/*` - **需登录**，调试用
+- `/api/admin/*` - **需登录 + 管理员**，运维用
 
-- `GET /api/v1/users` - 获取所有用户
-- `GET /api/v1/users/:id` - 获取指定用户
-- `POST /api/v1/users` - 创建新用户
-- `PUT /api/v1/users/:id` - 更新用户信息
-- `DELETE /api/v1/users/:id` - 删除用户
-
-#### 课程管理 (`/api/v1/courses`)
-
-- `GET /api/v1/courses` - 获取所有课程
-- `GET /api/v1/courses/:id` - 获取指定课程
-- `POST /api/v1/courses` - 创建新课程
+> 所有接受密码、验证码的接口都只接受 `{"encrypted_data": "<RSA 密文>"}`，
+> 传明文一律返回 400。
 
 ## 环境变量
 
-| 变量     | 说明    | 默认值           |
-|--------|-------|---------------|
-| `PORT` | 服务器端口 | `:8080`       |
-| `ENV`  | 运行环境  | `development` |
+| 变量                        | 说明                          | 默认值           |
+|---------------------------|-----------------------------|---------------|
+| `PORT`                    | 服务器监听地址                     | `:5000`       |
+| `ENV`                     | 运行环境，`development` 时开启 Debug | `development` |
+| `MONGODB_URI`             | MongoDB 连接串（含库名）             | 无，必填          |
+| `SECRET_KEY`              | JWT 签名密钥                     | 无，必填          |
+| `ECC_PRIVATE_KEY`         | P-256 私钥（十进制）                | 无，必填          |
+| `ECC_PUBLIC_KEY`          | P-256 公钥 x 坐标（十进制）           | 无，必填          |
+| `RSA_ENABLE`              | 是否启用传输加密，必须为 `true`          | `true`        |
+| `RSA_KEY_SIZE`            | RSA 密钥位数                     | `2048`        |
+| `RSA_KEY_EXPIRE_MINUTES`  | RSA 密钥轮换周期（分钟）               | `30`          |
+| `ALLOWED_ORIGINS`         | CORS 白名单，逗号分隔；留空仅放行同源        | 空             |
+| `SNOWFLAKE_NODE`          | 雪花 ID 节点号（0-1023），多实例必须不同    | `1`           |
+| `MAIL_SMTP_SERVER`        | SMTP 服务器                    | 无             |
+| `MAIL_SMTP_PORT`          | SMTP 端口                     | 无             |
+| `MAIL_SENDER`             | 发件邮箱                        | 无             |
+| `MAIL_PASSWORD`           | 邮箱授权码                       | 无             |
+| `VERIFY_CODE_EXPIRE`      | 验证码有效期（秒）                   | `180`         |
 
 ## 依赖
 
@@ -171,24 +229,21 @@ utils.ErrorResponseServerError(c, "服务器内部错误")
 
 ## 项目扩展建议
 
-1. **数据库层** - 添加 MongoDB 或 PostgreSQL 支持
-    - 创建 `db/` 目录管理数据库连接
-    - 创建 `repository/` 目录实现数据访问层
+1. **数据库名集中管理** - 目前仍有约 17 处硬编码 `client.Database("buct-course")`，
+   可改用 `config.GetDBName()`（已实现但未被调用），便于通过 `MONGODB_URI` 切换库名。
 
-2. **业务逻辑层** - 提取业务逻辑
-    - 创建 `service/` 目录实现业务逻辑
+2. **AES 代码清理** - `crypto/AES.go` 的 `EncryptAES`/`DecryptAES` 无任何调用方，
+   且 `/api/crypto/status` 依据 `AES_KEY` 是否设置来上报状态，
+   容易让人误以为存在 AES 加密链路。建议删除，或真正接入后同步更新状态接口。
 
-3. **认证授权** - 实现JWT认证
-    - 创建 `auth/` 目录处理认证逻辑
+3. **RSA 升级为 OAEP** - 当前使用 PKCS#1 v1.5（确定性加密）。
+   已有一次性密文防重放兜底，但迁移到 OAEP 可以从根本上消除重放面；
+   需前后端同步改动（JSEncrypt 不支持 OAEP，需换 `node-forge` 或 WebCrypto）。
 
-4. **验证层** - 数据验证
-    - 创建 `validators/` 目录处理数据验证
+4. **登录锁定持久化** - `middleware/loginguard.go` 目前是进程内内存计数，
+   重启后清零，多实例部署时也不共享。如需更强的抗爆破能力可落库或接 Redis。
 
-5. **日志系统** - 更强大的日志
-    - 集成 `logrus` 或 `zap` 日志库
-
-6. **错误处理** - 统一的错误处理
-    - 创建 `errors/` 目录定义自定义错误类型
+5. **日志系统** - 集成 `logrus` 或 `zap` 替换标准库 `log`。
 
 ## 许可证
 

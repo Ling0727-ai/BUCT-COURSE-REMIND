@@ -8,7 +8,11 @@
     panel-class="recycle-modal"
     @update:model-value="onUpdate"
   >
-    <div v-if="items.length === 0" class="empty-recycle">
+    <div v-if="loading" class="empty-recycle">
+      <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+      <p>正在加载…</p>
+    </div>
+    <div v-else-if="items.length === 0" class="empty-recycle">
       <i class="fas fa-trash-alt" aria-hidden="true"></i>
       <p>回收站为空</p>
       <small>已删除的项目将显示在这里</small>
@@ -53,12 +57,14 @@
 
     <template #footer>
       <button
-        v-if="items.length > 0"
+        v-if="items.length > 0 && !loading"
         type="button"
         class="btn btn-success"
+        :disabled="restoringAll"
         @click="$emit('restore-all')"
       >
-        <i class="fas fa-undo-alt" aria-hidden="true"></i> 全部恢复
+        <i :class="restoringAll ? 'fas fa-spinner fa-spin' : 'fas fa-undo-alt'" aria-hidden="true"></i>
+        {{ restoringAll ? '恢复中…' : '全部恢复' }}
       </button>
       <button type="button" class="btn btn-secondary" @click="$emit('close')">关闭</button>
     </template>
@@ -83,6 +89,14 @@ export default defineComponent({
     items: {
       type: Array as PropType<RecycleBinItem[]>,
       default: () => []
+    },
+    loading: {
+      type: Boolean,
+      default: false
+    },
+    restoringAll: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['close', 'restore-item', 'permanent-delete', 'restore-all'],

@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Go 后端版本的 docker-compose
 # 启动：docker compose -f docker-compose-go.yml up -d
 
@@ -49,7 +47,10 @@ services:
       - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/${MONGO_INITDB_DATABASE:-buct-course}?authSource=admin
 
       # JWT 密钥
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      # 无默认值：必须由 .env 提供。
+      # 原实现默认 change-this-in-production，该值公开在仓库里，
+      # 未配置时任何人都能用它伪造登录态。
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY 必须在 .env 中设置}
 
       # 邮件配置，与 Python 版本完全一致
       - MAIL_SMTP_SERVER=${MAIL_SMTP_SERVER:-smtp.163.com}
@@ -64,7 +65,11 @@ services:
       - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:?ECC_PUBLIC_KEY 必须在 .env 中设置}
       - RSA_KEY_SIZE=${RSA_KEY_SIZE:-2048}
       - RSA_KEY_EXPIRE_MINUTES=${RSA_KEY_EXPIRE_MINUTES:-30}
-      - RSA_ENABLE=${RSA_ENABLE:-true}
+      # 必须保持 true：后端已强制要求加密传输，设为 false 会导致
+      # 登录/注册/重置密码等接口全部返回 400，服务不可用。
+      - RSA_ENABLE=true
+      # CORS 白名单（逗号分隔）。生产走 nginx 同源代理，通常留空即可。
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
 
       # Snowflake ID 生成器节点 ID（多实例部署时每个实例设不同值）
       - SNOWFLAKE_NODE=${SNOWFLAKE_NODE:-1}

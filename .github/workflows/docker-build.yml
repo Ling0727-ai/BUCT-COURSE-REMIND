@@ -1,0 +1,160 @@
+name: Build and Publish Docker Images
+
+# 构建两个镜像并推送到 GHCR：
+#   ghcr.io/<owner>/buct-course-remind-backend
+#   ghcr.io/<owner>/buct-course-remind-frontend
+#
+# ⚠️ 镜像里不含任何密钥（数据库口令、JWT 密钥、ECC 私钥、邮箱授权码）。
+#    这些由部署者通过 .env 在运行时注入，详见 README「使用已发布的镜像部署」。
+#
+# 触发：
+#   - push main：推送 latest + sha-<短哈希>
+#   - push tag v1.2.3：推送 1.2.3 / 1.2 / latest
+#   - PR：只构建不推送，用于验证 Dockerfile 可用
+#   - 手动触发
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'web/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+# 同一分支只保留最新一次，旧的自动取消
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # ── 后端（Go）──────────────────────────────────────────────
+  backend:
+    name: backend (Go)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # GHCR 要求仓库路径全小写，而 GitHub 用户名可能含大写
+      # （本仓库 owner 是 Ling0727-ai）。直接用 github.repository_owner
+      # 会报 "repository name must be lowercase"，所以这里转一次。
+      - name: Compute lowercase image name
+        id: img
+        run: |
+          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          echo "name=${owner}/buct-course-remind-backend" >> "$GITHUB_OUTPUT"
+
+      # BuildKit 是 Dockerfile 里 RUN --mount=type=cache 的前提
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # PR 来自 fork 时没有写权限，跳过登录（推送步骤也会一并跳过）
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web/go-backend-test
+          file: ./web/go-backend-test/Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # runner 在 Azure 境外节点，官方源比国内镜像快得多：
+          #   实测 dl-cdn 0.22s vs ustc 2.85s；proxy.golang.org 0.044s vs goproxy.cn 1.02s
+          build-args: |
+            APK_MIRROR=dl-cdn.alpinelinux.org
+            GOPROXY=https://proxy.golang.org,direct
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+          provenance: false
+
+  # ── 前端（Vue → Nginx）─────────────────────────────────────
+  frontend:
+    name: frontend (Vue + Nginx)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute lowercase image name
+        id: img
+        run: |
+          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          echo "name=${owner}/buct-course-remind-frontend" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.img.outputs.name }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web/fronted
+          file: ./web/fronted/Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # runner 在境外，npm 官方源更快：
+          #   实测 registry.npmjs.org 0.17s vs npmmirror 1.27s
+          build-args: |
+            NPM_REGISTRY=https://registry.npmjs.org
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          provenance: false

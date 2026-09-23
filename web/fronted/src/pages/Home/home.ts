@@ -249,7 +249,14 @@ export function useHomeService() {
                 // Refresh todos locally
                 todos.value = todos.value.filter(t => t._id !== item._todoId);
             } else {
-                await api.deleteAssignment(item.id);
+                // 后端用这个 body 存删除快照（标题/科目/类型）。
+                // 若课表后续不再包含该作业，回收站就只能靠快照显示，
+                // 所以这里必须把信息传过去，不能发空 body。
+                await api.deleteAssignment(item.id, {
+                    title: item.title,
+                    subject: item.subject,
+                    type: item.type === '作业' ? 'homework' : 'test'
+                });
                 assignments.value = assignments.value.filter(a => a.id !== item.id);
             }
             showToast('success', 'Deleted', `${item.title} 已移至回收站`);
@@ -321,55 +328,135 @@ export function useHomeService() {
     };
 
     // Recycle Bin
+    //
+    // 后端把「已删除的作业」和「已删除的待办」分开存放，接口也是两组：
+    //   GET  /assignments/deleted          POST /assignments/:id/restore
+    //   GET  /todos/deleted                POST /todos/:id/restore
+    // 所以这里合并两个列表，并用 source 字段记住每条该走哪组接口。
     const deletedItems = ref<RecycleBinItem[]>([]);
+    const recycleBinLoading = ref(false);
+
+    const TYPE_LABELS: Record<string, string> = {
+        homework: '作业',
+        test: '测试',
+        todo: '待办'
+    };
 
     const loadRecycleBin = async () => {
-        try {
-            const res = await api.getRecycleBinItems();
-            if (res.success && Array.isArray(res.items)) {
-                deletedItems.value = res.items;
-            }
-        } catch (e) {
-            console.error('Failed to load recycle bin', e);
+        recycleBinLoading.value = true;
+        const items: RecycleBinItem[] = [];
+
+        // 两个接口相互独立，其中一个失败不应让整个回收站空白
+        const [assignRes, todoRes] = await Promise.allSettled([
+            api.getDeletedAssignments(),
+            api.getDeletedTodos()
+        ]);
+
+        if (assignRes.status === 'fulfilled') {
+            const list = assignRes.value?.deleted_assignments || [];
+            list.forEach((a) => {
+                items.push({
+                    id: a.task_id,
+                    title: a.title || '未知任务',
+                    subject: a.subject,
+                    content: a.details,
+                    dueDate: a.deadline,
+                    deletedAt: a.delete_time,
+                    type: TYPE_LABELS[a.type || ''] || '作业',
+                    source: 'assignment'
+                });
+            });
+        } else {
+            console.error('Failed to load deleted assignments', assignRes.reason);
+        }
+
+        if (todoRes.status === 'fulfilled') {
+            const list = todoRes.value?.deleted_todos || [];
+            list.forEach((t) => {
+                items.push({
+                    id: t.todo_id || t._id,
+                    title: t.title || '未知待办',
+                    subject: '用户待办',
+                    content: t.description,
+                    dueDate: t.due_date,
+                    deletedAt: t.delete_time,
+                    type: '待办',
+                    source: 'todo'
+                });
+            });
+        } else {
+            console.error('Failed to load deleted todos', todoRes.reason);
+        }
+
+        // 按删除时间倒序，最近删除的排在最前
+        items.sort((a, b) => {
+            const ta = a.deletedAt ? Date.parse(a.deletedAt) : 0;
+            const tb = b.deletedAt ? Date.parse(b.deletedAt) : 0;
+            return tb - ta;
+        });
+
+        deletedItems.value = items;
+        recycleBinLoading.value = false;
+
+        // 两个都失败说明是系统性问题，需要让用户知道
+        if (assignRes.status === 'rejected' && todoRes.status === 'rejected') {
+            showToast('error', 'Error', '回收站加载失败');
         }
     };
 
     const handleRestoreItem = async (item: RecycleBinItem) => {
         try {
-            if (item.type === '待办') {
-                // Not implemented in API yet for restore todo?
-                // Assuming generic restore or todo specific.
-                // Restore endpoint usually handles both if id is unique or type is passed.
-                // Original code calls /recycle-bin/restore maybe?
-                // Actually original code checks type.
+            if (item.source === 'todo') {
+                await api.restoreTodo(item.id);
+            } else {
+                await api.restoreAssignment(item.id);
             }
-            await api.restoreAssignment(item.id);
             await loadRecycleBin();
             await fetchAssignments(false);
-            showToast('success', 'Restored', '项目已恢复');
+            showToast('success', 'Restored', `"${item.title}" 已恢复`);
         } catch (e: unknown) {
-            showToast('error', 'Error', '恢复失败');
+            showToast('error', 'Error', getErrorMessage(e, '恢复失败'));
         }
     };
 
     const handlePermanentDelete = async (item: RecycleBinItem) => {
         try {
-             await api.permanentDeleteAssignment(item.id);
-             await loadRecycleBin();
-             showToast('success', 'Deleted', '永久删除成功');
+            if (item.source === 'todo') {
+                await api.permanentDeleteTodo(item.id);
+            } else {
+                await api.permanentDeleteAssignment(item.id);
+            }
+            await loadRecycleBin();
+            showToast('success', 'Deleted', '永久删除成功');
         } catch (e: unknown) {
-             showToast('error', 'Error', '删除失败');
+            showToast('error', 'Error', getErrorMessage(e, '删除失败'));
         }
     };
 
+    // 逐条恢复。后端没有「一键恢复」接口，
+    // 原先调用的 /recycle-bin/restore-all 并不存在。
     const handleRestoreAll = async () => {
-        try {
-            await api.restoreAllAssignments();
-            await loadRecycleBin();
-            await fetchAssignments(false);
-            showToast('success', 'Restored', '全部恢复成功');
-        } catch (e: unknown) {
-            showToast('error', 'Error', '恢复失败');
+        const items = [...deletedItems.value];
+        if (items.length === 0) return;
+
+        const results = await Promise.allSettled(
+            items.map((item) =>
+                item.source === 'todo'
+                    ? api.restoreTodo(item.id)
+                    : api.restoreAssignment(item.id)
+            )
+        );
+
+        const failed = results.filter((r) => r.status === 'rejected').length;
+        await loadRecycleBin();
+        await fetchAssignments(false);
+
+        if (failed === 0) {
+            showToast('success', 'Restored', `已恢复 ${items.length} 项`);
+        } else if (failed === items.length) {
+            showToast('error', 'Error', '全部恢复失败');
+        } else {
+            showToast('warning', 'Partial', `已恢复 ${items.length - failed} 项，${failed} 项失败`);
         }
     };
 
@@ -398,6 +485,7 @@ export function useHomeService() {
         handleSetReminder,
         handleAddTodo,
         deletedItems,
+        recycleBinLoading,
         loadRecycleBin,
         handleRestoreItem,
         handlePermanentDelete,

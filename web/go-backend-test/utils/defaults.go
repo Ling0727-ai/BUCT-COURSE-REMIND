@@ -28,6 +28,7 @@ var Defaults = struct {
 		RequireAdmin         string
 		ResetPasswordSuccess string
 		StudentInfoSuccess   string
+		LoginRateLimited     string
 	}
 
 	// 用户相关消息
@@ -213,6 +214,7 @@ var Defaults = struct {
 		RequireAdmin         string
 		ResetPasswordSuccess string
 		StudentInfoSuccess   string
+		LoginRateLimited     string
 	}{
 		NotLoggedIn:          "未登录",
 		RequestFormatError:   "请求格式错误",
@@ -223,6 +225,7 @@ var Defaults = struct {
 		RequireAdmin:         "需要管理员权限",
 		ResetPasswordSuccess: "密码重置成功",
 		StudentInfoSuccess:   "学生信息更新成功",
+		LoginRateLimited:     "登录尝试过于频繁，请稍后再试",
 	},
 
 	User: struct {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	"strconv"
 
 	"github.com/Ling0727-ai/go-buct-course-backend/crypto"
 	"github.com/Ling0727-ai/go-buct-course-backend/middleware"
@@ -21,31 +22,54 @@ func Login(c *gin.Context) {
 
 	var username, password string
 
-	if encryptedData, ok := body["encrypted_data"].(string); ok && encryptedData != "" {
-		rsaSvc := crypto.GetRSAService()
-		decrypted, err := rsaSvc.DecryptRequest(encryptedData)
-		if err != nil {
-			log.Printf("[auth] Login 解密失败: %v", err)
-			c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed + ": " + err.Error()})
-			return
-		}
-		username, _ = decrypted["username"].(string)
-		password, _ = decrypted["password"].(string)
-	} else {
-		username, _ = body["username"].(string)
-		password, _ = body["password"].(string)
+	// 强制加密传输：不再接受明文 username/password 分支。
+	// 前端在无 HTTPS 部署下若加密失败会中止请求，后端也必须拒绝明文，
+	// 否则攻击者只需阻断 /api/crypto/public-key 即可诱导明文提交。
+	encryptedData, _ := body["encrypted_data"].(string)
+	if encryptedData == "" {
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.RequireEncryption})
+		return
 	}
+
+	rsaSvc := crypto.GetRSAService()
+	decrypted, err := rsaSvc.DecryptRequest(encryptedData)
+	if err != nil {
+		// 详情只写日志，不回传：避免把填充/密钥状态暴露给调用方
+		log.Printf("[auth] Login 解密失败: %v", err)
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed})
+		return
+	}
+	username, _ = decrypted["username"].(string)
+	password, _ = decrypted["password"].(string)
 
 	if username == "" || password == "" {
 		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Auth.InvalidCredentials})
 		return
 	}
 
+	// 账号级失败锁定：连续 5 次失败锁定 15 分钟。
+	// 不能只依赖 IP 限流——校园网大量用户共享出口 IP，
+	// 按 IP 挡会把正常用户一起挡掉，而攻击者换 IP 成本极低。
+	if locked, retry := middleware.LoginLocked(username); locked {
+		c.Header("Retry-After", strconv.Itoa(retry))
+		c.JSON(utils.Defaults.Status.TooManyRequests, gin.H{
+			"error":       utils.Defaults.Auth.LoginRateLimited,
+			"retry_after": retry,
+		})
+		return
+	}
+
 	user, err := User.Service.LoginUser(username, password)
 	if err != nil {
+		if middleware.RecordLoginFailure(username) {
+			log.Printf("[auth] 账号 %s 连续登录失败，已锁定 %d 分钟", username, 15)
+		}
 		c.JSON(utils.Defaults.Status.Unauthorized, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 登录成功，清除失败计数
+	middleware.ResetLoginFailures(username)
 
 	middleware.IssueSessionCookie(c, user.ID, user.Username, user.IsAdmin)
 	services.RefreshUserDataAsync(user.ID)
@@ -72,19 +96,19 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	var fields map[string]interface{}
+	// 强制加密传输：注册请求含密码与学校密码，不接受明文分支
+	enc, _ := raw["encrypted_data"].(string)
+	if enc == "" {
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.RequireEncryption})
+		return
+	}
 
-	if enc, ok := raw["encrypted_data"].(string); ok && enc != "" {
-		rsaSvc := crypto.GetRSAService()
-		decrypted, err := rsaSvc.DecryptRequest(enc)
-		if err != nil {
-			log.Printf("[auth] Register 解密失败: %v", err)
-			c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed + ": " + err.Error()})
-			return
-		}
-		fields = decrypted
-	} else {
-		fields = raw
+	rsaSvc := crypto.GetRSAService()
+	fields, err := rsaSvc.DecryptRequest(enc)
+	if err != nil {
+		log.Printf("[auth] Register 解密失败: %v", err)
+		c.JSON(utils.Defaults.Status.BadRequest, gin.H{"error": utils.Defaults.Crypto.DecryptFailed})
+		return
 	}
 
 	username, _ := fields["username"].(string)

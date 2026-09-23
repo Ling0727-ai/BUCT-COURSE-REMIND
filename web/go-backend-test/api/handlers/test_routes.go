@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"os"
 
@@ -9,8 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// SendTestEmail 发送测试验证码邮件（无需登录）
+// SendTestEmail 发送测试验证码邮件（需登录）
 // 对应 Python POST /api/test/send-test-email
+//
+// 注意：该接口会真实发送邮件，必须登录后才能调用，
+// 否则会成为任人可用的发信跳板（垃圾邮件 / 消耗邮件配额）。
 func SendTestEmail(c *gin.Context) {
 	var body struct {
 		Email string `json:"email" binding:"required"`
@@ -23,15 +27,10 @@ func SendTestEmail(c *gin.Context) {
 	// 生成验证码、存库、发邮件（复用 vercode service）
 	code, testMode, err := services.SendVerificationEmail(body.Email, "")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "邮件发送失败: " + err.Error(),
-			"config": gin.H{
-				"smtp_server":  os.Getenv("MAIL_SMTP_SERVER"),
-				"smtp_port":    os.Getenv("MAIL_SMTP_PORT"),
-				"sender_email": os.Getenv("MAIL_SENDER"),
-				"password_set": config.Mail != nil && config.Mail.IsReady(),
-			},
-		})
+		// 失败详情只写日志，不回传：原实现会把 SMTP 服务器、发件邮箱
+		// 等配置信息一并返回给调用方。
+		log.Printf("[test] 测试邮件发送失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "邮件发送失败"})
 		return
 	}
 
@@ -70,14 +69,16 @@ func VerifyTestCode(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "验证成功"})
 }
 
-// GetTestConfig 获取当前邮件/数据库配置信息（调试用）
+// GetTestConfig 获取当前邮件配置状态（调试用，需登录）
 // 对应 Python GET /api/test/config
+//
+// 原实现未认证返回 mongo_uri，而 MONGODB_URI 里含数据库账号密码，
+// 等于把凭据直接挂到公网。这里只回传「是否已配置」的布尔值。
 func GetTestConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"smtp_server":  os.Getenv("MAIL_SMTP_SERVER"),
 		"smtp_port":    os.Getenv("MAIL_SMTP_PORT"),
 		"sender_email": os.Getenv("MAIL_SENDER"),
 		"password_set": config.Mail != nil && config.Mail.IsReady(),
-		"mongo_uri":    os.Getenv("MONGODB_URI"),
 	})
 }

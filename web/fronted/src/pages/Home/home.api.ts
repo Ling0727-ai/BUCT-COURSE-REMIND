@@ -3,7 +3,8 @@ import {
     AssignmentRaw,
     AssignmentsResponse,
     CompletedAssignmentsResponse,
-    RecycleBinResponse,
+    DeletedAssignmentsResponse,
+    DeletedTodosResponse,
     ReminderConfig,
     Todo,
     TodosResponse,
@@ -17,12 +18,13 @@ export const logout = () => http.post('/auth/logout', {});
 // Assignments
 export const getAssignments = () => http.get<AssignmentsResponse | AssignmentRaw[]>('/assignments/standard');
 export const getCompletedAssignments = () => http.get<CompletedAssignmentsResponse>('/assignments/completed');
-export const getDeletedAssignments = () => http.get<AssignmentRaw[]>('/assignments/deleted');
 export const markAssignmentCompleted = (id: string) => http.post(`/assignments/${id}/complete`, {});
 export const undoAssignmentCompleted = (id: string) => http.post(`/assignments/${id}/uncomplete`, {});
-export const deleteAssignment = (id: string) => http.post(`/assignments/${id}/delete`, {});
+export const deleteAssignment = (id: string, meta?: { title?: string; subject?: string; type?: string }) =>
+    http.post(`/assignments/${id}/delete`, meta || {});
 export const restoreAssignment = (id: string) => http.post(`/assignments/${id}/restore`, {});
-export const permanentDeleteAssignment = (id: string) => http.post(`/recycle-bin/delete/${id}`, {}); // Check endpoint
+export const permanentDeleteAssignment = (id: string) => http.delete(`/assignments/${id}/permanent-delete`);
+export const clearDeletedAssignments = () => http.delete('/assignments/clear-deleted');
 export const setAssignmentReminder = (id: string, config: ReminderConfig) => http.post(`/assignments/${id}/remind`, {reminderConfig: config});
 
 // Todos
@@ -32,11 +34,16 @@ export const deleteTodo = (id: string) => http.post(`/todos/${id}/delete`, {});
 export const markTodoCompleted = (id: string) => http.post(`/todos/${id}/complete`, {});
 export const undoTodoCompleted = (id: string) => http.post(`/todos/${id}/uncomplete`, {});
 export const setTodoReminder = (id: string, config: ReminderConfig) => http.post(`/todos/${id}/remind`, {reminderConfig: config});
+export const restoreTodo = (id: string) => http.post(`/todos/${id}/restore`, {});
+export const permanentDeleteTodo = (id: string) => http.delete(`/todos/${id}/permanent-delete`);
 
 // Recycle Bin
-export const getRecycleBinItems = () => http.get<RecycleBinResponse>('/recycle-bin/list');
-export const restoreAllAssignments = () => http.post('/recycle-bin/restore-all', {});
-export const permanentDeleteAll = () => http.post('/recycle-bin/empty', {});
+//
+// 注意：后端从来没有 /recycle-bin/* 这组路由（Python 原版也没有），
+// 原先这里调用它导致回收站永远 404、始终显示为空。
+// 实际可用的接口是下面这两个按类型分开的列表接口。
+export const getDeletedAssignments = () => http.get<DeletedAssignmentsResponse>('/assignments/deleted');
+export const getDeletedTodos = () => http.get<DeletedTodosResponse>('/todos/deleted');
 
 // Blacklist
 export const addToBlacklist = (subject: string) => http.post('/blacklist/add', {subject});

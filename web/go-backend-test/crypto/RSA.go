@@ -30,6 +30,60 @@ const (
 )
 
 // ──────────────────────────────────────────────
+//  密文重放缓存
+// ──────────────────────────────────────────────
+
+// RSA PKCS#1 v1.5 是确定性加密：同一明文 + 同一公钥 → 每次得到完全相同的密文。
+// 仅靠 timestamp 窗口（600s）无法阻止攻击者重放抓到的原始密文，
+// 因为密文本身在窗口内始终有效。这里以「密文哈希」为键做一次性消费，
+// 使同一份密文只能成功解密一次。
+//
+// 键取密文哈希而非明文，缓存里不落任何敏感信息。
+type replayCache struct {
+	mu      sync.Mutex
+	seen    map[string]time.Time
+	lastGC  time.Time
+	maxSize int
+}
+
+var rsaReplayCache = &replayCache{
+	seen:    make(map[string]time.Time),
+	maxSize: 20000,
+}
+
+// checkAndMark 返回 true 表示该密文是首次出现（放行）；
+// false 表示重复出现（重放，拒绝）。
+func (c *replayCache) checkAndMark(cipherHash string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+
+	// 顺手清理过期条目，避免 map 无限增长
+	if now.Sub(c.lastGC) > time.Minute || len(c.seen) > c.maxSize {
+		cutoff := now.Add(-time.Duration(replayWindowSeconds) * time.Second)
+		for k, t := range c.seen {
+			if t.Before(cutoff) {
+				delete(c.seen, k)
+			}
+		}
+		c.lastGC = now
+
+		// 极端情况下（大量不同密文涌入）直接清空，宁可短暂放宽也不能撑爆内存
+		if len(c.seen) > c.maxSize {
+			log.Printf("[RSA] 重放缓存超过 %d 条，执行全量清理", c.maxSize)
+			c.seen = make(map[string]time.Time)
+		}
+	}
+
+	if _, dup := c.seen[cipherHash]; dup {
+		return false
+	}
+	c.seen[cipherHash] = now
+	return true
+}
+
+// ──────────────────────────────────────────────
 //  RSA 服务结构体
 // ──────────────────────────────────────────────
 
@@ -225,6 +279,13 @@ func (r *RSAService) DecryptRequest(encryptedBase64 string) (map[string]interfac
 	encryptedBytes, err := decodeBase64(encryptedBase64)
 	if err != nil {
 		return nil, errors.New("Base64 解码失败: " + err.Error())
+	}
+
+	// 防重放：同一份密文只允许成功解密一次。
+	// 必须在真正解密前登记，且用原始密文（含换行/空格差异已由 decodeBase64 归一）。
+	cipherHash := hashSHA256Hex(encryptedBytes)
+	if !rsaReplayCache.checkAndMark(cipherHash) {
+		return nil, errors.New("检测到重放的加密请求")
 	}
 
 	// 先用当前私钥解密

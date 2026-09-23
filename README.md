@@ -145,20 +145,191 @@ BUCT-course-remind/
 
 ## 安装和运行
 
-### 方式一：Docker 一键部署（推荐）
+### 方式一：使用已发布的镜像部署（最快）
+
+CI 会把镜像推送到 GitHub Container Registry（GHCR），可直接拉取，
+无需在服务器上装 Go / Node，也无需克隆仓库。
+
+镜像地址（注意 owner 全小写）：
+
+```
+ghcr.io/ling0727-ai/buct-course-remind-backend:latest
+ghcr.io/ling0727-ai/buct-course-remind-frontend:latest
+```
+
+#### 1. 准备目录与 `.env`
+
+```bash
+mkdir -p ~/buct-deploy && cd ~/buct-deploy
+
+# 生成 JWT 密钥
+openssl rand -hex 32
+
+# 创建 .env（把 <...> 换成真实值）
+cat > .env <<'EOF'
+# ── 必填：缺失则 compose 直接报错退出 ──
+MONGO_INITDB_ROOT_USERNAME=<MongoDB 账号>
+MONGO_INITDB_ROOT_PASSWORD=<MongoDB 口令>
+SECRET_KEY=<上一步 openssl 的输出>
+ECC_PRIVATE_KEY=<P-256 私钥十进制>
+ECC_PUBLIC_KEY=<P-256 公钥 x 坐标十进制>
+
+# ── 邮件：为空则验证码与提醒邮件发不出去 ──
+MAIL_SMTP_SERVER=smtp.163.com
+MAIL_SMTP_PORT=465
+MAIL_SENDER=<你的邮箱>
+MAIL_PASSWORD=<邮箱授权码，非登录密码>
+
+# ── 端口 ──
+GO_PORT=5000
+FRONTEND_PORT=3033
+EOF
+
+chmod 600 .env
+```
+
+ECC 密钥的生成方式见下方「生成密钥」。**不要复用示例值**，
+`SECRET_KEY` 泄漏等于任何人都能伪造登录态。
+
+#### 2. 创建 `docker-compose.yml`
+
+```yaml
+services:
+  mongodb:
+    image: mongo:6-jammy
+    container_name: buct-mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:?必须设置}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:?必须设置}
+      - MONGO_INITDB_DATABASE=buct-course
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks: [buct]
+
+  # ⚠️ 服务名必须叫 backend：前端 nginx.conf 里的上游地址
+  #    在构建时固化为 http://backend:5000，改名会导致前端 502
+  backend:
+    image: ghcr.io/ling0727-ai/buct-course-remind-backend:latest
+    container_name: buct-backend-go
+    environment:
+      - ENV=production
+      - PORT=:5000
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/buct-course?authSource=admin
+      - SECRET_KEY=${SECRET_KEY:?必须设置}
+      - ECC_PRIVATE_KEY=${ECC_PRIVATE_KEY:?必须设置}
+      - ECC_PUBLIC_KEY=${ECC_PUBLIC_KEY:?必须设置}
+      - MAIL_SMTP_SERVER=${MAIL_SMTP_SERVER:-smtp.163.com}
+      - MAIL_SMTP_PORT=${MAIL_SMTP_PORT:-465}
+      - MAIL_SENDER=${MAIL_SENDER:-your_email@163.com}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - VERIFY_CODE_EXPIRE=${VERIFY_CODE_EXPIRE:-180}
+      - RSA_ENABLE=true
+      - SNOWFLAKE_NODE=${SNOWFLAKE_NODE:-1}
+    ports:
+      - "${GO_PORT:-5000}:5000"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [buct]
+
+  frontend:
+    image: ghcr.io/ling0727-ai/buct-course-remind-frontend:latest
+    container_name: buct-frontend
+    ports:
+      - "${FRONTEND_PORT:-3033}:80"
+    depends_on: [backend]
+    restart: unless-stopped
+    networks: [buct]
+
+networks:
+  buct:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  mongodb_config:
+```
+
+#### 3. 登录并启动
+
+```bash
+# 私有仓库需要登录；公开镜像可跳过这步
+# 令牌需带 read:packages 权限
+echo $GITHUB_TOKEN | docker login ghcr.io -u <你的GitHub用户名> --password-stdin
+
+docker compose up -d
+docker compose logs -f backend
+```
+
+访问 `http://<服务器IP>:3033`。
+
+#### 4. 验证
+
+```bash
+# 后端健康检查，应返回 status: healthy
+curl -s http://localhost:5000/api/health
+
+# 三个容器都应是 Up
+docker compose ps
+```
+
+`mail_configured` 为 `false` 说明 `MAIL_PASSWORD` 没配好，验证码和提醒邮件发不出去。
+
+#### 5. 更新与回滚
+
+```bash
+# 更新到最新
+docker compose pull && docker compose up -d
+
+# 回滚到某个历史版本（sha-<短哈希> 或 1.2.3）
+docker compose down
+sed -i 's|backend:latest|backend:sha-abc1234|' docker-compose.yml
+docker compose up -d
+```
+
+可用标签：`latest`（main 最新）、`sha-<短哈希>`、`1.2.3` / `1.2`（打 `v1.2.3` 标签时生成）。
+
+#### 常见问题
+
+**前端返回 502**：compose 里的后端服务名不是 `backend`。nginx 的上游地址
+在构建时固化，只能通过改名回 `backend` 解决。
+
+**`required variable ... is missing a value`**：`.env` 缺必填项。
+检查 `SECRET_KEY`、`ECC_PRIVATE_KEY`、`ECC_PUBLIC_KEY`、两个 Mongo 变量。
+
+**`denied` 拉取失败**：私有仓库需先 `docker login ghcr.io`，
+且令牌要有 `read:packages` 权限。
+
+**数据库数据在哪**：`mongodb_data` 卷。`docker compose down` 不会删数据，
+`docker compose down -v` 会。
+
+---
+
+### 方式二：从源码构建部署
 
 #### 使用 Go 后端
 
 ```bash
 cd web
 
-# 复制并编辑环境变量
-cp .env.example .env
+# 1. 从模板创建 .env，然后填入真实值（见下方「环境变量说明」）
+cp .env.template .env
 
-# 启动（MongoDB + Go后端 + 前端）
+# 2. 启动（MongoDB + Go后端 + 前端）
 docker compose -f docker-compose-go.yml up -d
 
-# 查看日志
+# 3. 查看日志
 docker compose -f docker-compose-go.yml logs -f backend
 ```
 
@@ -172,6 +343,28 @@ docker compose -f docker-compose-go.yml logs -f backend
 > Python (Flask) 后端因存在内存泄漏问题已从仓库移除，请使用 Go 后端。
 > 如需查看历史实现：见旧仓库 `KMT-CN/BUCT-course-remind` 的 `web/backend/`。
 
+#### ⚠️ 镜像不含任何密钥，必须自行配置
+
+**本项目发布的 Docker 镜像里没有任何密钥或默认凭据**，只包含基础镜像自带的
+环境变量与两个无关配置（后端 `PORT=:5000`、`ENV=production`）。
+所有敏感配置都由部署者通过 `.env` 在运行时注入，不写入镜像层。
+
+具体来说，以下变量**没有默认值**，缺失时 `docker compose` 会直接报错退出，
+而不是静默使用一个公开的弱值：
+
+| 变量 | 说明 | 缺失后果 |
+|------|------|----------|
+| `MONGO_INITDB_ROOT_USERNAME` | MongoDB 管理员账号 | 启动失败 |
+| `MONGO_INITDB_ROOT_PASSWORD` | MongoDB 管理员口令 | 启动失败 |
+| `SECRET_KEY` | JWT 签名密钥 | 启动失败 |
+| `ECC_PRIVATE_KEY` | 学生学校密码的加密私钥 | 启动失败 |
+| `ECC_PUBLIC_KEY` | 对应公钥 x 坐标 | 启动失败 |
+| `MAIL_PASSWORD` | 邮箱授权码 | 邮件功能不可用 |
+
+这样做是刻意的：如果给 `SECRET_KEY` 之类留一个 `change-this-in-production`
+的默认值，未配置的部署就会用一个人人皆知的密钥签发登录态，任何人都能伪造它。
+
+
 #### 环境变量说明（`.env`）
 
 仓库只提供 `web/.env.template`，不含任何真实值。首次部署：
@@ -182,7 +375,7 @@ cp .env.template .env
 # 然后编辑 .env 填入真实值
 ```
 
-`.env` 已在 `.gitignore` 中忽略，**不会被提交**。
+`.env` 已在 `.gitignore` 中忽略，**不会被提交**，也不会进入镜像。
 
 ```dotenv
 # MongoDB（必填）
@@ -196,22 +389,56 @@ MAIL_SMTP_PORT=465
 MAIL_SENDER=your_email@163.com
 MAIL_PASSWORD=your_auth_code        # 邮箱授权码，非登录密码
 
-# JWT 密钥（生产环境务必修改）
-SECRET_KEY=change-this-in-production
+# JWT 密钥（必填，无默认值）
+# 用随机长字符串，例如：openssl rand -hex 32
+SECRET_KEY=<随机长字符串>
 
 # ECC 密钥（必填，用于加密存储学生的学校密码）
 # 生成后请妥善保管；更换密钥必须同步迁移库中已加密的 s_password，否则无法解密
 ECC_PRIVATE_KEY=<你的 P-256 私钥十进制值>
 ECC_PUBLIC_KEY=<对应的公钥 x 坐标>
 
+# 传输加密（RSA）
+# ⚠️ RSA_ENABLE 必须为 true：后端强制要求加密传输，
+#    设为 false 会导致登录/注册/重置密码等接口全部返回 400。
+RSA_ENABLE=true
+
+# CORS 白名单（可选，逗号分隔）
+# 生产走 nginx 同源代理，通常留空；留空时仅放行同源请求。
+ALLOWED_ORIGINS=
+
 # 端口（可选，默认值如下）
 GO_PORT=5000
 FRONTEND_PORT=3033
 ```
 
+#### 生成密钥
+
+`SECRET_KEY` 用任意随机长字符串即可：
+
+```bash
+openssl rand -hex 32
+```
+
+ECC 密钥使用 NIST P-256 曲线，私钥与公钥均为十进制整数：
+
+```bash
+# 使用 Python 的 cryptography 库生成
+python -c "
+from cryptography.hazmat.primitives.asymmetric import ec
+k = ec.generate_private_key(ec.SECP256R1())
+n = k.private_numbers()
+print('ECC_PRIVATE_KEY=' + str(n.private_value))
+print('ECC_PUBLIC_KEY=' + str(n.public_numbers.x))
+"
+```
+
+> ⚠️ 更换 ECC 密钥前必须先用旧密钥解密、再用新密钥重新加密库中所有
+> `s_password`，否则用户的自动抓取会全部失败。
+
 ---
 
-### 方式二：本地开发运行
+### 方式三：本地开发运行
 
 #### Go 后端
 

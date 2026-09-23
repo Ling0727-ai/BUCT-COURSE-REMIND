@@ -1,7 +1,10 @@
 package router
 
 import (
+	"time"
+
 	"github.com/Ling0727-ai/go-buct-course-backend/api/handlers"
+	"github.com/Ling0727-ai/go-buct-course-backend/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -10,22 +13,32 @@ func SetupRoutes(r *gin.Engine) {
 	r.GET("/health", handlers.HealthCheck)
 	r.GET("/api/health", handlers.HealthCheck)
 
+	// 敏感接口的限流。
+	//
+	// 注意：这里刻意不做「单 IP 10 次/5 分钟」这类严格限制。
+	// 校园网里大量用户共享同一个 NAT 出口 IP，严格按 IP 计数会把
+	// 整栋楼的正常用户一起挡在门外，而攻击者换 IP 成本极低。
+	// 真正的抗爆破防线是 middleware 里的「账号级失败锁定」，
+	// IP 限流只作为兜底，阈值必须留足共享出口的余量。
+	authLimit := middleware.RateLimit(120, 5*time.Minute) // 登录/注册/重置
+	codeLimit := middleware.RateLimit(60, 5*time.Minute)  // 验证码收发
+
 	api := r.Group("/api")
 	{
 		// ── 认证，对应 Python /api/auth ──────────────────────────────
 		auth := api.Group("/auth")
 		{
-			auth.POST("/login", handlers.Login)
+			auth.POST("/login", authLimit, handlers.Login)
 			auth.POST("/logout", handlers.Logout)
-			auth.POST("/register", handlers.Register)
+			auth.POST("/register", authLimit, handlers.Register)
 			auth.GET("/status", handlers.AuthStatus)
 			auth.GET("/user-info", handlers.GetUserInfo)
 			auth.POST("/update-email", handlers.UpdateEmail)
 			auth.POST("/update-student-info", handlers.UpdateStudentInfo)
 			auth.POST("/check-email", handlers.CheckEmail)
-			auth.POST("/reset-password", handlers.ResetPassword)
-			auth.POST("/send-verification-code", handlers.SendVerificationCode)
-			auth.POST("/verify-code", handlers.VerifyCode)
+			auth.POST("/reset-password", authLimit, handlers.ResetPassword)
+			auth.POST("/send-verification-code", codeLimit, handlers.SendVerificationCode)
+			auth.POST("/verify-code", codeLimit, handlers.VerifyCode)
 		}
 
 		// ── 作业，对应 Python /api/assignments ───────────────────────
@@ -119,7 +132,8 @@ func SetupRoutes(r *gin.Engine) {
 		}
 
 		// ── 测试调试，对应 Python /api/test ──────────────────────────
-		test := api.Group("/test")
+		// 需要登录：send-test-email 会真实发信，config 曾泄露数据库连接串
+		test := api.Group("/test", middleware.AuthRequired())
 		{
 			test.POST("/send-test-email", handlers.SendTestEmail)
 			test.POST("/verify-test-code", handlers.VerifyTestCode)
@@ -127,7 +141,9 @@ func SetupRoutes(r *gin.Engine) {
 		}
 
 		// ── 管理员，对应 Python /api/admin ───────────────────────────
-		admin := api.Group("/admin")
+		// AuthRequired 只保证已登录，管理员身份由各 handler 内的
+		// adminRequired 校验（会回 403）。
+		admin := api.Group("/admin", middleware.AuthRequired())
 		{
 			admin.POST("/cleanup/trigger", handlers.AdminTriggerCleanup)
 			admin.GET("/completed-assignments", handlers.AdminGetCompletedAssignments)

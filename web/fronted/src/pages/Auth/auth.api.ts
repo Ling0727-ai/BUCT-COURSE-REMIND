@@ -1,4 +1,5 @@
 import {http} from '@/api/http'
+import rsaCrypto from '@/utils/rsa-crypto'
 import type {AuthStatusResponse, VerificationCodeResponse, VerifyCodeResponse} from './auth.data'
 
 export async function getAuthStatus(): Promise<AuthStatusResponse> {
@@ -10,10 +11,12 @@ export async function postLogout(): Promise<void> {
 }
 
 export async function postSendVerificationCode(email: string): Promise<VerificationCodeResponse> {
-    return await http.post<VerificationCodeResponse>('/auth/send-verification-code', {email})
+    const payload = await rsaCrypto.createEncryptedRequest({email})
+    return await http.post<VerificationCodeResponse>('/auth/send-verification-code', payload)
 }
 
 export async function postVerifyCode(email: string, code: string): Promise<VerifyCodeResponse> {
-    return await http.post<VerifyCodeResponse>('/auth/verify-code', {email, code})
+    const payload = await rsaCrypto.createEncryptedRequest({email, code})
+    return await http.post<VerifyCodeResponse>('/auth/verify-code', payload)
 }
 

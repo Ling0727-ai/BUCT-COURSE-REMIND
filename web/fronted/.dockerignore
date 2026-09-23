@@ -9,10 +9,12 @@ dist/
 build/
 
 # Environment files
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# 裸 .env 也必须排除：Vue CLI 只注入 VUE_APP_ 前缀的变量（当前没有），
+# 所以它不会进 JS 产物，但 COPY . . 会把它带进构建阶段层。
+# 最终镜像只 COPY dist，中间层虽被丢弃，构建缓存里仍可读到。
+.env
+.env.*
+!.env.example
 
 # IDE
 .vscode/
