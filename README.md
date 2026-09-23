@@ -151,7 +151,14 @@ CI 会把镜像推送到 GitHub Container Registry（GHCR），可直接拉取�
 无需在服务器上装 Go / Node，也无需克隆仓库。
 
 > **镜像是私有的**，拉取前必须先 `docker login ghcr.io`（见下方第 3 步）。
-> 因为包关联到私有仓库，可见性默认是 private，匿名拉取会返回 `denied`。
+>
+> 注意：**仓库公开 ≠ 镜像可匿名拉取**。本仓库代码是 public，但 GHCR 上的
+> 两个包（package）默认是 private，匿名 `docker pull` 会返回 `denied`。
+> 包关联到仓库后继承其权限，但可见性需要单独设置。
+>
+> 想让别人无需登录就能拉取，到包的设置页把可见性改为 public：
+> `https://github.com/users/<你的用户名>/packages/container/buct-course-remind-backend/settings`
+> （前端同理）。⚠️ 容器包的可见性**一旦改为 public 就不能改回 private**。
 
 镜像地址（注意 owner 全小写）：
 
@@ -215,12 +222,12 @@ cp <仓库路径>/web/docker-compose-ghcr.yml ./docker-compose.yml
 
 #### 3. 登录并启动
 
-镜像与包都是私有的，**必须先登录**，否则拉取返回 `denied`。
+**必须先登录** GHCR，否则拉取返回 `denied`（仓库虽已 public，但包是 private）。
 
 需要一个 **classic PAT**（`gh auth token` 生成的令牌不含包权限）：
 
 - `read:packages` —— 拉取镜像必需
-- `repo` —— 因为包关联到私有仓库并继承其权限，缺这项仍会 `denied`
+- `repo` —— 包关联到仓库并继承其权限，缺这项仍会 `denied`
 
 ```bash
 export CR_PAT=<你的 classic PAT>
@@ -247,17 +254,27 @@ docker compose ps
 
 #### 5. 更新与回滚
 
+> `docker compose up -d` **不会**检查远端是否有新镜像：本地已存在 `:latest`
+> 时它直接复用旧的。所以「更新」必须显式 `pull`，否则会一直跑旧版本。
+
 ```bash
 # 更新到最新
 docker compose pull && docker compose up -d
 
+# 一条命令等价写法（每次都先拉再启动）
+docker compose up -d --pull always
+
 # 回滚到某个历史版本（sha-<短哈希> 或 1.2.3）
-docker compose down
-sed -i 's|backend:latest|backend:sha-abc1234|' docker-compose.yml
-docker compose up -d
+# ⚠️ 前后端都要改，只改一个会导致版本错配
+sed -i -e 's|backend:latest|backend:sha-abc1234|' \
+       -e 's|frontend:latest|frontend:sha-abc1234|' docker-compose.yml
+docker compose pull && docker compose up -d
 ```
 
 可用标签：`latest`（main 最新）、`sha-<短哈希>`、`1.2.3` / `1.2`（打 `v1.2.3` 标签时生成）。
+
+生产环境建议**固定到 `sha-<短哈希>`** 而不是 `latest`，避免某次更新后行为
+意外变化；需要升级时再显式改标签。
 
 #### 常见问题
 
@@ -267,10 +284,13 @@ docker compose up -d
 **`required variable ... is missing a value`**：`.env` 缺必填项。
 检查 `SECRET_KEY`、`ECC_PRIVATE_KEY`、`ECC_PUBLIC_KEY`、两个 Mongo 变量。
 
-**`denied` 拉取失败**：镜像是私有的，必须先 `docker login ghcr.io`。
+**`denied` 拉取失败**：包是 private，必须先 `docker login ghcr.io`。
 令牌要用 **classic PAT** 且勾选 `read:packages` **和** `repo`——
-包关联到私有仓库并继承其权限，只勾 `read:packages` 仍会被拒。
+包关联到仓库并继承其权限，只勾 `read:packages` 仍会被拒。
 `gh auth token` 生成的令牌不含包权限，不能用。
+
+**改了代码但容器还是旧行为**：`docker compose up -d` 不会检查远端新镜像，
+本地已有 `:latest` 就直接复用。用 `docker compose pull && docker compose up -d`。
 
 **数据库数据在哪**：`mongodb_data` 卷。`docker compose down` 不会删数据，
 `docker compose down -v` 会。
