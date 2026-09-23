@@ -150,6 +150,9 @@ BUCT-course-remind/
 CI 会把镜像推送到 GitHub Container Registry（GHCR），可直接拉取，
 无需在服务器上装 Go / Node，也无需克隆仓库。
 
+> **镜像是私有的**，拉取前必须先 `docker login ghcr.io`（见下方第 3 步）。
+> 因为包关联到私有仓库，可见性默认是 private，匿名拉取会返回 `denied`。
+
 镜像地址（注意 owner 全小写）：
 
 ```
@@ -264,7 +267,7 @@ volumes:
 #### 3. 登录并启动
 
 ```bash
-# 私有仓库需要登录；公开镜像可跳过这步
+# 必做：镜像与仓库都是私有的，不登录会拉取失败（denied）
 # 令牌需带 read:packages 权限
 echo $GITHUB_TOKEN | docker login ghcr.io -u <你的GitHub用户名> --password-stdin
 
@@ -308,8 +311,9 @@ docker compose up -d
 **`required variable ... is missing a value`**：`.env` 缺必填项。
 检查 `SECRET_KEY`、`ECC_PRIVATE_KEY`、`ECC_PUBLIC_KEY`、两个 Mongo 变量。
 
-**`denied` 拉取失败**：私有仓库需先 `docker login ghcr.io`，
-且令牌要有 `read:packages` 权限。
+**`denied` 拉取失败**：镜像是私有的，必须先 `docker login ghcr.io`，
+且令牌要有 `read:packages` 权限。用 `gh auth token` 生成的令牌**不含**该权限，
+需另建 classic PAT 并勾选 `read:packages`。
 
 **数据库数据在哪**：`mongodb_data` 卷。`docker compose down` 不会删数据，
 `docker compose down -v` 会。
