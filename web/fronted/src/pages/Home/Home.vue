@@ -85,7 +85,7 @@
     />
 
     <div class="footer">
-      <span>联系邮箱：<a href="mailto:***REMOVED***">***REMOVED***</a></span>
+      <span>联系邮箱：<a href="mailto:buct_course_remind@163.com">buct_course_remind@163.com</a></span>
       <span class="sep">|</span>
       <span>GitHub：<a href="https://github.com/ling0727-ai" target="_blank" rel="noopener">lingxin</a></span>
     </div>
