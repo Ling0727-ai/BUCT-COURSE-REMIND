@@ -150,15 +150,16 @@ BUCT-course-remind/
 CI 会把镜像推送到 GitHub Container Registry（GHCR），可直接拉取，
 无需在服务器上装 Go / Node，也无需克隆仓库。
 
-> **镜像是私有的**，拉取前必须先 `docker login ghcr.io`（见下方第 3 步）。
+> **镜像是公开的，无需登录即可拉取。**
 >
-> 注意：**仓库公开 ≠ 镜像可匿名拉取**。本仓库代码是 public，但 GHCR 上的
-> 两个包（package）默认是 private，匿名 `docker pull` 会返回 `denied`。
-> 包关联到仓库后继承其权限，但可见性需要单独设置。
+> 仓库与 GHCR 包（package）是两个独立对象：包最初默认是 private，
+> 需要单独把可见性改为 public。本项目已改为 public，匿名 `docker pull` 可用。
 >
-> 想让别人无需登录就能拉取，到包的设置页把可见性改为 public：
-> `https://github.com/users/<你的用户名>/packages/container/buct-course-remind-backend/settings`
-> （前端同理）。⚠️ 容器包的可见性**一旦改为 public 就不能改回 private**。
+> 若遇到 `denied`：先确认包可见性，再排查本机残留的失效凭据——
+> docker 会优先使用已登录的凭据而不是匿名访问，凭据过期就会一直 `denied`。
+> 执行 `docker logout ghcr.io` 清除后重试即可。
+>
+> ⚠️ 容器包的可见性**一旦改为 public 就不能改回 private**。
 
 镜像地址（注意 owner 全小写）：
 
@@ -220,23 +221,23 @@ cp <仓库路径>/web/docker-compose-ghcr.yml ./docker-compose.yml
 该文件不含任何密钥，全部通过同目录 `.env` 注入。服务名固定为 `backend`——
 前端 nginx 的上游地址在构建时固化，改名会导致 502。
 
-#### 3. 登录并启动
+#### 3. 启动
 
-**必须先登录** GHCR，否则拉取返回 `denied`（仓库虽已 public，但包是 private）。
-
-需要一个 **classic PAT**（`gh auth token` 生成的令牌不含包权限）：
-
-- `read:packages` —— 拉取镜像必需
-- `repo` —— 包关联到仓库并继承其权限，缺这项仍会 `denied`
+镜像已公开，**无需登录**：
 
 ```bash
-export CR_PAT=<你的 classic PAT>
-echo $CR_PAT | docker login ghcr.io -u <你的GitHub用户名> --password-stdin
-# 应输出 Login Succeeded
-
 docker compose up -d
 docker compose logs -f backend
 ```
+
+> 若返回 `denied`：说明本机有失效的 GHCR 凭据（docker 优先用凭据而非匿名）。
+> 执行 `docker logout ghcr.io` 清除后重试。
+>
+> 只有在需要推送镜像、或包被改回 private 时，才需要登录：
+> ```bash
+> export CR_PAT=<带 read:packages 的 classic PAT>
+> echo $CR_PAT | docker login ghcr.io -u <你的GitHub用户名> --password-stdin
+> ```
 
 访问 `http://<服务器IP>:3033`。
 
@@ -284,16 +285,74 @@ docker compose pull && docker compose up -d
 **`required variable ... is missing a value`**：`.env` 缺必填项。
 检查 `SECRET_KEY`、`ECC_PRIVATE_KEY`、`ECC_PUBLIC_KEY`、两个 Mongo 变量。
 
-**`denied` 拉取失败**：包是 private，必须先 `docker login ghcr.io`。
-令牌要用 **classic PAT** 且勾选 `read:packages` **和** `repo`——
-包关联到仓库并继承其权限，只勾 `read:packages` 仍会被拒。
-`gh auth token` 生成的令牌不含包权限，不能用。
+**`denied` 拉取失败**：镜像已公开，正常情况下无需登录。若仍 `denied`，
+先清掉本机残留的失效凭据（docker 优先用凭据而非匿名访问）：
+
+```bash
+docker logout ghcr.io
+```
+
+若清除后依然 `denied`，再去包的设置页确认可见性确实为 public。
+
+**数据卷会不会因为换目录/换 compose 而丢**：不会。Mongo 用的是**命名卷**
+（`mongodb_data:/data/db`），卷名由 compose 里的 `name:` 字段决定，与项目
+目录无关。本项目两种 compose 都固定为 `buct_mongodb_data`，因此可互换。
+⚠️ 但 `docker compose down -v` 和 `docker volume rm` 会真删数据。
 
 **改了代码但容器还是旧行为**：`docker compose up -d` 不会检查远端新镜像，
 本地已有 `:latest` 就直接复用。用 `docker compose pull && docker compose up -d`。
 
 **数据库数据在哪**：`mongodb_data` 卷。`docker compose down` 不会删数据，
 `docker compose down -v` 会。
+
+#### 从源码版迁移到镜像版（保留数据）
+
+两种 compose 的卷名都固定为 `buct_mongodb_data`，因此数据可以无缝沿用。
+迁移前**先备份**：
+
+```bash
+# 备份数据卷（推荐，与 mongodump 互为双保险）
+docker run --rm -v buct_mongodb_data:/data -v "$(pwd)":/backup alpine \
+  tar czf /backup/mongo-data-$(date +%F).tar.gz -C /data .
+
+# 或导出为 mongodump 格式（可读性更好，便于单集合恢复）
+docker exec buct-mongodb sh -c \
+  'mongodump -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" \
+   --authenticationDatabase admin --db=buct-course --out=/tmp/dump' \
+&& docker cp buct-mongodb:/tmp/dump/buct-course ./buct-course-dump-$(date +%F)
+```
+
+然后迁移：
+
+```bash
+# 1. 停旧栈（不加 -v，卷会保留）
+docker compose -f docker-compose-go.yml down
+
+# 2. 换用镜像版 compose
+mkdir -p ~/buct-deploy && cd ~/buct-deploy
+cp <仓库>/web/docker-compose-ghcr.yml ./docker-compose.yml
+cp <仓库>/web/.env.template ./.env
+
+# 3. ⚠️ ECC 密钥必须与原来完全一致，否则库中已加密的 s_password 无法解密
+vim .env
+
+# 4. 启动（镜像已公开，无需登录）
+docker compose up -d
+
+# 5. 确认挂的是同一个卷
+docker inspect buct-deploy-mongodb-1 --format '{{range .Mounts}}{{.Name}} -> {{.Destination}}{{"\n"}}{{end}}'
+# 应输出：buct_mongodb_data -> /data/db
+```
+
+若第 5 步显示的是 `buct-deploy_mongodb_data`，说明 compose 里缺 `name:` 字段，
+Mongo 挂到了空卷上（数据没丢，只是没挂上）。停掉后给 volumes 段补上
+`name: buct_mongodb_data` 再启动即可：
+
+```bash
+docker compose down      # 不加 -v
+# 补 name: 后
+docker compose up -d
+```
 
 ---
 

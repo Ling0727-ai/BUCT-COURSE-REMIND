@@ -108,7 +108,16 @@ networks:
     driver: bridge
 
 volumes:
+  # ⚠️ 显式固定卷名，与 web/docker-compose-go.yml（源码构建版）保持一致。
+  #
+  # 若省略 name，compose 会按项目名自动生成（如 buct-deploy_mongodb_data）。
+  # 那样从源码版切到本文件时，卷名不同，Mongo 会挂到一个空卷上，
+  # 表现为「数据全部消失」——数据其实还在旧卷里，只是没被挂载。
+  #
+  # 固定卷名后，两种部署方式共用同一份数据，可随时互换。
   mongodb_data:
     driver: local
+    name: buct_mongodb_data
   mongodb_config:
     driver: local
+    name: buct_mongodb_config
